@@ -3,19 +3,17 @@
 import { Textarea } from "@/components/ui/textarea";
 import { QUICK_PROMPT_TAGS } from "@/lib/prompt/rules";
 import { cn } from "@/lib/utils";
-import { Library, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 
 interface PromptEditorProps {
   value: string;
   onChange: (value: string) => void;
-  onOpenTemplateLibrary: () => void;
   disabled?: boolean;
 }
 
 export default function PromptEditor({
   value,
   onChange,
-  onOpenTemplateLibrary,
   disabled,
 }: PromptEditorProps) {
   const insertTag = (text: string) => {
@@ -32,19 +30,19 @@ export default function PromptEditor({
           onChange={(e) => onChange(e.target.value)}
           placeholder="自由输入背景描述，或从模板库中选择"
           disabled={disabled}
-          className="min-h-[110px] text-[13px] bg-[#F5F6F8] border-0 rounded-xl resize-none placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0"
+          className="min-h-[110px] text-[12px] bg-[#F5F6F8] border-0 rounded-xl resize-none placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0"
         />
       </div>
 
-      {/* Quick tags */}
-      <div className="flex flex-wrap gap-2">
+      {/* Quick tags — single row horizontal scroll, hide scrollbar */}
+      <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
         {QUICK_PROMPT_TAGS.map((tag) => (
           <button
             key={tag.id}
             onClick={() => insertTag(tag.text)}
             disabled={disabled}
             className={cn(
-              "flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] transition-colors border-0",
+              "flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] transition-colors border-0 shrink-0",
               "bg-[#F0F1F4] text-gray-600 hover:bg-indigo-50 hover:text-indigo-600"
             )}
           >
@@ -53,20 +51,6 @@ export default function PromptEditor({
           </button>
         ))}
       </div>
-
-      {/* Template library entry */}
-      <button
-        onClick={onOpenTemplateLibrary}
-        disabled={disabled}
-        className={cn(
-          "flex items-center gap-2 w-full px-3 py-2 rounded-lg text-[13px] font-medium transition-colors border-0",
-          "bg-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-800"
-        )}
-      >
-        <Library className="w-4 h-4" />
-        从模板库添加
-        <span className="ml-auto text-gray-400">{'>'}</span>
-      </button>
     </div>
   );
 }

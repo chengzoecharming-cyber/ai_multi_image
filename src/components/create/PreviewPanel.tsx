@@ -1,6 +1,6 @@
 "use client";
 
-import { ImageIcon, Download, RotateCcw, Wand2, Loader2, Trash2 } from "lucide-react";
+import { ImageIcon, Download, RotateCcw, Wand2, Loader2, Trash2, History, FolderOpen, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ImageTask, ReferenceImage } from "@/lib/types";
@@ -25,8 +25,8 @@ export default function PreviewPanel({
   // Generating state
   if (isGenerating) {
     return (
-      <div className="flex flex-col items-center justify-center h-full">
-        <div className="w-[720px] max-w-[90%] aspect-square max-h-[60vh] rounded-3xl bg-white shadow-sm flex flex-col items-center justify-center">
+      <div className="flex flex-col items-center justify-center h-full px-6">
+        <div className="w-full max-w-3xl rounded-3xl bg-white shadow-sm flex flex-col items-center justify-center py-16">
           <Loader2 className="w-10 h-10 text-indigo-500 animate-spin mb-4" />
           <p className="text-[15px] font-medium text-gray-700">生成中...</p>
           <p className="text-[13px] text-gray-400 mt-1">AI 正在创作您的商品图</p>
@@ -73,8 +73,8 @@ export default function PreviewPanel({
   // Failed state
   if (latestTask?.status === "failed") {
     return (
-      <div className="flex flex-col items-center justify-center h-full">
-        <div className="w-[720px] max-w-[90%] aspect-square max-h-[60vh] rounded-3xl bg-white shadow-sm flex flex-col items-center justify-center">
+      <div className="flex flex-col items-center justify-center h-full px-6">
+        <div className="w-full max-w-3xl rounded-3xl bg-white shadow-sm flex flex-col items-center justify-center py-16">
           <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-3">
             <Wand2 className="w-6 h-6 text-red-400" />
           </div>
@@ -139,52 +139,44 @@ export default function PreviewPanel({
     );
   }
 
-  // Empty state
+  // Empty state — default upload area
   return (
-    <div className="flex flex-col items-center justify-center h-full">
-      {/* Banner placeholder */}
-      <div className="w-[720px] max-w-[90%] h-[120px] rounded-2xl bg-gradient-to-r from-indigo-100/60 to-purple-100/60 mb-8 flex items-center justify-center">
-        <div className="flex items-center gap-3">
-          <span className="text-lg font-semibold text-indigo-600">轻松上手</span>
-          <span className="text-sm text-gray-500">看看让商品图更出彩的秘诀！</span>
-        </div>
-      </div>
-
-      {/* Main upload area */}
-      <div className="w-[720px] max-w-[90%] h-[400px] rounded-3xl bg-white shadow-sm flex flex-col items-center justify-center">
-        <div className="w-16 h-16 rounded-full bg-indigo-50 flex items-center justify-center mb-4">
-          <ImageIcon className="w-8 h-8 text-indigo-400" />
-        </div>
-        <p className="text-xl font-semibold text-gray-700 mb-1">上传图片开始制作吧</p>
-        <p className="text-[13px] text-gray-400 text-center max-w-[300px]">
-          点击/拖拽/粘贴上传图片
-        </p>
-        <div className="flex items-center gap-3 mt-6">
-          <button className="flex flex-col items-center gap-2 px-6 py-4 rounded-2xl bg-[#F8F9FB] hover:bg-gray-100 transition-colors min-w-[140px]">
+    <div className="flex flex-col items-center justify-center h-full px-6">
+      {/* Main upload container */}
+      <div className="w-full max-w-3xl rounded-3xl bg-white shadow-sm flex flex-col items-center">
+        {/* Top section — main upload */}
+        <div className="w-full flex flex-col items-center justify-center py-12 border-b border-gray-50">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center mb-3">
             <ImageIcon className="w-6 h-6 text-indigo-400" />
-            <span className="text-[13px] text-gray-600">从素材库选择</span>
+          </div>
+          <p className="text-[18px] font-semibold text-gray-800 mb-1">上传图片 开始制作</p>
+          <p className="text-[14px] text-gray-400">点击/拖拽/粘贴上传图片</p>
+        </div>
+
+        {/* Bottom section — entry cards */}
+        <div className="w-full flex items-center justify-center gap-0 py-6">
+          <button className="flex items-center gap-2 px-8 py-3 text-[14px] text-gray-600 hover:bg-gray-50 transition-colors rounded-xl">
+            <FolderOpen className="w-5 h-5 text-gray-400" />
+            从素材库选择
           </button>
-          <button className="flex flex-col items-center gap-2 px-6 py-4 rounded-2xl bg-[#F8F9FB] hover:bg-gray-100 transition-colors min-w-[140px]">
-            <RotateCcw className="w-6 h-6 text-indigo-400" />
-            <span className="text-[13px] text-gray-600">从历史记录添加</span>
-          </button>
-          <button className="flex flex-col items-center gap-2 px-6 py-4 rounded-2xl bg-[#F8F9FB] hover:bg-gray-100 transition-colors min-w-[140px]">
-            <Wand2 className="w-6 h-6 text-indigo-400" />
-            <span className="text-[13px] text-gray-600">我的商品</span>
+          <div className="w-px h-6 bg-gray-100" />
+          <button className="flex items-center gap-2 px-8 py-3 text-[14px] text-gray-600 hover:bg-gray-50 transition-colors rounded-xl">
+            <History className="w-5 h-5 text-gray-400" />
+            从历史记录添加
           </button>
         </div>
       </div>
 
       {/* Sample products */}
-      <div className="w-[720px] max-w-[90%] mt-8">
+      <div className="w-full max-w-3xl mt-6">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-[15px] font-semibold text-gray-800">示例商品</span>
-          <button className="flex items-center gap-1 text-[13px] text-gray-500 hover:text-gray-700 transition-colors">
+          <span className="text-[14px] font-bold text-gray-800">示例商品</span>
+          <button className="flex items-center gap-1 text-[12px] text-gray-500 hover:text-gray-700 transition-colors">
             换一换
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
         </div>
-        <div className="flex items-center gap-3 overflow-x-auto pb-2">
+        <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
           {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="shrink-0 w-20 h-20 rounded-xl bg-white shadow-sm overflow-hidden">
               <div className="w-full h-full bg-gray-100 flex items-center justify-center">

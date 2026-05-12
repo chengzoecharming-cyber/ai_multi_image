@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Wand2, History, Sparkles } from "lucide-react";
+import { Wand2, History, Sparkles, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { PromptGroup, ImageTask, ReferenceImage, PromptGroupConfig } from "@/lib/types";
@@ -255,9 +255,27 @@ export default function WorkbenchPage() {
       <div className="w-[460px] shrink-0 flex flex-col bg-white">
         {/* Scrollable config area */}
         <div className="flex-1 overflow-y-auto px-6 py-6 space-y-7">
+          {/* Product & composition preview */}
+          <div>
+            <label className="block text-[14px] font-bold text-gray-800 mb-3">
+              商品及构图
+            </label>
+            <div className="rounded-2xl bg-[#F8F9FB] h-[180px] flex items-center justify-center overflow-hidden">
+              {references.length > 0 ? (
+                <img
+                  src={references[0].imageUrl}
+                  alt="商品预览"
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <span className="text-[13px] text-gray-400">从右侧上传图片后开始制作</span>
+              )}
+            </div>
+          </div>
+
           {/* Size selector */}
           <div>
-            <label className="block text-[15px] font-semibold text-gray-800 mb-3">
+            <label className="block text-[14px] font-bold text-gray-800 mb-3">
               <span className="text-red-500 mr-1">*</span>生成尺寸
             </label>
             <SizeSelector
@@ -271,9 +289,18 @@ export default function WorkbenchPage() {
           {/* Prompt editor */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <label className="text-[15px] font-semibold text-gray-800">
+              <label className="text-[14px] font-bold text-gray-800">
                 <span className="text-red-500 mr-1">*</span>创意灵感
               </label>
+            </div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[12px] font-semibold text-gray-700">描述词推荐</span>
+              <button
+                onClick={() => setTemplateLibraryOpen(true)}
+                className="text-[12px] text-gray-500 hover:text-indigo-600 transition-colors"
+              >
+                从模版库添加
+              </button>
             </div>
             <div className="rounded-2xl bg-[#F8F9FB] p-4 space-y-3">
               <div className="flex items-center gap-4 text-sm">
@@ -292,7 +319,6 @@ export default function WorkbenchPage() {
                 <PromptEditor
                   value={promptContent}
                   onChange={setPromptContent}
-                  onOpenTemplateLibrary={() => setTemplateLibraryOpen(true)}
                   disabled={isGenerating}
                 />
               </div>
@@ -301,7 +327,7 @@ export default function WorkbenchPage() {
 
           {/* Negative prompt */}
           <div>
-            <label className="block text-[15px] font-semibold text-gray-800 mb-3">排除内容</label>
+            <label className="block text-[14px] font-bold text-gray-800 mb-3">排除内容</label>
             <textarea
               value={negativePrompt}
               onChange={(e) => setNegativePrompt(e.target.value)}
@@ -313,7 +339,7 @@ export default function WorkbenchPage() {
 
           {/* Reference upload */}
           <div>
-            <label className="block text-[15px] font-semibold text-gray-800 mb-3">
+            <label className="block text-[14px] font-bold text-gray-800 mb-3">
               风格参考<span className="text-gray-400 font-normal text-sm ml-1">（非必填）</span>
             </label>
             <ReferenceUploader

@@ -82,3 +82,12 @@
   --sidebar-border: #E5E7EB;
   --sidebar-ring: #6366F1;
 }
+
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
