@@ -69,23 +69,31 @@ export async function POST(request: NextRequest) {
       data: { status: "processing" },
     });
 
-    // Call Image Provider to generate image
+    // Call Image Provider to generate multiple images
     const provider = getImageProvider();
-    const result = await provider.generate({
-      prompt: finalPrompt,
-      referenceImageUrls: referenceImageUrls || [],
-      width: config?.width || 1024,
-      height: config?.height || 1024,
-      model: config?.model,
-      quality: config?.quality,
-    });
+    const outputCount = config?.outputCount || 4;
+    const imageUrls: string[] = [];
 
-    if (result.success && result.imageUrl) {
+    for (let i = 0; i < outputCount; i++) {
+      const result = await provider.generate({
+        prompt: finalPrompt,
+        referenceImageUrls: referenceImageUrls || [],
+        width: config?.width || 1024,
+        height: config?.height || 1024,
+        model: config?.model,
+        quality: config?.quality,
+      });
+      if (result.success && result.imageUrl) {
+        imageUrls.push(result.imageUrl);
+      }
+    }
+
+    if (imageUrls.length > 0) {
       const updatedTask = await prisma.aiImageTask.update({
         where: { id: task.id },
         data: {
           status: "completed",
-          resultImageUrl: result.imageUrl,
+          resultImageUrl: JSON.stringify(imageUrls),
         },
       });
       return NextResponse.json({ data: updatedTask });
@@ -94,7 +102,7 @@ export async function POST(request: NextRequest) {
         where: { id: task.id },
         data: {
           status: "failed",
-          errorMessage: result.error || "生成失败",
+          errorMessage: "生成失败",
         },
       });
       return NextResponse.json({ data: updatedTask });

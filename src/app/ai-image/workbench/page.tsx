@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
-import { Wand2, History, Sparkles, ImageIcon } from "lucide-react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { Wand2, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { PromptGroup, ImageTask, ReferenceImage, PromptGroupConfig } from "@/lib/types";
@@ -10,6 +10,7 @@ import SizeSelector from "@/components/create/SizeSelector";
 import PromptEditor from "@/components/create/PromptEditor";
 import ReferenceUploader from "@/components/create/ReferenceUploader";
 import CurrentTemplateBar from "@/components/create/CurrentTemplateBar";
+import ProductTagSelector from "@/components/create/ProductTagSelector";
 import PreviewPanel from "@/components/create/PreviewPanel";
 import TemplateLibraryDrawer from "@/components/template-library/TemplateLibraryDrawer";
 
@@ -46,8 +47,17 @@ export default function WorkbenchPage() {
   const [latestTask, setLatestTask] = useState<ImageTask | null>(null);
   const [taskHistory, setTaskHistory] = useState<ImageTask[]>([]);
 
+  // -- Product tags state --
+  const [selectedProductTags, setSelectedProductTags] = useState<string[]>([]);
+
+  // -- Right panel view state --
+  const [showHistory, setShowHistory] = useState(false);
+
   // -- UI state --
   const [templateLibraryOpen, setTemplateLibraryOpen] = useState(false);
+
+  // Refs
+  const productFileInputRef = useRef<HTMLInputElement>(null);
 
   // Load task history on mount
   useEffect(() => {
@@ -174,6 +184,7 @@ export default function WorkbenchPage() {
       const task = res.data;
       setLatestTask(task);
       setTaskHistory((prev) => [task, ...prev]);
+      setShowHistory(true);
       if (task.status === "completed" && task.resultImageUrl) {
         toast.success("图片生成成功");
       } else if (task.status === "failed") {
@@ -211,11 +222,20 @@ export default function WorkbenchPage() {
 
   const handleDownload = useCallback(() => {
     if (!latestTask?.resultImageUrl) return;
-    const a = document.createElement("a");
-    a.href = latestTask.resultImageUrl;
-    a.download = `ai-image-${latestTask.id.slice(0, 8)}.png`;
-    a.target = "_blank";
-    a.click();
+    let urls: string[] = [];
+    try {
+      const parsed = JSON.parse(latestTask.resultImageUrl);
+      urls = Array.isArray(parsed) ? parsed : [latestTask.resultImageUrl];
+    } catch {
+      urls = [latestTask.resultImageUrl];
+    }
+    urls.forEach((url, i) => {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ai-image-${latestTask.id.slice(0, 8)}-${i + 1}.png`;
+      a.target = "_blank";
+      a.click();
+    });
   }, [latestTask]);
 
   // Drop-to-upload on right panel
@@ -247,24 +267,74 @@ export default function WorkbenchPage() {
     [references]
   );
 
+  // File upload from empty-state click
+  const handleUploadFile = useCallback(
+    async (files: FileList) => {
+      const fileArray = Array.from(files).filter((f) => f.type.startsWith("image/"));
+      if (!fileArray.length) return;
+      const remaining = 5 - references.length;
+      const toUpload = fileArray.slice(0, remaining);
+      const newImages: ReferenceImage[] = [];
+      for (const file of toUpload) {
+        try {
+          const res = await uploadFile(file);
+          newImages.push({
+            imageUrl: res.data.url,
+            imageName: res.data.name,
+            sortOrder: references.length + newImages.length,
+          });
+        } catch (err) {
+          console.error("Upload failed:", err);
+        }
+      }
+      if (newImages.length > 0) {
+        setReferences((prev) => [...prev, ...newImages]);
+        toast.success(`已上传 ${newImages.length} 张参考图`);
+      }
+    },
+    [references]
+  );
+
   return (
-    <div className="h-[calc(100vh-3.5rem)] flex bg-[#F7F8FA]">
+    <div className="h-screen flex bg-[#F7F8FA]">
       {/* Left config panel */}
-      <div className="w-[460px] shrink-0 flex flex-col bg-white">
+      <div className="w-[400px] shrink-0 flex flex-col bg-white">
         {/* Scrollable config area */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-7">
+        <div className="flex-1 overflow-y-auto px-[16px] py-6 space-y-7">
           {/* Product & composition preview */}
           <div>
             <label className="block text-[14px] font-bold text-gray-800 mb-3">
               商品及构图
             </label>
-            <div className="rounded-2xl bg-[#F8F9FB] h-[180px] flex items-center justify-center overflow-hidden">
+            <div className="rounded-2xl bg-[#F8F9FB] h-[180px] flex items-center justify-center overflow-hidden relative group">
+              <input
+                ref={productFileInputRef}
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/webp"
+                className="hidden"
+                onChange={async (e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    await handleUploadFile(e.target.files);
+                  }
+                  if (productFileInputRef.current) productFileInputRef.current.value = "";
+                }}
+              />
               {references.length > 0 ? (
-                <img
-                  src={references[0].imageUrl}
-                  alt="商品预览"
-                  className="w-full h-full object-contain"
-                />
+                <>
+                  <img
+                    src={references[0].imageUrl}
+                    alt="商品预览"
+                    className="w-full h-full object-contain"
+                  />
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => productFileInputRef.current?.click()}
+                      className="px-4 py-2 bg-white text-gray-800 text-[13px] font-medium rounded-lg hover:bg-gray-100 transition-colors"
+                    >
+                      重新上传
+                    </button>
+                  </div>
+                </>
               ) : (
                 <span className="text-[13px] text-gray-400">从右侧上传图片后开始制作</span>
               )}
@@ -291,8 +361,8 @@ export default function WorkbenchPage() {
                 <span className="text-red-500 mr-1">*</span>创意灵感
               </label>
             </div>
-            <div className="rounded-2xl bg-[#F8F9FB] p-4 space-y-3">
-              <div>
+            <div>
+              <div className="mb-4">
                 <label className="block text-[12px] font-semibold text-gray-700 mb-2">创意描述</label>
                 <PromptEditor
                   value={promptContent}
@@ -300,15 +370,32 @@ export default function WorkbenchPage() {
                   disabled={isGenerating}
                 />
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-3">
                 <span className="text-[12px] font-semibold text-gray-700">描述词推荐</span>
                 <button
                   onClick={() => setTemplateLibraryOpen(true)}
-                  className="text-[12px] text-gray-500 hover:text-indigo-600 transition-colors"
+                  className="flex items-center text-[12px] text-gray-500 hover:text-indigo-600 transition-colors"
                 >
                   从模版库添加
+                  <ChevronRight className="w-3.5 h-3.5 ml-1" />
                 </button>
               </div>
+              <ProductTagSelector
+                selected={selectedProductTags}
+                onToggle={(name) => {
+                  setSelectedProductTags((prev) => {
+                    const exists = prev.includes(name);
+                    const next = exists ? prev.filter((n) => n !== name) : [...prev, name];
+                    // Sync to promptContent
+                    const tagText = next.join(", ");
+                    setPromptContent((current) => {
+                      const base = current.split(" // 产品标签:")[0].trim();
+                      return tagText ? `${base}${base ? "，" : ""}${tagText}` : base;
+                    });
+                    return next;
+                  });
+                }}
+              />
             </div>
           </div>
 
@@ -339,7 +426,7 @@ export default function WorkbenchPage() {
         </div>
 
         {/* Bottom action area */}
-        <div className="shrink-0 px-6 pt-4 pb-6 bg-white">
+        <div className="shrink-0 px-[16px] pt-4 pb-6 bg-white">
           {/* Current template bar */}
           <CurrentTemplateBar
             templateName={currentTemplate?.name}
@@ -367,63 +454,44 @@ export default function WorkbenchPage() {
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleDrop}
       >
-        {/* Top bar */}
-        <div className="flex items-center justify-between px-6 py-3">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white text-sm text-gray-600 hover:bg-gray-50 transition-colors shadow-sm">
-            <History className="w-3.5 h-3.5" />
-            历史记录
-          </button>
-          <div className="flex items-center gap-2">
-            {taskHistory.length > 0 && (
-              <span className="text-[12px] text-gray-400">
-                已生成 {taskHistory.filter((t) => t.status === "completed").length} 张
-              </span>
-            )}
+        {/* Top bar — hidden when history is open */}
+        {!showHistory && (
+          <div className="flex items-center justify-between px-6 pt-6 pb-3">
+            <button
+              onClick={() => setShowHistory(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white text-sm text-gray-600 hover:bg-gray-50 transition-colors border border-gray-200"
+            >
+              <img src="/icons/history.svg" alt="" className="w-3.5 h-3.5" />
+              历史记录
+            </button>
+            <div className="flex items-center gap-2">
+              {taskHistory.length > 0 && (
+                <span className="text-[12px] text-gray-400">
+                  已生成 {taskHistory.filter((t) => t.status === "completed").length} 组
+                </span>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Preview area */}
         <div className="flex-1 overflow-y-auto">
           <PreviewPanel
             references={references}
             latestTask={latestTask}
+            taskHistory={taskHistory}
             isGenerating={isGenerating}
+            showHistory={showHistory}
             onRetry={handleRetry}
             onDownload={handleDownload}
             onClearReferences={handleClearReferences}
+            onSelectTask={setLatestTask}
+            onCloseHistory={() => setShowHistory(false)}
+            onOpenHistory={() => setShowHistory(true)}
+            onUploadFile={handleUploadFile}
           />
         </div>
 
-        {/* History strip at bottom */}
-        {taskHistory.length > 0 && (
-          <div className="shrink-0 px-6 py-3">
-            <div className="flex items-center gap-2 mb-2">
-              <History className="w-3.5 h-3.5 text-gray-400" />
-              <span className="text-[11px] font-medium text-gray-500">历史记录</span>
-            </div>
-            <div className="flex items-center gap-2 overflow-x-auto pb-1">
-              {taskHistory.slice(0, 10).map((task) => (
-                <button
-                  key={task.id}
-                  onClick={() => setLatestTask(task)}
-                  className="relative shrink-0 w-16 h-16 rounded-xl overflow-hidden bg-white hover:ring-2 hover:ring-indigo-200 transition-all"
-                >
-                  {task.status === "completed" && task.resultImageUrl ? (
-                    <img src={task.resultImageUrl} alt="" className="w-full h-full object-cover" />
-                  ) : task.status === "failed" ? (
-                    <div className="w-full h-full flex items-center justify-center bg-red-50">
-                      <span className="text-[9px] text-red-400">失败</span>
-                    </div>
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-50">
-                      <span className="text-[9px] text-gray-400">{task.status === "processing" ? "中" : "待"}</span>
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Template library drawer */}

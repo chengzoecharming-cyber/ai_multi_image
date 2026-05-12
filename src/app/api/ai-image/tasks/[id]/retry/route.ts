@@ -28,26 +28,33 @@ export async function POST(
       },
     });
 
-    // 重新调用 Provider
+    // 重新调用 Provider — generate multiple images
     const provider = getImageProvider();
     const config = JSON.parse(task.configSnapshot);
     const referenceImages = JSON.parse(task.referenceImagesSnapshot);
+    const outputCount = config?.outputCount || 4;
+    const imageUrls: string[] = [];
 
-    const result = await provider.generate({
-      prompt: task.promptSnapshot,
-      referenceImageUrls: referenceImages,
-      width: config.width || 1024,
-      height: config.height || 1024,
-      model: config.model,
-      quality: config.quality,
-    });
+    for (let i = 0; i < outputCount; i++) {
+      const result = await provider.generate({
+        prompt: task.promptSnapshot,
+        referenceImageUrls: referenceImages,
+        width: config?.width || 1024,
+        height: config?.height || 1024,
+        model: config?.model,
+        quality: config?.quality,
+      });
+      if (result.success && result.imageUrl) {
+        imageUrls.push(result.imageUrl);
+      }
+    }
 
-    if (result.success && result.imageUrl) {
+    if (imageUrls.length > 0) {
       const updatedTask = await prisma.aiImageTask.update({
         where: { id },
         data: {
           status: "completed",
-          resultImageUrl: result.imageUrl,
+          resultImageUrl: JSON.stringify(imageUrls),
         },
       });
       return NextResponse.json({ data: updatedTask });
@@ -56,7 +63,7 @@ export async function POST(
         where: { id },
         data: {
           status: "failed",
-          errorMessage: result.error || "重新生成失败",
+          errorMessage: "重新生成失败",
         },
       });
       return NextResponse.json({ data: updatedTask });

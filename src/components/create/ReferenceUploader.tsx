@@ -113,7 +113,7 @@ export default function ReferenceUploader({
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={disabled}
-          className="flex flex-col items-center justify-center w-full h-36 rounded-2xl border border-dashed border-[#DDE2F0] bg-white hover:bg-gray-50 transition-colors"
+          className="flex flex-col items-center justify-center w-full h-36 rounded-2xl border border-dashed border-[#DDE2F0] bg-white transition-colors"
         >
           <div className="flex items-center gap-1.5 text-indigo-500 mb-3">
             <Upload className="w-4 h-4" />
