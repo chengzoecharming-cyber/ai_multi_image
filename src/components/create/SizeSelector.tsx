@@ -45,10 +45,10 @@ export default function SizeSelector({ value, width, height, onChange }: SizeSel
             key={opt.value}
             onClick={() => handleSelect(opt.value)}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium transition-colors border-0",
+              "flex items-center gap-1.5 px-3 py-2 rounded-[4px] text-[12px] font-medium transition-colors border-0",
               value === opt.value
-                ? "bg-white text-indigo-600 shadow-sm ring-1 ring-indigo-200"
-                : "bg-[#F5F6F8] text-gray-600 hover:bg-gray-100"
+                ? "bg-indigo-50 text-indigo-600"
+                : "bg-transparent text-gray-600 hover:bg-gray-50"
             )}
           >
             <span className={cn(
@@ -61,10 +61,10 @@ export default function SizeSelector({ value, width, height, onChange }: SizeSel
         <button
           onClick={() => handleSelect("custom")}
           className={cn(
-            "flex items-center gap-1 px-3 py-2 rounded-lg text-[12px] font-medium transition-colors border-0",
+            "flex items-center gap-1 px-3 py-2 rounded-[4px] text-[12px] font-medium transition-colors border-0",
             isCustom
-              ? "bg-white text-indigo-600 shadow-sm ring-1 ring-indigo-200"
-              : "bg-[#F5F6F8] text-gray-600 hover:bg-gray-100"
+              ? "bg-indigo-50 text-indigo-600"
+              : "bg-transparent text-gray-600 hover:bg-gray-50"
           )}
         >
           <Settings2 className="w-3 h-3" />

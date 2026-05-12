@@ -1,6 +1,16 @@
 "use client";
 
-import { ImageIcon, Download, RotateCcw, Wand2, Loader2, Trash2, History, FolderOpen, Sparkles } from "lucide-react";
+import {
+  ImageIcon,
+  Download,
+  RotateCcw,
+  Wand2,
+  Loader2,
+  Trash2,
+  History,
+  FolderOpen,
+  Sparkles,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ImageTask, ReferenceImage } from "@/lib/types";
@@ -14,6 +24,40 @@ interface PreviewPanelProps {
   onClearReferences?: () => void;
 }
 
+function CircularProgress({ percent }: { percent: number }) {
+  const r = 18;
+  const circumference = 2 * Math.PI * r;
+  const offset = circumference - (percent / 100) * circumference;
+  return (
+    <div className="relative w-12 h-12">
+      <svg className="w-full h-full transform -rotate-90">
+        <circle
+          cx="24"
+          cy="24"
+          r={r}
+          stroke="#E5E7EB"
+          strokeWidth="3"
+          fill="none"
+        />
+        <circle
+          cx="24"
+          cy="24"
+          r={r}
+          stroke="#6366F1"
+          strokeWidth="3"
+          fill="none"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+        />
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center text-[11px] font-medium text-indigo-600">
+        {percent}%
+      </span>
+    </div>
+  );
+}
+
 export default function PreviewPanel({
   references,
   latestTask,
@@ -22,14 +66,45 @@ export default function PreviewPanel({
   onDownload,
   onClearReferences,
 }: PreviewPanelProps) {
-  // Generating state
+  // Generating state — show progress cards
   if (isGenerating) {
     return (
-      <div className="flex flex-col items-center justify-center h-full px-6">
-        <div className="w-full max-w-3xl rounded-3xl bg-white shadow-sm flex flex-col items-center justify-center py-16">
-          <Loader2 className="w-10 h-10 text-indigo-500 animate-spin mb-4" />
-          <p className="text-[15px] font-medium text-gray-700">生成中...</p>
-          <p className="text-[13px] text-gray-400 mt-1">AI 正在创作您的商品图</p>
+      <div className="flex flex-col h-full px-6 pt-4">
+        {/* Top bar */}
+        <div className="flex items-center justify-between mb-5">
+          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white text-sm text-gray-600 hover:bg-gray-50 transition-colors shadow-sm">
+            <History className="w-3.5 h-3.5" />
+            历史记录
+          </button>
+        </div>
+
+        {/* Generating cards */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="grid grid-cols-2 gap-4 max-w-3xl mx-auto">
+            {[
+              { id: "1x8f6a", percent: 14 },
+              { id: "2b3c9d", percent: 8 },
+              { id: "4e5f7a", percent: 3 },
+              { id: "8g9h0i", percent: 1 },
+            ].map((item) => (
+              <div
+                key={item.id}
+                className="rounded-2xl bg-white p-4 shadow-sm flex flex-col"
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                  <span className="text-[12px] text-gray-600">智能推荐</span>
+                  <span className="text-[12px] text-gray-400">| {item.id}</span>
+                </div>
+                <div className="aspect-square bg-gray-50 rounded-xl flex items-center justify-center mb-3">
+                  <CircularProgress percent={item.percent} />
+                </div>
+                <p className="text-[12px] text-gray-500 text-center">
+                  努力生成中
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -149,8 +224,12 @@ export default function PreviewPanel({
           <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center mb-3">
             <ImageIcon className="w-6 h-6 text-indigo-400" />
           </div>
-          <p className="text-[18px] font-semibold text-gray-800 mb-1">上传图片 开始制作</p>
-          <p className="text-[14px] text-gray-400">点击/拖拽/粘贴上传图片</p>
+          <p className="text-[18px] font-semibold text-gray-800 mb-1">
+            上传图片 开始制作
+          </p>
+          <p className="text-[14px] text-gray-400">
+            点击/拖拽/粘贴上传图片
+          </p>
         </div>
 
         {/* Bottom section — entry cards */}
@@ -178,7 +257,10 @@ export default function PreviewPanel({
         </div>
         <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="shrink-0 w-20 h-20 rounded-xl bg-white shadow-sm overflow-hidden">
+            <div
+              key={i}
+              className="shrink-0 w-20 h-20 rounded-xl bg-white shadow-sm overflow-hidden"
+            >
               <div className="w-full h-full bg-gray-100 flex items-center justify-center">
                 <ImageIcon className="w-6 h-6 text-gray-300" />
               </div>

@@ -58,9 +58,7 @@ export default function WorkbenchPage() {
     try {
       const res = await getTasks();
       setTaskHistory(res.data);
-      if (res.data.length > 0) {
-        setLatestTask(res.data[0]);
-      }
+      // Don't auto-set latestTask — default to empty state
     } catch (err) {
       console.error("Failed to load tasks:", err);
     }
@@ -293,34 +291,23 @@ export default function WorkbenchPage() {
                 <span className="text-red-500 mr-1">*</span>创意灵感
               </label>
             </div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[12px] font-semibold text-gray-700">描述词推荐</span>
-              <button
-                onClick={() => setTemplateLibraryOpen(true)}
-                className="text-[12px] text-gray-500 hover:text-indigo-600 transition-colors"
-              >
-                从模版库添加
-              </button>
-            </div>
             <div className="rounded-2xl bg-[#F8F9FB] p-4 space-y-3">
-              <div className="flex items-center gap-4 text-sm">
-                <button className="flex items-center gap-1.5 text-indigo-600 font-medium">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  快捷创作
-                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-red-500 text-white font-medium">HOT</span>
-                </button>
-                <button className="flex items-center gap-1.5 text-gray-500 hover:text-gray-700 transition-colors">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  高级创作
-                </button>
-              </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">创意描述</label>
+                <label className="block text-[12px] font-semibold text-gray-700 mb-2">创意描述</label>
                 <PromptEditor
                   value={promptContent}
                   onChange={setPromptContent}
                   disabled={isGenerating}
                 />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] font-semibold text-gray-700">描述词推荐</span>
+                <button
+                  onClick={() => setTemplateLibraryOpen(true)}
+                  className="text-[12px] text-gray-500 hover:text-indigo-600 transition-colors"
+                >
+                  从模版库添加
+                </button>
               </div>
             </div>
           </div>
