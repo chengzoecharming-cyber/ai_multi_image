@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model AiPromptCategory {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  userId    String   @map("user_id")
+  name      String
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  groups AiPromptGroup[]
+
+  @@map("ai_prompt_categories")
+}
+
+model AiPromptGroup {
+  id              String   @id @default(cuid())
+  tenantId        String   @map("tenant_id")
+  userId          String   @map("user_id")
+  categoryId      String   @map("category_id")
+  name            String
+  promptContent   String   @map("prompt_content")
+  negativePrompt  String?  @map("negative_prompt")
+  configJson      String   @map("config_json")
+  remark          String?
+  coverImageUrl   String?  @map("cover_image_url")
+  useCount        Int      @default(0) @map("use_count")
+  lastUsedAt      DateTime? @map("last_used_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  category    AiPromptCategory        @relation(fields: [categoryId], references: [id])
+  references  AiPromptGroupReference[]
+  tasks       AiImageTask[]
+
+  @@map("ai_prompt_groups")
+}
+
+model AiPromptGroupReference {
+  id            String   @id @default(cuid())
+  groupId       String   @map("group_id")
+  imageUrl      String   @map("image_url")
+  imageName     String?  @map("image_name")
+  sortOrder     Int      @default(0) @map("sort_order")
+  referenceType String?  @map("reference_type")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  group AiPromptGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@map("ai_prompt_group_references")
+}
+
+model AiImageTask {
+  id                      String   @id @default(cuid())
+  tenantId                String   @map("tenant_id")
+  userId                  String   @map("user_id")
+  promptGroupId           String?  @map("prompt_group_id")
+  promptSnapshot          String   @map("prompt_snapshot")
+  configSnapshot          String   @map("config_snapshot")
+  referenceImagesSnapshot String   @map("reference_images_snapshot")
+  status                  String
+  resultImageUrl          String?  @map("result_image_url")
+  errorMessage            String?  @map("error_message")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  promptGroup AiPromptGroup? @relation(fields: [promptGroupId], references: [id])
+
+  @@map("ai_image_tasks")
+}
