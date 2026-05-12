@@ -496,3 +496,80 @@ export function getOptionsByIds(
     .map((id) => category.options.find((opt) => opt.id === id && opt.enabled))
     .filter((opt): opt is PromptRuleOption => opt !== undefined);
 }
+
+/** Quick prompt tags for insertion into user prompt */
+export const QUICK_PROMPT_TAGS: { id: string; label: string; text: string }[] = [
+  { id: "metal-texture", label: "金属质感", text: "突出金属质感，表面有光泽和反射" },
+  { id: "precision-machining", label: "精密加工", text: "精密加工工艺，CNC加工痕迹，高精度制造" },
+  { id: "clear-structure", label: "结构清晰", text: "产品结构清晰，边缘锐利，比例准确" },
+  { id: "white-bg-main", label: "白底主图", text: "纯白背景，产品居中，干净目录风格" },
+  { id: "45-degree", label: "45度角展示", text: "45度角展示，最佳特征展示角度" },
+  { id: "material-detail", label: "材质细节", text: "材质细节特写，表面纹理清晰可见" },
+  { id: "premium-commercial", label: "高级商业摄影", text: "高级商业摄影，专业灯光，高端品质感" },
+  { id: "no-text", label: "无文字", text: "图片中不要出现任何文字、水印或标志" },
+  { id: "no-watermark", label: "无水印", text: "无水印，无品牌标志，纯产品展示" },
+  { id: "no-distortion", label: "不变形", text: "产品比例准确，不变形，保持原始结构" },
+  { id: "preserve-structure", label: "保持原始结构", text: "保持产品原始结构和外形比例不变" },
+  { id: "studio-lighting", label: "影棚灯光", text: "专业影棚灯光，均匀照明，无硬阴影" },
+];
+
+/** Template library filter categories */
+export const TEMPLATE_CATEGORY_RULES: PromptRuleCategory = {
+  key: "templateCategory",
+  label: "模板分类",
+  allowMultiple: false,
+  options: [
+    { id: "all", label: "全部", promptFragment: "", sortOrder: 1, enabled: true },
+    { id: "white-bg", label: "白底主图", promptFragment: "", sortOrder: 2, enabled: true },
+    { id: "metal", label: "金属质感", promptFragment: "", sortOrder: 3, enabled: true },
+    { id: "structure", label: "结构细节", promptFragment: "", sortOrder: 4, enabled: true },
+    { id: "scene", label: "应用场景", promptFragment: "", sortOrder: 5, enabled: true },
+    { id: "comparison", label: "对比图", promptFragment: "", sortOrder: 6, enabled: true },
+    { id: "custom", label: "自定义", promptFragment: "", sortOrder: 7, enabled: true },
+  ],
+};
+
+/** Template style filters */
+export const TEMPLATE_STYLE_RULES: PromptRuleCategory = {
+  key: "templateStyle",
+  label: "模板风格",
+  allowMultiple: false,
+  options: [
+    { id: "all", label: "全部", promptFragment: "", sortOrder: 1, enabled: true },
+    { id: "showcase", label: "展台橱窗", promptFragment: "", sortOrder: 2, enabled: true },
+    { id: "nature", label: "自然景观", promptFragment: "", sortOrder: 3, enabled: true },
+    { id: "festival", label: "节日氛围", promptFragment: "", sortOrder: 4, enabled: true },
+    { id: "architecture", label: "人文建筑", promptFragment: "", sortOrder: 5, enabled: true },
+    { id: "abstract", label: "抽象概念", promptFragment: "", sortOrder: 6, enabled: true },
+    { id: "indoor", label: "室内空间", promptFragment: "", sortOrder: 7, enabled: true },
+  ],
+};
+
+/** Template type filters */
+export const TEMPLATE_TYPE_RULES: PromptRuleCategory = {
+  key: "templateType",
+  label: "模板类型",
+  allowMultiple: false,
+  options: [
+    { id: "all", label: "全部", promptFragment: "", sortOrder: 1, enabled: true },
+    { id: "prompt", label: "Prompt 模板", promptFragment: "", sortOrder: 2, enabled: true },
+    { id: "background", label: "背景模板", promptFragment: "", sortOrder: 3, enabled: true },
+    { id: "image-text", label: "图文模板", promptFragment: "", sortOrder: 4, enabled: true },
+  ],
+};
+
+/** Template source filters */
+export const TEMPLATE_SOURCE_OPTIONS = [
+  { id: "all", label: "全部" },
+  { id: "public", label: "公共模板" },
+  { id: "mine", label: "我的模板" },
+  { id: "favorites", label: "收藏模板" },
+];
+
+/** Size options for image generation */
+export const SIZE_OPTIONS = [
+  { value: "1:1", label: "方图 1:1", width: 1024, height: 1024 },
+  { value: "3:4", label: "竖图 3:4", width: 768, height: 1024 },
+  { value: "2:3", label: "竖图 2:3", width: 683, height: 1024 },
+  { value: "16:9", label: "横图 16:9", width: 1024, height: 576 },
+];

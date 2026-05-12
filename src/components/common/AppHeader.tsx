@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sparkles, LayoutDashboard, FolderOpen, Wand2 } from "lucide-react";
+import { Sparkles, LayoutDashboard, Wand2, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/", label: "首页", icon: LayoutDashboard },
-  { href: "/ai-image/workbench", label: "AI 制图工作台", icon: Wand2 },
-  { href: "/ai-image/prompt-groups", label: "提示词组管理", icon: FolderOpen },
+  { href: "/ai-image/workbench", label: "AI 商品图", icon: Wand2 },
+  { href: "/ai-image/prompt-groups", label: "模板管理", icon: FolderOpen },
 ];
 
 export default function AppHeader() {
@@ -21,7 +21,7 @@ export default function AppHeader() {
           <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500">
             <Sparkles className="w-4 h-4 text-white" />
           </div>
-          <span className="text-base font-semibold text-gray-800">AI 制图工作台</span>
+          <span className="text-base font-semibold text-gray-800">AI 商品图</span>
         </div>
 
         <nav className="flex items-center gap-1">
