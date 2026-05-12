@@ -82,7 +82,7 @@ export default function ReferenceUploader({
           {images.map((img, index) => (
             <div
               key={index}
-              className="relative aspect-square rounded-lg border border-gray-200 overflow-hidden group bg-gray-50"
+              className="relative aspect-square rounded-xl overflow-hidden group bg-[#F5F6F8]"
             >
               <img
                 src={img.imageUrl}
@@ -92,7 +92,7 @@ export default function ReferenceUploader({
               <button
                 onClick={() => onRemove(index)}
                 disabled={disabled}
-                className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -102,7 +102,7 @@ export default function ReferenceUploader({
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={disabled}
-              className="flex flex-col items-center justify-center aspect-square rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors"
+              className="flex flex-col items-center justify-center aspect-square rounded-xl border border-dashed border-gray-200 bg-[#F5F6F8] hover:bg-gray-100 transition-colors"
             >
               <Upload className="w-5 h-5 text-gray-300 mb-1" />
               <span className="text-[10px] text-gray-400">上传</span>
@@ -113,11 +113,15 @@ export default function ReferenceUploader({
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={disabled}
-          className="flex flex-col items-center justify-center w-full h-28 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors"
+          className="flex flex-col items-center justify-center w-full h-36 rounded-2xl border border-dashed border-[#DDE2F0] bg-white hover:bg-gray-50 transition-colors"
         >
-          <ImageIcon className="w-8 h-8 text-gray-300 mb-2" />
-          <p className="text-xs text-gray-500">点击上传参考图</p>
-          <p className="text-[10px] text-gray-400 mt-0.5">支持 jpg/png/webp，最多 {maxCount} 张</p>
+          <div className="flex items-center gap-1.5 text-indigo-500 mb-3">
+            <Upload className="w-4 h-4" />
+            <span className="text-[13px] font-medium">上传图片</span>
+          </div>
+          <p className="text-[12px] text-gray-400 text-center max-w-[280px]">
+            上传要求：单纯背景图/画质清晰，避免出现商品文字、人脸等元素
+          </p>
         </button>
       )}
     </div>

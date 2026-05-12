@@ -22,10 +22,10 @@ export default function CurrentTemplateBar({
   return (
     <div className="flex items-center justify-between py-3 border-t border-gray-100">
       <div className="flex items-center gap-2 min-w-0">
-        <span className="text-xs text-gray-500 shrink-0">当前模板</span>
+        <span className="text-[13px] text-gray-500 shrink-0">当前模板</span>
         {templateName ? (
           <>
-            <span className="text-xs font-medium text-gray-700 truncate">
+            <span className="text-[13px] font-medium text-gray-700 truncate">
               {templateName}
             </span>
             {isModified && (
@@ -39,26 +39,26 @@ export default function CurrentTemplateBar({
             )}
           </>
         ) : (
-          <span className="text-xs text-gray-400">未选择模板</span>
+          <span className="text-[13px] text-gray-400">未选择模板</span>
         )}
       </div>
-      <div className="flex items-center gap-1.5 shrink-0">
+      <div className="flex items-center gap-1 shrink-0">
         <Button
           size="sm"
-          variant="outline"
+          variant="ghost"
           onClick={onSave}
           disabled={disabled || !isModified}
-          className="h-7 px-2.5 text-xs border-gray-300"
+          className="h-7 px-2 text-[12px] text-gray-600 hover:bg-gray-100 hover:text-gray-800"
         >
           <Save className="w-3 h-3 mr-1" />
           保存
         </Button>
         <Button
           size="sm"
-          variant="outline"
+          variant="ghost"
           onClick={onSaveAs}
           disabled={disabled}
-          className="h-7 px-2.5 text-xs border-gray-300"
+          className="h-7 px-2 text-[12px] text-gray-600 hover:bg-gray-100 hover:text-gray-800"
         >
           <FilePlus className="w-3 h-3 mr-1" />
           另存为

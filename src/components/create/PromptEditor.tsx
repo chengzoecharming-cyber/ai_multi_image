@@ -30,25 +30,25 @@ export default function PromptEditor({
         <Textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="描述你想生成的商品图效果，例如：突出金属质感，纯白背景，45度角商业摄影，保持产品结构不变"
+          placeholder="自由输入背景描述，或从模板库中选择"
           disabled={disabled}
-          className="min-h-[100px] text-sm bg-white border-gray-200 focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100 resize-none"
+          className="min-h-[110px] text-[13px] bg-[#F5F6F8] border-0 rounded-xl resize-none placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0"
         />
       </div>
 
       {/* Quick tags */}
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-2">
         {QUICK_PROMPT_TAGS.map((tag) => (
           <button
             key={tag.id}
             onClick={() => insertTag(tag.text)}
             disabled={disabled}
             className={cn(
-              "px-2 py-1 rounded-md text-[11px] transition-colors border",
-              "bg-white border-gray-200 text-gray-600 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50/50"
+              "flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] transition-colors border-0",
+              "bg-[#F0F1F4] text-gray-600 hover:bg-indigo-50 hover:text-indigo-600"
             )}
           >
-            <Plus className="w-2.5 h-2.5 inline mr-0.5 -mt-0.5" />
+            <Plus className="w-3 h-3" />
             {tag.label}
           </button>
         ))}
@@ -59,11 +59,11 @@ export default function PromptEditor({
         onClick={onOpenTemplateLibrary}
         disabled={disabled}
         className={cn(
-          "flex items-center gap-2 w-full px-3 py-2 rounded-lg text-xs font-medium border transition-colors",
-          "bg-white border-gray-200 text-gray-600 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50/30"
+          "flex items-center gap-2 w-full px-3 py-2 rounded-lg text-[13px] font-medium transition-colors border-0",
+          "bg-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-800"
         )}
       >
-        <Library className="w-3.5 h-3.5" />
+        <Library className="w-4 h-4" />
         从模板库添加
         <span className="ml-auto text-gray-400">{'>'}</span>
       </button>

@@ -59,7 +59,6 @@ export default function TemplateLibraryDrawer({
       ? t.name.toLowerCase().includes(search.toLowerCase()) ||
         t.promptContent.toLowerCase().includes(search.toLowerCase())
       : true;
-    // MVP: category filter matches category name roughly
     const matchesCategory =
       categoryFilter === "all"
         ? true
@@ -105,7 +104,7 @@ export default function TemplateLibraryDrawer({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="搜索模板..."
-              className="h-8 pl-8 text-sm bg-gray-50 border-gray-200"
+              className="h-9 pl-9 text-[13px] bg-[#F5F6F8] border-0 rounded-xl focus-visible:ring-0 focus-visible:ring-offset-0"
             />
           </div>
 
@@ -116,10 +115,10 @@ export default function TemplateLibraryDrawer({
                 key={opt.id}
                 onClick={() => setCategoryFilter(opt.id)}
                 className={cn(
-                  "px-2.5 py-1 rounded-md text-[11px] transition-colors border",
+                  "px-2.5 py-1.5 rounded-lg text-[12px] transition-colors border-0",
                   categoryFilter === opt.id
-                    ? "bg-indigo-50 border-indigo-200 text-indigo-700"
-                    : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                    ? "bg-indigo-50 text-indigo-600"
+                    : "bg-[#F5F6F8] text-gray-600 hover:bg-gray-100"
                 )}
               >
                 {opt.label}
@@ -134,10 +133,10 @@ export default function TemplateLibraryDrawer({
                 key={opt.id}
                 onClick={() => setStyleFilter(opt.id)}
                 className={cn(
-                  "px-2.5 py-1 rounded-md text-[11px] transition-colors border",
+                  "px-2.5 py-1.5 rounded-lg text-[12px] transition-colors border-0",
                   styleFilter === opt.id
-                    ? "bg-indigo-50 border-indigo-200 text-indigo-700"
-                    : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                    ? "bg-indigo-50 text-indigo-600"
+                    : "bg-[#F5F6F8] text-gray-600 hover:bg-gray-100"
                 )}
               >
                 {opt.label}
@@ -150,7 +149,7 @@ export default function TemplateLibraryDrawer({
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="h-7 px-2 text-[11px] bg-white border border-gray-200 rounded-md text-gray-600"
+              className="h-8 px-3 text-[12px] bg-[#F5F6F8] border-0 rounded-lg text-gray-600 outline-none"
             >
               {typeOptions.map((opt) => (
                 <option key={opt.id} value={opt.id}>
@@ -161,7 +160,7 @@ export default function TemplateLibraryDrawer({
             <select
               value={sourceFilter}
               onChange={(e) => setSourceFilter(e.target.value)}
-              className="h-7 px-2 text-[11px] bg-white border border-gray-200 rounded-md text-gray-600"
+              className="h-8 px-3 text-[12px] bg-[#F5F6F8] border-0 rounded-lg text-gray-600 outline-none"
             >
               {TEMPLATE_SOURCE_OPTIONS.map((opt) => (
                 <option key={opt.id} value={opt.id}>
@@ -189,7 +188,7 @@ export default function TemplateLibraryDrawer({
             filtered.map((template) => (
               <div
                 key={template.id}
-                className="p-3 rounded-xl border border-gray-100 bg-gray-50/50 hover:border-indigo-200 hover:bg-indigo-50/20 transition-colors"
+                className="p-3 rounded-2xl bg-[#F8F9FB] hover:bg-indigo-50/30 transition-colors"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -207,7 +206,7 @@ export default function TemplateLibraryDrawer({
 
                 <div className="flex items-center gap-1.5 mt-2">
                   {template.category?.name && (
-                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-white border border-gray-200 text-gray-500">
+                    <span className="px-1.5 py-0.5 rounded-md text-[10px] bg-white text-gray-500">
                       {template.category.name}
                     </span>
                   )}
@@ -219,18 +218,18 @@ export default function TemplateLibraryDrawer({
                 <div className="flex items-center gap-1.5 mt-2">
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="ghost"
                     onClick={() => onInsert(template)}
-                    className="h-6 px-2 text-[11px] border-gray-200"
+                    className="h-7 px-2 text-[11px] text-gray-600 hover:bg-gray-100 hover:text-gray-800"
                   >
                     <Plus className="w-3 h-3 mr-0.5" />
                     插入
                   </Button>
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="ghost"
                     onClick={() => onReplace(template)}
-                    className="h-6 px-2 text-[11px] border-gray-200"
+                    className="h-7 px-2 text-[11px] text-gray-600 hover:bg-gray-100 hover:text-gray-800"
                   >
                     <Replace className="w-3 h-3 mr-0.5" />
                     替换

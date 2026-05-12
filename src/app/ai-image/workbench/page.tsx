@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Wand2, History } from "lucide-react";
+import { Wand2, History, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { PromptGroup, ImageTask, ReferenceImage, PromptGroupConfig } from "@/lib/types";
@@ -250,14 +250,16 @@ export default function WorkbenchPage() {
   );
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] flex bg-[#F6F8FC]">
+    <div className="h-[calc(100vh-3.5rem)] flex bg-[#F7F8FA]">
       {/* Left config panel */}
-      <div className="w-[380px] shrink-0 flex flex-col bg-white border-r border-gray-200">
+      <div className="w-[460px] shrink-0 flex flex-col bg-white">
         {/* Scrollable config area */}
-        <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
+        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-7">
           {/* Size selector */}
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-2">生成尺寸</label>
+            <label className="block text-[15px] font-semibold text-gray-800 mb-3">
+              <span className="text-red-500 mr-1">*</span>生成尺寸
+            </label>
             <SizeSelector
               value={config.ratio || "1:1"}
               width={config.width}
@@ -268,33 +270,52 @@ export default function WorkbenchPage() {
 
           {/* Prompt editor */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-medium text-gray-700">创意描述</label>
-              <span className="text-[10px] text-gray-400">{promptContent.length} 字</span>
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-[15px] font-semibold text-gray-800">
+                <span className="text-red-500 mr-1">*</span>创意灵感
+              </label>
             </div>
-            <PromptEditor
-              value={promptContent}
-              onChange={setPromptContent}
-              onOpenTemplateLibrary={() => setTemplateLibraryOpen(true)}
-              disabled={isGenerating}
-            />
+            <div className="rounded-2xl bg-[#F8F9FB] p-4 space-y-3">
+              <div className="flex items-center gap-4 text-sm">
+                <button className="flex items-center gap-1.5 text-indigo-600 font-medium">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  快捷创作
+                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-red-500 text-white font-medium">HOT</span>
+                </button>
+                <button className="flex items-center gap-1.5 text-gray-500 hover:text-gray-700 transition-colors">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  高级创作
+                </button>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">创意描述</label>
+                <PromptEditor
+                  value={promptContent}
+                  onChange={setPromptContent}
+                  onOpenTemplateLibrary={() => setTemplateLibraryOpen(true)}
+                  disabled={isGenerating}
+                />
+              </div>
+            </div>
           </div>
 
-          {/* Negative prompt (collapsed feel) */}
+          {/* Negative prompt */}
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-2">排除内容</label>
+            <label className="block text-[15px] font-semibold text-gray-800 mb-3">排除内容</label>
             <textarea
               value={negativePrompt}
               onChange={(e) => setNegativePrompt(e.target.value)}
               placeholder="输入不希望在画面中出现的内容..."
               disabled={isGenerating}
-              className="w-full min-h-[60px] px-3 py-2 text-xs bg-white border border-gray-200 rounded-lg focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100 resize-none outline-none"
+              className="w-full min-h-[80px] px-4 py-3 text-[13px] bg-[#F5F6F8] border-0 rounded-xl resize-none outline-none placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0"
             />
           </div>
 
           {/* Reference upload */}
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-2">参考图</label>
+            <label className="block text-[15px] font-semibold text-gray-800 mb-3">
+              风格参考<span className="text-gray-400 font-normal text-sm ml-1">（非必填）</span>
+            </label>
             <ReferenceUploader
               images={references}
               onAdd={handleAddReferences}
@@ -305,7 +326,7 @@ export default function WorkbenchPage() {
         </div>
 
         {/* Bottom action area */}
-        <div className="px-5 pb-5 pt-0 space-y-3">
+        <div className="shrink-0 px-6 pt-4 pb-6 bg-white">
           {/* Current template bar */}
           <CurrentTemplateBar
             templateName={currentTemplate?.name}
@@ -319,9 +340,9 @@ export default function WorkbenchPage() {
           <Button
             onClick={handleGenerate}
             disabled={isGenerating || (!promptContent.trim() && references.length === 0)}
-            className="w-full h-10 bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
+            className="w-full h-[52px] mt-4 rounded-2xl text-[15px] font-semibold text-white border-0 shadow-lg shadow-indigo-500/20 bg-gradient-to-r from-[#6366F1] to-[#8B5CF6] hover:from-[#5558E0] hover:to-[#7C4FE6] disabled:opacity-60"
           >
-            <Wand2 className="w-4 h-4 mr-2" />
+            <Wand2 className="w-5 h-5 mr-2" />
             {isGenerating ? "生成中..." : "立即生成"}
           </Button>
         </div>
@@ -334,11 +355,14 @@ export default function WorkbenchPage() {
         onDrop={handleDrop}
       >
         {/* Top bar */}
-        <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200/60 bg-white/50">
-          <h1 className="text-sm font-semibold text-gray-700">AI 商品图创作</h1>
+        <div className="flex items-center justify-between px-6 py-3">
+          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white text-sm text-gray-600 hover:bg-gray-50 transition-colors shadow-sm">
+            <History className="w-3.5 h-3.5" />
+            历史记录
+          </button>
           <div className="flex items-center gap-2">
             {taskHistory.length > 0 && (
-              <span className="text-[11px] text-gray-400">
+              <span className="text-[12px] text-gray-400">
                 已生成 {taskHistory.filter((t) => t.status === "completed").length} 张
               </span>
             )}
@@ -359,7 +383,7 @@ export default function WorkbenchPage() {
 
         {/* History strip at bottom */}
         {taskHistory.length > 0 && (
-          <div className="shrink-0 px-6 py-3 border-t border-gray-200/60 bg-white/50">
+          <div className="shrink-0 px-6 py-3">
             <div className="flex items-center gap-2 mb-2">
               <History className="w-3.5 h-3.5 text-gray-400" />
               <span className="text-[11px] font-medium text-gray-500">历史记录</span>
@@ -369,7 +393,7 @@ export default function WorkbenchPage() {
                 <button
                   key={task.id}
                   onClick={() => setLatestTask(task)}
-                  className="relative shrink-0 w-16 h-16 rounded-lg border border-gray-200 overflow-hidden bg-white hover:border-indigo-300 transition-colors"
+                  className="relative shrink-0 w-16 h-16 rounded-xl overflow-hidden bg-white hover:ring-2 hover:ring-indigo-200 transition-all"
                 >
                   {task.status === "completed" && task.resultImageUrl ? (
                     <img src={task.resultImageUrl} alt="" className="w-full h-full object-cover" />
