@@ -2,25 +2,20 @@
  * Prompt Builder
  *
  * Assembles the final positive and negative prompts from:
- * - Structured field selections (platform, category, image type, visual tags, background, angle)
+ * - Selected prompt fragments (grouped by category)
  * - User's handwritten prompt
  * - User's negative prompt
- * - Selected negative tags
  *
- * Output is structured into sections for readability and debugging.
+ * Output is structured into readable sections.
  */
 
 import {
   PromptBuilderInput,
   PromptBuilderOutput,
   PromptSection,
-  PromptFieldSelections,
+  PromptFragment,
+  PromptFragmentGroup,
 } from "./types";
-import {
-  getOptionById,
-  getOptionsByIds,
-  NEGATIVE_TAG_RULES,
-} from "./rules";
 
 /** Default base instruction for product image generation */
 const BASE_INSTRUCTION =
@@ -30,8 +25,29 @@ const BASE_INSTRUCTION =
 const STRUCTURE_PRESERVATION =
   "Preserve the original product shape, proportions, structure and key details from the reference image.";
 
+/** Group order for building the prompt */
+const GROUP_ORDER: PromptFragmentGroup[] = [
+  "product_category",
+  "image_type",
+  "visual_style",
+  "background",
+  "angle",
+  "material",
+];
+
+/** Human-readable labels for each group */
+const GROUP_LABELS: Record<PromptFragmentGroup, string> = {
+  product_category: "Product category",
+  image_type: "Image purpose",
+  visual_style: "Visual style",
+  background: "Background",
+  angle: "Angle",
+  material: "Material",
+  negative: "Negative",
+};
+
 /**
- * Build the final prompt from field selections and user input.
+ * Build the final prompt from selected fragments and user input.
  */
 export function buildPrompt(input: PromptBuilderInput): PromptBuilderOutput {
   const sections: PromptSection[] = [];
@@ -39,76 +55,49 @@ export function buildPrompt(input: PromptBuilderInput): PromptBuilderOutput {
   // 1. Base instruction
   sections.push({
     key: "base",
-    label: "基础目标",
+    label: "Base",
     content: BASE_INSTRUCTION,
     source: "system",
   });
 
-  // 2. Platform requirement
-  const platformSection = buildFieldSection(
-    "platform",
-    "平台要求",
-    input.fields.platform
-  );
-  if (platformSection) sections.push(platformSection);
+  // 2. Group fragments by group
+  const byGroup = new Map<PromptFragmentGroup, PromptFragment[]>();
+  for (const frag of input.selectedFragments) {
+    const list = byGroup.get(frag.group) || [];
+    list.push(frag);
+    byGroup.set(frag.group, list);
+  }
 
-  // 3. Product category
-  const categorySection = buildFieldSection(
-    "productCategory",
-    "产品类目",
-    input.fields.productCategory
-  );
-  if (categorySection) sections.push(categorySection);
-
-  // 4. Image type
-  const imageTypeSection = buildFieldSection(
-    "imageType",
-    "图片类型",
-    input.fields.imageType
-  );
-  if (imageTypeSection) sections.push(imageTypeSection);
-
-  // 5. Background
-  const backgroundSection = buildFieldSection(
-    "background",
-    "背景",
-    input.fields.background
-  );
-  if (backgroundSection) sections.push(backgroundSection);
-
-  // 6. Angle
-  const angleSection = buildFieldSection(
-    "angle",
-    "拍摄角度",
-    input.fields.angle
-  );
-  if (angleSection) sections.push(angleSection);
-
-  // 7. Visual tags (multiple)
-  const visualTagSection = buildMultiFieldSection(
-    "visualTags",
-    "视觉标签",
-    input.fields.visualTags
-  );
-  if (visualTagSection) sections.push(visualTagSection);
-
-  // 8. User's handwritten prompt
-  if (input.userPrompt?.trim()) {
+  // 3. Add each group section in defined order
+  for (const group of GROUP_ORDER) {
+    const fragments = byGroup.get(group);
+    if (!fragments || fragments.length === 0) continue;
+    const content = fragments.map((f) => f.promptFragment).join(". ");
     sections.push({
-      key: "userPrompt",
-      label: "用户补充",
-      content: input.userPrompt.trim(),
-      source: "user",
+      key: group,
+      label: GROUP_LABELS[group],
+      content,
+      source: "field",
     });
   }
 
-  // 9. Structure preservation (if reference images are provided)
+  // 4. Structure preservation (if reference images are present)
   if (input.preserveStructure !== false) {
     sections.push({
       key: "structure",
-      label: "结构保持",
+      label: "Reference",
       content: STRUCTURE_PRESERVATION,
       source: "system",
+    });
+  }
+
+  // 5. User's handwritten prompt
+  if (input.userPrompt?.trim()) {
+    sections.push({
+      key: "userPrompt",
+      label: "User additional",
+      content: input.userPrompt.trim(),
+      source: "user",
     });
   }
 
@@ -133,83 +122,32 @@ export function buildPrompt(input: PromptBuilderInput): PromptBuilderOutput {
 }
 
 /**
- * Build a single-field section from a rule option.
- */
-function buildFieldSection(
-  categoryKey: string,
-  label: string,
-  optionId: string | undefined
-): PromptSection | null {
-  if (!optionId) return null;
-  const option = getOptionById(categoryKey, optionId);
-  if (!option) return null;
-  return {
-    key: categoryKey,
-    label,
-    content: option.promptFragment,
-    source: "field",
-  };
-}
-
-/**
- * Build a multi-field section from multiple rule options.
- */
-function buildMultiFieldSection(
-  categoryKey: string,
-  label: string,
-  optionIds: string[] | undefined
-): PromptSection | null {
-  if (!optionIds || optionIds.length === 0) return null;
-  const options = getOptionsByIds(categoryKey, optionIds);
-  if (options.length === 0) return null;
-  const content = options.map((o) => o.promptFragment).join(". ");
-  return {
-    key: categoryKey,
-    label,
-    content,
-    source: "field",
-  };
-}
-
-/**
- * Build negative prompt sections from user input and selected negative tags.
+ * Build negative prompt sections from selected negative fragments + user input.
  */
 function buildNegativeSections(
   input: PromptBuilderInput
 ): PromptSection[] {
   const sections: PromptSection[] = [];
 
-  // Negative tags
-  if (input.fields.visualTags && input.fields.visualTags.length > 0) {
-    const negativeOptions = getOptionsByIds(
-      NEGATIVE_TAG_RULES.key,
-      input.fields.visualTags
-    );
-    // Actually negative tags come from negativeTags field, not visualTags
-    // Let me fix this
-  }
-
-  // Check if there are explicit negative tag selections
-  // For now, we use a simple approach: user can select negative tags via fields
-  const negativeTagIds = (input.fields as PromptFieldSelections & { negativeTags?: string[] }).negativeTags;
-  if (negativeTagIds && negativeTagIds.length > 0) {
-    const options = getOptionsByIds("negativeTags", negativeTagIds);
-    if (options.length > 0) {
-      sections.push({
-        key: "negativeTags",
-        label: "排除标签",
-        content: options.map((o) => o.promptFragment).join(", "),
-        source: "field",
-      });
-    }
+  // Negative fragments
+  const negativeFrags = input.selectedFragments.filter(
+    (f) => f.group === "negative"
+  );
+  if (negativeFrags.length > 0) {
+    sections.push({
+      key: "negative",
+      label: "Negative",
+      content: negativeFrags.map((f) => f.promptFragment).join(", "),
+      source: "field",
+    });
   }
 
   // User's handwritten negative prompt
-  if (input.negativePrompt?.trim()) {
+  if (input.userNegativePrompt?.trim()) {
     sections.push({
       key: "userNegative",
-      label: "用户负向补充",
-      content: input.negativePrompt.trim(),
+      label: "User negative",
+      content: input.userNegativePrompt.trim(),
       source: "user",
     });
   }
@@ -219,17 +157,16 @@ function buildNegativeSections(
 
 /**
  * Quick build function for simple use cases.
- * Takes field selections and user prompt, returns the assembled prompt string.
  */
 export function quickBuild(
-  fields: PromptFieldSelections,
+  selectedFragments: PromptFragment[],
   userPrompt: string,
-  negativePrompt?: string
+  userNegativePrompt?: string
 ): { positive: string; negative: string } {
   const result = buildPrompt({
-    fields,
+    selectedFragments,
     userPrompt,
-    negativePrompt,
+    userNegativePrompt,
     preserveStructure: true,
   });
   return {
@@ -240,11 +177,10 @@ export function quickBuild(
 
 /**
  * Get a preview of what the prompt will look like based on current selections.
- * Useful for live preview in the UI.
  */
 export function previewPrompt(
-  fields: PromptFieldSelections,
+  selectedFragments: PromptFragment[],
   userPrompt: string
 ): string {
-  return quickBuild(fields, userPrompt).positive;
+  return quickBuild(selectedFragments, userPrompt).positive;
 }

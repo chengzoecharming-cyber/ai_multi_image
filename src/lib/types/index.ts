@@ -15,8 +15,10 @@ export interface PromptGroupConfig {
   model?: string;
   quality?: string;
   outputCount?: number;
-  /** Structured field selections for prompt generation */
+  /** Legacy structured field selections for prompt generation */
   promptFields?: PromptFieldSelections;
+  /** Selected fragment ids (new) */
+  selectedFragmentIds?: string[];
   /** Provider config reserved for future ComfyUI integration */
   providerConfig?: {
     workflowId?: string | null;

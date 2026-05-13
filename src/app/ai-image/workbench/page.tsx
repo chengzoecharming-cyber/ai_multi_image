@@ -1,18 +1,32 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
-import { Wand2, ChevronRight } from "lucide-react";
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { Wand2, ChevronRight, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { PromptGroup, ImageTask, ReferenceImage, PromptGroupConfig } from "@/lib/types";
-import { generateImage, getTasks, createPromptGroup, updatePromptGroup, uploadFile } from "@/lib/api";
+import {
+  generateImage,
+  getTasks,
+  createPromptGroup,
+  updatePromptGroup,
+  uploadFile,
+  getPromptGroups,
+} from "@/lib/api";
+import {
+  getFragmentsByIds,
+  buildPrompt,
+} from "@/lib/prompt";
+import type { PromptFragment } from "@/lib/prompt";
 import SizeSelector from "@/components/create/SizeSelector";
 import PromptEditor from "@/components/create/PromptEditor";
 import ReferenceUploader from "@/components/create/ReferenceUploader";
 import CurrentTemplateBar from "@/components/create/CurrentTemplateBar";
-import ProductTagSelector from "@/components/create/ProductTagSelector";
 import PreviewPanel from "@/components/create/PreviewPanel";
+import ProductTagSelector from "@/components/create/ProductTagSelector";
 import TemplateLibraryDrawer from "@/components/template-library/TemplateLibraryDrawer";
+import SelectedFragmentTags from "@/components/template-library/SelectedFragmentTags";
+import SaveTemplateDialog from "@/components/template-library/SaveTemplateDialog";
 
 // Default empty config
 const DEFAULT_CONFIG: PromptGroupConfig = {
@@ -35,62 +49,125 @@ export default function WorkbenchPage() {
   const [config, setConfig] = useState<PromptGroupConfig>(DEFAULT_CONFIG);
   const [references, setReferences] = useState<ReferenceImage[]>([]);
 
+  // -- Fragment state (NEW) --
+  const [selectedFragmentIds, setSelectedFragmentIds] = useState<string[]>([]);
+  const selectedFragments = useMemo(
+    () => getFragmentsByIds(selectedFragmentIds),
+    [selectedFragmentIds]
+  );
+
   // -- Template state --
   const [currentTemplate, setCurrentTemplate] = useState<PromptGroup | null>(null);
   const [originalHash, setOriginalHash] = useState<string>("");
   const isModified = currentTemplate
-    ? hashConfig({ promptContent, negativePrompt, config, references }) !== originalHash
+    ? hashConfig({ promptContent, negativePrompt, config, references, selectedFragmentIds }) !== originalHash
     : false;
+
+  // -- My templates --
+  const [myTemplates, setMyTemplates] = useState<PromptGroup[]>([]);
 
   // -- Generation state --
   const [isGenerating, setIsGenerating] = useState(false);
   const [latestTask, setLatestTask] = useState<ImageTask | null>(null);
   const [taskHistory, setTaskHistory] = useState<ImageTask[]>([]);
 
-  // -- Product tags state --
-  const [selectedProductTags, setSelectedProductTags] = useState<string[]>([]);
-
   // -- Right panel view state --
   const [showHistory, setShowHistory] = useState(false);
 
   // -- UI state --
   const [templateLibraryOpen, setTemplateLibraryOpen] = useState(false);
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
 
-  // Refs
-  const productFileInputRef = useRef<HTMLInputElement>(null);
+  // -- Product tags state --
+  const [selectedProductTags, setSelectedProductTags] = useState<string[]>([]);
 
-  // Load task history on mount
+  // -- Computed: built prompt preview --
+  const builtPrompt = useMemo(() => {
+    return buildPrompt({
+      selectedFragments,
+      userPrompt: promptContent,
+      userNegativePrompt: negativePrompt,
+      preserveStructure: references.length > 0,
+    });
+  }, [selectedFragments, promptContent, negativePrompt, references.length]);
+
+  // Load task history + my templates on mount
   useEffect(() => {
     loadTasks();
+    loadMyTemplates();
   }, []);
 
   const loadTasks = async () => {
     try {
       const res = await getTasks();
       setTaskHistory(res.data);
-      // Don't auto-set latestTask — default to empty state
     } catch (err) {
       console.error("Failed to load tasks:", err);
     }
   };
 
-  // -- Handlers --
-  const handleSizeChange = useCallback((value: string, width: number, height: number) => {
-    setConfig((prev) => ({ ...prev, ratio: value, width, height }));
+  const loadMyTemplates = async () => {
+    try {
+      const res = await getPromptGroups();
+      setMyTemplates(res.data);
+    } catch (err) {
+      console.error("Failed to load my templates:", err);
+    }
+  };
+
+  // -- Fragment handlers --
+  const handleAddFragment = useCallback((fragment: PromptFragment) => {
+    setSelectedFragmentIds((prev) => {
+      if (prev.includes(fragment.id)) return prev;
+      return [...prev, fragment.id];
+    });
   }, []);
 
-  const handleAddReferences = useCallback((newImages: ReferenceImage[]) => {
-    setReferences((prev) => [...prev, ...newImages]);
+  const handleRemoveFragment = useCallback((fragmentId: string) => {
+    setSelectedFragmentIds((prev) => prev.filter((id) => id !== fragmentId));
   }, []);
 
-  const handleRemoveReference = useCallback((index: number) => {
-    setReferences((prev) => prev.filter((_, i) => i !== index));
+  // -- Template use handler --
+  const handleUseMyTemplate = useCallback((template: PromptGroup) => {
+    const ids =
+      template.config?.selectedFragmentIds ||
+      (template.configJson
+        ? (() => {
+            try {
+              const parsed = JSON.parse(template.configJson);
+              return parsed?.selectedFragmentIds || [];
+            } catch {
+              return [];
+            }
+          })()
+        : []);
+
+    setSelectedFragmentIds(ids);
+    setPromptContent(template.promptContent || "");
+    setNegativePrompt(template.negativePrompt || "");
+    if (template.config) {
+      setConfig({
+        ...DEFAULT_CONFIG,
+        ...template.config,
+      });
+    }
+    if (template.references && template.references.length > 0) {
+      setReferences(template.references);
+    }
+    setCurrentTemplate(template);
+    setOriginalHash(
+      hashConfig({
+        promptContent: template.promptContent || "",
+        negativePrompt: template.negativePrompt || "",
+        config: template.config || DEFAULT_CONFIG,
+        references: template.references || [],
+        selectedFragmentIds: ids,
+      })
+    );
+    toast.success(`已加载模板「${template.name}」`);
   }, []);
 
-  const handleClearReferences = useCallback(() => {
-    setReferences([]);
-  }, []);
-
+  // -- Template insert/replace handlers (公共模板) --
   const handleInsertTemplate = useCallback((template: PromptGroup) => {
     setPromptContent((prev) => {
       if (!prev) return template.promptContent;
@@ -109,11 +186,25 @@ export default function WorkbenchPage() {
     setPromptContent(template.promptContent);
     if (template.negativePrompt) setNegativePrompt(template.negativePrompt);
     if (template.config) {
-      setConfig(template.config);
+      setConfig((prev) => ({ ...prev, ...template.config }));
     }
     if (template.references && template.references.length > 0) {
       setReferences(template.references);
     }
+    // Restore fragment ids from saved template if any
+    const ids =
+      template.config?.selectedFragmentIds ||
+      (template.configJson
+        ? (() => {
+            try {
+              const parsed = JSON.parse(template.configJson);
+              return parsed?.selectedFragmentIds || [];
+            } catch {
+              return [];
+            }
+          })()
+        : []);
+    setSelectedFragmentIds(ids);
     setCurrentTemplate(template);
     setOriginalHash(
       hashConfig({
@@ -121,9 +212,27 @@ export default function WorkbenchPage() {
         negativePrompt: template.negativePrompt || "",
         config: template.config || DEFAULT_CONFIG,
         references: template.references || [],
+        selectedFragmentIds: ids,
       })
     );
     toast.success(`已替换为模板「${template.name}」`);
+  }, []);
+
+  // -- Handlers --
+  const handleSizeChange = useCallback((value: string, width: number, height: number) => {
+    setConfig((prev) => ({ ...prev, ratio: value, width, height }));
+  }, []);
+
+  const handleAddReferences = useCallback((newImages: ReferenceImage[]) => {
+    setReferences((prev) => [...prev, ...newImages]);
+  }, []);
+
+  const handleRemoveReference = useCallback((index: number) => {
+    setReferences((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const handleClearReferences = useCallback(() => {
+    setReferences([]);
   }, []);
 
   const handleSaveTemplate = useCallback(async () => {
@@ -133,53 +242,73 @@ export default function WorkbenchPage() {
         name: currentTemplate.name,
         promptContent,
         negativePrompt,
-        configJson: JSON.stringify(config),
+        configJson: JSON.stringify({
+          ...config,
+          selectedFragmentIds,
+        }),
         references,
       });
-      setOriginalHash(hashConfig({ promptContent, negativePrompt, config, references }));
+      setOriginalHash(hashConfig({ promptContent, negativePrompt, config, references, selectedFragmentIds }));
       toast.success("模板已保存");
+      loadMyTemplates();
     } catch (err) {
       toast.error("保存失败");
       console.error(err);
     }
-  }, [currentTemplate, promptContent, negativePrompt, config, references]);
+  }, [currentTemplate, promptContent, negativePrompt, config, references, selectedFragmentIds]);
 
-  const handleSaveAsTemplate = useCallback(async () => {
-    try {
-      const res = await createPromptGroup({
-        name: `未命名模板 ${new Date().toLocaleString("zh-CN", {
-          month: "short",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        })}`,
-        promptContent,
-        negativePrompt,
-        configJson: JSON.stringify(config),
-        categoryId: currentTemplate?.categoryId || "",
-        references,
-      });
-      setCurrentTemplate(res.data);
-      setOriginalHash(hashConfig({ promptContent, negativePrompt, config, references }));
-      toast.success("已另存为新模板");
-    } catch (err) {
-      toast.error("保存失败");
-      console.error(err);
-    }
-  }, [promptContent, negativePrompt, config, references, currentTemplate]);
+  const handleSaveAsTemplate = useCallback(
+    async (data: {
+      name: string;
+      selectedFragmentIds: string[];
+      userPrompt: string;
+      negativePrompt: string;
+      config: PromptGroupConfig;
+      referenceImages: string[];
+    }) => {
+      try {
+        const res = await createPromptGroup({
+          name: data.name,
+          promptContent,
+          negativePrompt,
+          configJson: JSON.stringify({
+            ...config,
+            selectedFragmentIds,
+          }),
+          categoryId: currentTemplate?.categoryId || "",
+          references,
+        });
+        setCurrentTemplate(res.data);
+        setOriginalHash(
+          hashConfig({ promptContent, negativePrompt, config, references, selectedFragmentIds })
+        );
+        setSaveTemplateOpen(false);
+        toast.success("已另存为新模板");
+        loadMyTemplates();
+      } catch (err) {
+        toast.error("保存失败");
+        console.error(err);
+      }
+    },
+    [promptContent, negativePrompt, config, references, currentTemplate, selectedFragmentIds]
+  );
 
   const handleGenerate = useCallback(async () => {
-    if (!promptContent.trim() && references.length === 0) {
-      toast.error("请填写创意描述或上传参考图");
+    // Require at least prompt content, selected fragments, or reference images
+    if (!builtPrompt.positivePrompt.trim() && references.length === 0) {
+      toast.error("请填写创意描述、选择片段或上传参考图");
       return;
     }
     setIsGenerating(true);
     try {
       const res = await generateImage({
-        promptContent,
-        negativePrompt,
+        promptContent: builtPrompt.positivePrompt,
+        negativePrompt: builtPrompt.negativePrompt,
         referenceImageUrls: references.map((r) => r.imageUrl),
-        config,
+        config: {
+          ...config,
+          selectedFragmentIds,
+        },
       });
       const task = res.data;
       setLatestTask(task);
@@ -196,7 +325,7 @@ export default function WorkbenchPage() {
     } finally {
       setIsGenerating(false);
     }
-  }, [promptContent, negativePrompt, references, config]);
+  }, [builtPrompt, references, config, selectedFragmentIds]);
 
   const handleRetry = useCallback(async () => {
     if (!latestTask) return;
@@ -300,25 +429,13 @@ export default function WorkbenchPage() {
       {/* Left config panel */}
       <div className="w-[400px] shrink-0 flex flex-col bg-white">
         {/* Scrollable config area */}
-        <div className="flex-1 overflow-y-auto px-[16px] py-6 space-y-7">
+        <div className="flex-1 overflow-y-auto px-[16px] py-6 space-y-6">
           {/* Product & composition preview */}
           <div>
             <label className="block text-[14px] font-bold text-gray-800 mb-3">
               商品及构图
             </label>
             <div className="rounded-2xl bg-[#F8F9FB] h-[180px] flex items-center justify-center overflow-hidden relative group">
-              <input
-                ref={productFileInputRef}
-                type="file"
-                accept="image/jpeg,image/jpg,image/png,image/webp"
-                className="hidden"
-                onChange={async (e) => {
-                  if (e.target.files && e.target.files.length > 0) {
-                    await handleUploadFile(e.target.files);
-                  }
-                  if (productFileInputRef.current) productFileInputRef.current.value = "";
-                }}
-              />
               {references.length > 0 ? (
                 <>
                   <img
@@ -327,12 +444,17 @@ export default function WorkbenchPage() {
                     className="w-full h-full object-contain"
                   />
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => productFileInputRef.current?.click()}
-                      className="px-4 py-2 bg-white text-gray-800 text-[13px] font-medium rounded-lg hover:bg-gray-100 transition-colors"
-                    >
+                    <label className="px-4 py-2 bg-white text-gray-800 text-[13px] font-medium rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
                       重新上传
-                    </button>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/jpg,image/png,image/webp"
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files) handleUploadFile(e.target.files);
+                        }}
+                      />
+                    </label>
                   </div>
                 </>
               ) : (
@@ -354,16 +476,40 @@ export default function WorkbenchPage() {
             />
           </div>
 
+          {/* Selected fragments */}
+          {selectedFragments.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-[14px] font-bold text-gray-800">
+                  已选提示词片段
+                </label>
+              </div>
+              <SelectedFragmentTags
+                fragments={selectedFragments}
+                onRemove={handleRemoveFragment}
+              />
+            </div>
+          )}
+
           {/* Prompt editor */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <label className="text-[14px] font-bold text-gray-800">
                 <span className="text-red-500 mr-1">*</span>创意灵感
               </label>
+              <button
+                onClick={() => setSaveTemplateOpen(true)}
+                className="flex items-center text-[12px] text-gray-500 hover:text-indigo-600 transition-colors"
+              >
+                <Save className="w-3.5 h-3.5 mr-1" />
+                保存为模版
+              </button>
             </div>
             <div>
-              <div className="mb-4">
-                <label className="block text-[12px] font-semibold text-gray-700 mb-2">创意描述</label>
+              <div className="mb-3">
+                <label className="block text-[12px] font-semibold text-gray-700 mb-2">
+                  创意描述
+                </label>
                 <PromptEditor
                   value={promptContent}
                   onChange={setPromptContent}
@@ -386,8 +532,7 @@ export default function WorkbenchPage() {
                   setSelectedProductTags((prev) => {
                     const exists = prev.includes(name);
                     const next = exists ? prev.filter((n) => n !== name) : [...prev, name];
-                    // Sync to promptContent
-                    const tagText = next.join(", ");
+                    const tagText = next.join("，");
                     setPromptContent((current) => {
                       const base = current.split(" // 产品标签:")[0].trim();
                       return tagText ? `${base}${base ? "，" : ""}${tagText}` : base;
@@ -399,9 +544,23 @@ export default function WorkbenchPage() {
             </div>
           </div>
 
+          {/* Built prompt preview */}
+          {builtPrompt.positivePrompt && (
+            <div>
+              <label className="block text-[12px] font-semibold text-gray-500 mb-2">
+                系统组合 Prompt（预览）
+              </label>
+              <div className="p-3 bg-[#F5F6F8] rounded-xl text-[11px] text-gray-500 leading-relaxed whitespace-pre-wrap">
+                {builtPrompt.positivePrompt}
+              </div>
+            </div>
+          )}
+
           {/* Negative prompt */}
           <div>
-            <label className="block text-[14px] font-bold text-gray-800 mb-3">排除内容</label>
+            <label className="block text-[14px] font-bold text-gray-800 mb-3">
+              排除内容
+            </label>
             <textarea
               value={negativePrompt}
               onChange={(e) => setNegativePrompt(e.target.value)}
@@ -432,14 +591,14 @@ export default function WorkbenchPage() {
             templateName={currentTemplate?.name}
             isModified={isModified}
             onSave={handleSaveTemplate}
-            onSaveAs={handleSaveAsTemplate}
+            onSaveAs={() => setSaveTemplateOpen(true)}
             disabled={isGenerating}
           />
 
           {/* Generate button */}
           <Button
             onClick={handleGenerate}
-            disabled={isGenerating || (!promptContent.trim() && references.length === 0)}
+            disabled={isGenerating || (!builtPrompt.positivePrompt.trim() && references.length === 0)}
             className="w-full h-[52px] mt-4 rounded-2xl text-[15px] font-semibold text-white border-0 shadow-lg shadow-indigo-500/20 bg-gradient-to-r from-[#6366F1] to-[#8B5CF6] hover:from-[#5558E0] hover:to-[#7C4FE6] disabled:opacity-60"
           >
             <Wand2 className="w-5 h-5 mr-2" />
@@ -454,7 +613,7 @@ export default function WorkbenchPage() {
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleDrop}
       >
-        {/* Top bar — hidden when history is open */}
+        {/* Top bar */}
         {!showHistory && (
           <div className="flex items-center justify-between px-6 pt-6 pb-3">
             <button
@@ -491,15 +650,30 @@ export default function WorkbenchPage() {
             onUploadFile={handleUploadFile}
           />
         </div>
-
       </div>
 
       {/* Template library drawer */}
       <TemplateLibraryDrawer
         open={templateLibraryOpen}
         onClose={() => setTemplateLibraryOpen(false)}
-        onInsert={handleInsertTemplate}
-        onReplace={handleReplaceTemplate}
+        onAddFragment={handleAddFragment}
+        onRemoveFragment={handleRemoveFragment}
+        onUseMyTemplate={handleUseMyTemplate}
+        onInsertTemplate={handleInsertTemplate}
+        onReplaceTemplate={handleReplaceTemplate}
+        selectedFragmentIds={selectedFragmentIds}
+      />
+
+      {/* Save template dialog */}
+      <SaveTemplateDialog
+        open={saveTemplateOpen}
+        onClose={() => setSaveTemplateOpen(false)}
+        onSave={handleSaveAsTemplate}
+        selectedFragments={selectedFragments}
+        userPrompt={promptContent}
+        negativePrompt={negativePrompt}
+        config={config}
+        referenceImages={references.map((r) => r.imageUrl)}
       />
     </div>
   );

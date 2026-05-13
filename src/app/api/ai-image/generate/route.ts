@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getImageProvider } from "@/lib/image-providers";
-import { buildPrompt } from "@/lib/prompt/builder";
-import { PromptFieldSelections } from "@/lib/types";
+import { buildPrompt, getFragmentsByIds } from "@/lib/prompt";
 
 // POST /api/ai-image/generate
 export async function POST(request: NextRequest) {
@@ -18,21 +17,37 @@ export async function POST(request: NextRequest) {
       userId = "default",
     } = body;
 
-    // Build final prompt using Prompt Builder if fields are provided
+    // Build final prompt using Prompt Builder
     let finalPrompt = promptContent?.trim() || "";
     let finalNegativePrompt = negativePrompt?.trim() || "";
 
-    const promptFields: PromptFieldSelections | undefined = config?.promptFields;
+    // If selectedFragmentIds are provided, use new fragment-based builder
+    const selectedFragmentIds: string[] = config?.selectedFragmentIds || [];
 
-    if (promptFields && Object.keys(promptFields).length > 0) {
+    if (selectedFragmentIds.length > 0) {
+      const fragments = getFragmentsByIds(selectedFragmentIds);
       const builderResult = buildPrompt({
-        fields: promptFields,
+        selectedFragments: fragments,
         userPrompt: promptContent || "",
-        negativePrompt: negativePrompt || "",
+        userNegativePrompt: negativePrompt || "",
         preserveStructure: (referenceImageUrls || []).length > 0,
       });
       finalPrompt = builderResult.positivePrompt;
       finalNegativePrompt = builderResult.negativePrompt;
+    } else {
+      // Legacy: fallback to old field-based builder
+      const promptFields = config?.promptFields;
+      if (promptFields && Object.keys(promptFields).length > 0) {
+        const { buildPromptFromFields } = await import("@/lib/prompt/legacy-builder");
+        const builderResult = buildPromptFromFields({
+          fields: promptFields,
+          userPrompt: promptContent || "",
+          negativePrompt: negativePrompt || "",
+          preserveStructure: (referenceImageUrls || []).length > 0,
+        });
+        finalPrompt = builderResult.positivePrompt;
+        finalNegativePrompt = builderResult.negativePrompt;
+      }
     }
 
     if (!finalPrompt) {
@@ -40,13 +55,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Create task record (save snapshot)
+    const configSnapshot = JSON.stringify({
+      ...config,
+      selectedFragmentIds: config?.selectedFragmentIds || [],
+      ratio: config?.ratio || "1:1",
+      width: config?.width || 1024,
+      height: config?.height || 1024,
+      model: config?.model || "default",
+      quality: config?.quality || "standard",
+    });
+
     const task = await prisma.aiImageTask.create({
       data: {
         tenantId,
         userId,
         promptGroupId: promptGroupId || null,
         promptSnapshot: finalPrompt,
-        configSnapshot: JSON.stringify(config || { ratio: "1:1", width: 1024, height: 1024, model: "default", quality: "standard" }),
+        configSnapshot,
         referenceImagesSnapshot: JSON.stringify(referenceImageUrls || []),
         status: "pending",
       },
@@ -77,6 +102,7 @@ export async function POST(request: NextRequest) {
     for (let i = 0; i < outputCount; i++) {
       const result = await provider.generate({
         prompt: finalPrompt,
+        negativePrompt: finalNegativePrompt,
         referenceImageUrls: referenceImageUrls || [],
         width: config?.width || 1024,
         height: config?.height || 1024,

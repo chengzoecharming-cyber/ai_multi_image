@@ -1,42 +1,57 @@
 /**
- * Prompt Configuration Layer Types
+ * Prompt Fragment & Builder Types
  *
  * Defines the type system for:
- * - Prompt rule options (platforms, categories, image types, visual tags, etc.)
+ * - Prompt fragments (atomic prompt pieces)
  * - Prompt builder inputs and outputs
- * - Field configurations stored in prompt group config
+ * - User template saving
  */
 
-/** A single selectable option with a prompt fragment */
-export interface PromptRuleOption {
+/** A single selectable prompt fragment */
+export interface PromptFragment {
   id: string;
-  label: string;
+  group: PromptFragmentGroup;
+  name: string;
+  description: string;
   promptFragment: string;
+  previewImageUrl?: string;
+  tags: string[];
   sortOrder: number;
   enabled: boolean;
 }
 
-/** Rule category definition */
-export interface PromptRuleCategory {
-  key: string;
+/** Fragment group keys */
+export type PromptFragmentGroup =
+  | "product_category"
+  | "image_type"
+  | "visual_style"
+  | "background"
+  | "angle"
+  | "material"
+  | "negative";
+
+/** Display definition for each fragment group tab */
+export interface FragmentGroupDef {
+  key: PromptFragmentGroup | "my_templates";
   label: string;
+  icon?: string;
   description?: string;
-  allowMultiple: boolean;
-  options: PromptRuleOption[];
 }
 
-/** User's field selections for prompt generation */
-export interface PromptFieldSelections {
-  platform?: string;
-  productCategory?: string;
-  imageType?: string;
-  visualTags?: string[];
-  background?: string;
-  angle?: string;
-}
-
-/** Input to the Prompt Builder */
+/** Input to the new Fragment-based Prompt Builder */
 export interface PromptBuilderInput {
+  /** Selected prompt fragments */
+  selectedFragments: PromptFragment[];
+  /** User's handwritten additional prompt */
+  userPrompt: string;
+  /** User's handwritten negative prompt */
+  userNegativePrompt?: string;
+  /** Whether to preserve reference image structure */
+  preserveStructure?: boolean;
+}
+
+/** Legacy input to the field-based Prompt Builder (kept for backward compat) */
+export interface LegacyPromptBuilderInput {
   /** Structured field selections */
   fields: PromptFieldSelections;
   /** User's handwritten additional prompt */
@@ -65,7 +80,36 @@ export interface PromptSection {
   source: "system" | "field" | "user";
 }
 
-/** Extended config for prompt groups including field selections and provider config */
+/** Legacy: user's field selections for prompt generation (kept for backward compat) */
+export interface PromptFieldSelections {
+  platform?: string;
+  productCategory?: string;
+  imageType?: string;
+  visualTags?: string[];
+  background?: string;
+  angle?: string;
+  negativeTags?: string[];
+}
+
+/** Legacy: rule option (kept for backward compat with rules.ts) */
+export interface PromptRuleOption {
+  id: string;
+  label: string;
+  promptFragment: string;
+  sortOrder: number;
+  enabled: boolean;
+}
+
+/** Legacy: rule category (kept for backward compat with rules.ts) */
+export interface PromptRuleCategory {
+  key: string;
+  label: string;
+  description?: string;
+  allowMultiple: boolean;
+  options: PromptRuleOption[];
+}
+
+/** Legacy: extended config (kept for backward compat) */
 export interface ExtendedPromptConfig {
   ratio?: string;
   width?: number;
@@ -73,8 +117,10 @@ export interface ExtendedPromptConfig {
   model?: string;
   quality?: string;
   outputCount?: number;
-  /** Structured field selections */
+  /** Legacy structured field selections */
   promptFields?: PromptFieldSelections;
+  /** Selected fragment ids (new) */
+  selectedFragmentIds?: string[];
   /** Provider-specific config (reserved for future ComfyUI integration) */
   providerConfig?: {
     workflowId?: string | null;
