@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import type { PromptTag } from "@/lib/prompt";
 
 interface ProductItem {
   name: string;
@@ -78,16 +79,29 @@ const CATEGORIES: ProductCategory[] = [
 ];
 
 interface ProductTagSelectorProps {
-  selected: string[];
-  onToggle: (name: string) => void;
+  /** Currently selected product tag ids */
+  selectedIds: string[];
+  /** Called when user toggles a product tag */
+  onToggleTag: (tag: PromptTag, selected: boolean) => void;
 }
 
 export default function ProductTagSelector({
-  selected,
-  onToggle,
+  selectedIds = [],
+  onToggleTag,
 }: ProductTagSelectorProps) {
   const [activeTab, setActiveTab] = useState("platform");
   const activeCategory = CATEGORIES.find((c) => c.key === activeTab);
+
+  const handleItemClick = (item: ProductItem) => {
+    const isSelected = selectedIds.includes(item.name);
+    const tag: PromptTag = {
+      id: item.name,
+      type: "product",
+      name: item.name,
+      prompt: "",
+    };
+    onToggleTag(tag, !isSelected);
+  };
 
   return (
     <div className="bg-white rounded-xl flex overflow-hidden h-[320px] gap-3">
@@ -109,28 +123,32 @@ export default function ProductTagSelector({
         ))}
       </div>
       {/* Right grid — scrollable */}
-      <div className="flex-1 p-0 overflow-y-auto">
+      <div className="flex-1 pt-2 pr-2 pb-2 overflow-y-auto">
         <div className="grid grid-cols-3 gap-x-2 gap-y-3">
-          {activeCategory?.items.map((item) => {
-            const isSelected = selected.includes(item.name);
-            return (
-              <button
-                key={item.name}
-                onClick={() => onToggle(item.name)}
-                className="flex flex-col items-center justify-center text-[12px] transition-colors text-gray-600"
+          {activeCategory?.items.map((item) => (
+            <button
+              key={item.name}
+              onClick={() => handleItemClick(item)}
+              className={cn(
+                "flex flex-col items-center justify-center text-[12px] transition-colors",
+                selectedIds.includes(item.name)
+                  ? "text-indigo-600"
+                  : "text-gray-600 hover:text-indigo-600"
+              )}
+            >
+              <div
+                className={cn(
+                  "w-[76px] h-[76px] rounded-lg flex items-center justify-center transition-colors",
+                  selectedIds.includes(item.name)
+                    ? "bg-indigo-50 ring-1 ring-indigo-500"
+                    : "bg-gray-50 hover:bg-indigo-50"
+                )}
               >
-                <div
-                  className={cn(
-                    "w-[76px] h-[76px] rounded-lg flex items-center justify-center bg-gray-50",
-                    isSelected && "border-2 border-indigo-500"
-                  )}
-                >
-                  <span className="text-2xl leading-none">{item.icon}</span>
-                </div>
-                <span className="mt-1 leading-none">{item.name}</span>
-              </button>
-            );
-          })}
+                <span className="text-2xl leading-none">{item.icon}</span>
+              </div>
+              <span className="mt-1 leading-none">{item.name}</span>
+            </button>
+          ))}
         </div>
       </div>
     </div>

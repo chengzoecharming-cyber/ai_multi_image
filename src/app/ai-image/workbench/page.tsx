@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Wand2, ChevronRight, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -14,18 +14,18 @@ import {
   getPromptGroups,
 } from "@/lib/api";
 import {
-  getFragmentsByIds,
-  buildPrompt,
+  buildPromptFromContent,
+  extractTags,
+  removeTag,
 } from "@/lib/prompt";
-import type { PromptFragment } from "@/lib/prompt";
+import type { PromptTag } from "@/lib/prompt";
 import SizeSelector from "@/components/create/SizeSelector";
-import PromptEditor from "@/components/create/PromptEditor";
+import PromptEditor, { type PromptEditorRef } from "@/components/create/PromptEditor";
 import ReferenceUploader from "@/components/create/ReferenceUploader";
 import CurrentTemplateBar from "@/components/create/CurrentTemplateBar";
 import PreviewPanel from "@/components/create/PreviewPanel";
 import ProductTagSelector from "@/components/create/ProductTagSelector";
 import TemplateLibraryDrawer from "@/components/template-library/TemplateLibraryDrawer";
-import SelectedFragmentTags from "@/components/template-library/SelectedFragmentTags";
 import SaveTemplateDialog from "@/components/template-library/SaveTemplateDialog";
 
 // Default empty config
@@ -49,18 +49,21 @@ export default function WorkbenchPage() {
   const [config, setConfig] = useState<PromptGroupConfig>(DEFAULT_CONFIG);
   const [references, setReferences] = useState<ReferenceImage[]>([]);
 
-  // -- Fragment state (NEW) --
-  const [selectedFragmentIds, setSelectedFragmentIds] = useState<string[]>([]);
-  const selectedFragments = useMemo(
-    () => getFragmentsByIds(selectedFragmentIds),
-    [selectedFragmentIds]
+  // Editor ref for inserting tags
+  const promptEditorRef = useRef<PromptEditorRef>(null);
+
+  // -- Tags derived from promptContent (single source of truth) --
+  const tags = useMemo(() => extractTags(promptContent), [promptContent]);
+  const selectedFragmentIds = useMemo(
+    () => tags.filter((t) => t.type === "fragment").map((t) => t.id),
+    [tags]
   );
 
   // -- Template state --
   const [currentTemplate, setCurrentTemplate] = useState<PromptGroup | null>(null);
   const [originalHash, setOriginalHash] = useState<string>("");
   const isModified = currentTemplate
-    ? hashConfig({ promptContent, negativePrompt, config, references, selectedFragmentIds }) !== originalHash
+    ? hashConfig({ promptContent, negativePrompt, config, references }) !== originalHash
     : false;
 
   // -- My templates --
@@ -78,18 +81,14 @@ export default function WorkbenchPage() {
   const [templateLibraryOpen, setTemplateLibraryOpen] = useState(false);
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
 
-  // -- Product tags state --
-  const [selectedProductTags, setSelectedProductTags] = useState<string[]>([]);
-
-  // -- Computed: built prompt preview --
+  // -- Computed: built prompt preview (using tags from promptContent) --
   const builtPrompt = useMemo(() => {
-    return buildPrompt({
-      selectedFragments,
-      userPrompt: promptContent,
-      userNegativePrompt: negativePrompt,
-      preserveStructure: references.length > 0,
-    });
-  }, [selectedFragments, promptContent, negativePrompt, references.length]);
+    return buildPromptFromContent(
+      promptContent,
+      negativePrompt,
+      references.length
+    );
+  }, [promptContent, negativePrompt, references.length]);
 
   // Load task history + my templates on mount
   useEffect(() => {
@@ -115,34 +114,16 @@ export default function WorkbenchPage() {
     }
   };
 
-  // -- Fragment handlers --
-  const handleAddFragment = useCallback((fragment: PromptFragment) => {
-    setSelectedFragmentIds((prev) => {
-      if (prev.includes(fragment.id)) return prev;
-      return [...prev, fragment.id];
-    });
-  }, []);
-
-  const handleRemoveFragment = useCallback((fragmentId: string) => {
-    setSelectedFragmentIds((prev) => prev.filter((id) => id !== fragmentId));
+  // -- Insert tag into editor --
+  const handleInsertTag = useCallback((tag: PromptTag) => {
+    const editor = promptEditorRef.current;
+    if (editor) {
+      editor.insertTag(tag);
+    }
   }, []);
 
   // -- Template use handler --
   const handleUseMyTemplate = useCallback((template: PromptGroup) => {
-    const ids =
-      template.config?.selectedFragmentIds ||
-      (template.configJson
-        ? (() => {
-            try {
-              const parsed = JSON.parse(template.configJson);
-              return parsed?.selectedFragmentIds || [];
-            } catch {
-              return [];
-            }
-          })()
-        : []);
-
-    setSelectedFragmentIds(ids);
     setPromptContent(template.promptContent || "");
     setNegativePrompt(template.negativePrompt || "");
     if (template.config) {
@@ -161,7 +142,6 @@ export default function WorkbenchPage() {
         negativePrompt: template.negativePrompt || "",
         config: template.config || DEFAULT_CONFIG,
         references: template.references || [],
-        selectedFragmentIds: ids,
       })
     );
     toast.success(`已加载模板「${template.name}」`);
@@ -191,20 +171,6 @@ export default function WorkbenchPage() {
     if (template.references && template.references.length > 0) {
       setReferences(template.references);
     }
-    // Restore fragment ids from saved template if any
-    const ids =
-      template.config?.selectedFragmentIds ||
-      (template.configJson
-        ? (() => {
-            try {
-              const parsed = JSON.parse(template.configJson);
-              return parsed?.selectedFragmentIds || [];
-            } catch {
-              return [];
-            }
-          })()
-        : []);
-    setSelectedFragmentIds(ids);
     setCurrentTemplate(template);
     setOriginalHash(
       hashConfig({
@@ -212,7 +178,6 @@ export default function WorkbenchPage() {
         negativePrompt: template.negativePrompt || "",
         config: template.config || DEFAULT_CONFIG,
         references: template.references || [],
-        selectedFragmentIds: ids,
       })
     );
     toast.success(`已替换为模板「${template.name}」`);
@@ -248,7 +213,7 @@ export default function WorkbenchPage() {
         }),
         references,
       });
-      setOriginalHash(hashConfig({ promptContent, negativePrompt, config, references, selectedFragmentIds }));
+      setOriginalHash(hashConfig({ promptContent, negativePrompt, config, references }));
       toast.success("模板已保存");
       loadMyTemplates();
     } catch (err) {
@@ -280,7 +245,7 @@ export default function WorkbenchPage() {
         });
         setCurrentTemplate(res.data);
         setOriginalHash(
-          hashConfig({ promptContent, negativePrompt, config, references, selectedFragmentIds })
+          hashConfig({ promptContent, negativePrompt, config, references })
         );
         setSaveTemplateOpen(false);
         toast.success("已另存为新模板");
@@ -294,9 +259,9 @@ export default function WorkbenchPage() {
   );
 
   const handleGenerate = useCallback(async () => {
-    // Require at least prompt content, selected fragments, or reference images
+    // Require at least prompt content or reference images
     if (!builtPrompt.positivePrompt.trim() && references.length === 0) {
-      toast.error("请填写创意描述、选择片段或上传参考图");
+      toast.error("请填写创意描述或上传参考图");
       return;
     }
     setIsGenerating(true);
@@ -476,21 +441,6 @@ export default function WorkbenchPage() {
             />
           </div>
 
-          {/* Selected fragments */}
-          {selectedFragments.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-[14px] font-bold text-gray-800">
-                  已选提示词片段
-                </label>
-              </div>
-              <SelectedFragmentTags
-                fragments={selectedFragments}
-                onRemove={handleRemoveFragment}
-              />
-            </div>
-          )}
-
           {/* Prompt editor */}
           <div>
             <div className="flex items-center justify-between mb-3">
@@ -511,9 +461,14 @@ export default function WorkbenchPage() {
                   创意描述
                 </label>
                 <PromptEditor
+                  ref={promptEditorRef}
                   value={promptContent}
                   onChange={setPromptContent}
                   disabled={isGenerating}
+                  tags={tags}
+                  onRemoveTag={(tagId) => {
+                    setPromptContent((prev) => removeTag(prev, tagId));
+                  }}
                 />
               </div>
               <div className="flex items-center justify-between mb-3">
@@ -527,18 +482,13 @@ export default function WorkbenchPage() {
                 </button>
               </div>
               <ProductTagSelector
-                selected={selectedProductTags}
-                onToggle={(name) => {
-                  setSelectedProductTags((prev) => {
-                    const exists = prev.includes(name);
-                    const next = exists ? prev.filter((n) => n !== name) : [...prev, name];
-                    const tagText = next.join("，");
-                    setPromptContent((current) => {
-                      const base = current.split(" // 产品标签:")[0].trim();
-                      return tagText ? `${base}${base ? "，" : ""}${tagText}` : base;
-                    });
-                    return next;
-                  });
+                selectedIds={tags.filter(t => t.type === "product").map(t => t.id)}
+                onToggleTag={(tag, selected) => {
+                  if (selected) {
+                    handleInsertTag(tag);
+                  } else {
+                    setPromptContent((prev) => removeTag(prev, tag.id));
+                  }
                 }}
               />
             </div>
@@ -656,8 +606,7 @@ export default function WorkbenchPage() {
       <TemplateLibraryDrawer
         open={templateLibraryOpen}
         onClose={() => setTemplateLibraryOpen(false)}
-        onAddFragment={handleAddFragment}
-        onRemoveFragment={handleRemoveFragment}
+        onInsertTag={handleInsertTag}
         onUseMyTemplate={handleUseMyTemplate}
         onInsertTemplate={handleInsertTemplate}
         onReplaceTemplate={handleReplaceTemplate}
@@ -669,7 +618,7 @@ export default function WorkbenchPage() {
         open={saveTemplateOpen}
         onClose={() => setSaveTemplateOpen(false)}
         onSave={handleSaveAsTemplate}
-        selectedFragments={selectedFragments}
+        tags={tags}
         userPrompt={promptContent}
         negativePrompt={negativePrompt}
         config={config}

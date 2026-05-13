@@ -5,7 +5,7 @@ import { X, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { PromptGroupConfig } from "@/lib/types";
-import type { PromptFragment } from "@/lib/prompt";
+import type { PromptTag } from "@/lib/prompt";
 
 interface SaveTemplateDialogProps {
   open: boolean;
@@ -18,7 +18,8 @@ interface SaveTemplateDialogProps {
     config: PromptGroupConfig;
     referenceImages: string[];
   }) => void;
-  selectedFragments: PromptFragment[];
+  /** Tags currently in the prompt editor */
+  tags: PromptTag[];
   userPrompt: string;
   negativePrompt: string;
   config: PromptGroupConfig;
@@ -29,9 +30,11 @@ export default function SaveTemplateDialog({
   open,
   onClose,
   onSave,
-  selectedFragments,
+  tags,
 }: SaveTemplateDialogProps) {
   const [name, setName] = useState("");
+
+  const fragmentTags = tags.filter((t) => t.type === "fragment");
 
   if (!open) return null;
 
@@ -64,18 +67,18 @@ export default function SaveTemplateDialog({
             />
           </div>
 
-          {selectedFragments.length > 0 && (
+          {fragmentTags.length > 0 && (
             <div>
               <label className="block text-[13px] font-medium text-gray-700 mb-1.5">
                 已选片段
               </label>
               <div className="flex flex-wrap gap-1.5">
-                {selectedFragments.map((f) => (
+                {fragmentTags.map((t) => (
                   <span
-                    key={f.id}
+                    key={t.id}
                     className="px-2 py-1 rounded-lg text-[11px] bg-[#EEF0FF] text-[#4F46E5]"
                   >
-                    {f.name}
+                    {t.name}
                   </span>
                 ))}
               </div>
@@ -96,7 +99,7 @@ export default function SaveTemplateDialog({
               if (!name.trim()) return;
               onSave({
                 name: name.trim(),
-                selectedFragmentIds: selectedFragments.map((f) => f.id),
+                selectedFragmentIds: fragmentTags.map((t) => t.id),
                 userPrompt: "",
                 negativePrompt: "",
                 config: {},

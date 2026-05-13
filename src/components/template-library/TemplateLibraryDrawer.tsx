@@ -11,6 +11,7 @@ import {
   FRAGMENT_GROUPS,
   getFragmentsByGroup,
 } from "@/lib/prompt";
+import type { PromptTag } from "@/lib/prompt";
 import {
   TEMPLATE_CATEGORY_RULES,
   TEMPLATE_STYLE_RULES,
@@ -34,8 +35,8 @@ const TAB_LIST: { key: TabKey; label: string }[] = [
 interface TemplateLibraryDrawerProps {
   open: boolean;
   onClose: () => void;
-  onAddFragment: (fragment: PromptFragment) => void;
-  onRemoveFragment?: (fragmentId: string) => void;
+  /** Insert a tag into the prompt editor */
+  onInsertTag: (tag: PromptTag) => void;
   onUseMyTemplate: (template: PromptGroup) => void;
   onInsertTemplate: (template: PromptGroup) => void;
   onReplaceTemplate: (template: PromptGroup) => void;
@@ -45,8 +46,7 @@ interface TemplateLibraryDrawerProps {
 export default function TemplateLibraryDrawer({
   open,
   onClose,
-  onAddFragment,
-  onRemoveFragment,
+  onInsertTag,
   onUseMyTemplate,
   onInsertTemplate,
   onReplaceTemplate,
@@ -352,10 +352,21 @@ export default function TemplateLibraryDrawer({
                   <PromptFragmentCard
                     key={fragment.id}
                     fragment={fragment}
-                    onAdd={onAddFragment}
+                    onAdd={(frag) => {
+                      const tag: PromptTag = {
+                        id: frag.id,
+                        type: "fragment",
+                        name: frag.name,
+                        prompt: frag.promptFragment,
+                      };
+                      onInsertTag(tag);
+                    }}
                     onRemove={
-                      onRemoveFragment && isSelected
-                        ? () => onRemoveFragment(fragment.id)
+                      isSelected
+                        ? () => {
+                            // Tag removal is handled by the editor itself
+                            // This is just for visual feedback in the drawer
+                          }
                         : undefined
                     }
                     isSelected={isSelected}

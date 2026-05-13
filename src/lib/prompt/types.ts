@@ -5,7 +5,19 @@
  * - Prompt fragments (atomic prompt pieces)
  * - Prompt builder inputs and outputs
  * - User template saving
+ * - Prompt tags (inline tags in contentEditable editor)
  */
+
+/** Tag types for inline prompt editor */
+export type PromptTagType = "fragment" | "template" | "product";
+
+/** A selectable inline tag shown in the prompt editor */
+export interface PromptTag {
+  id: string;
+  type: PromptTagType;
+  name: string;
+  prompt: string;
+}
 
 /** A single selectable prompt fragment */
 export interface PromptFragment {
@@ -121,6 +133,8 @@ export interface ExtendedPromptConfig {
   promptFields?: PromptFieldSelections;
   /** Selected fragment ids (new) */
   selectedFragmentIds?: string[];
+  /** Selected tags (newer) */
+  selectedTags?: PromptTag[];
   /** Provider-specific config (reserved for future ComfyUI integration) */
   providerConfig?: {
     workflowId?: string | null;
