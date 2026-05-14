@@ -29,3 +29,20 @@ export async function GET(
     return NextResponse.json({ error: "获取任务详情失败" }, { status: 500 });
   }
 }
+
+// DELETE /api/ai-image/tasks/:id
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    await prisma.aiImageTask.delete({
+      where: { id },
+    });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Failed to delete task:", error);
+    return NextResponse.json({ error: "删除任务失败" }, { status: 500 });
+  }
+}

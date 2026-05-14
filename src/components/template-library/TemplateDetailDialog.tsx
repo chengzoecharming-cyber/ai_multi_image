@@ -6,44 +6,57 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getFragmentById } from "@/lib/prompt";
 import type { PromptTag } from "@/lib/prompt";
+import type { PromptGroup } from "@/lib/types";
+import { extractTags } from "@/components/create/PromptEditor";
 
-interface SaveTemplateDialogProps {
+interface TemplateDetailDialogProps {
   open: boolean;
+  template: PromptGroup | null;
   onClose: () => void;
-  onSave: (data: {
-    name: string;
-    promptContent: string;
-  }) => void;
-  /** Tags currently in the prompt editor */
-  tags: PromptTag[];
-  /** Raw promptContent (includes placeholders) */
-  promptContent: string;
-  /** Clean user text (without tag placeholders) */
-  userText: string;
+  onSave: (id: string, data: { name: string; promptContent: string }) => void;
 }
 
-export default function SaveTemplateDialog({
+export default function TemplateDetailDialog({
   open,
+  template,
   onClose,
   onSave,
-  tags,
-  userText,
-}: SaveTemplateDialogProps) {
+}: TemplateDetailDialogProps) {
   const [name, setName] = useState("");
   const [userTextState, setUserTextState] = useState("");
 
-  // Reset state when dialog opens
+  // Parse template data when dialog opens
+  const parsed = useMemo(() => {
+    if (!template) return { tags: [] as PromptTag[], userText: "" };
+    const tags = extractTags(template.promptContent);
+    // Remove tag placeholders from content to get user text
+    let text = template.promptContent;
+    tags.forEach((tag) => {
+      text = text
+        .replace(
+          new RegExp(
+            `\\{\\{${tag.type}:${tag.id}\\|[^}]+\\}\\}`,
+            "g"
+          ),
+          ""
+        )
+        .replace(
+          new RegExp(`\\{\\{${tag.type}:${tag.id}\\}\\}`, "g"),
+          ""
+        );
+    });
+    return { tags, userText: text.replace(/\s+/g, " ").trim() };
+  }, [template]);
+
   useEffect(() => {
-    if (open) {
-      setName("");
-      setUserTextState(userText);
+    if (open && template) {
+      setName(template.name);
+      setUserTextState(parsed.userText);
     }
-  }, [open, userText]);
+  }, [open, template, parsed.userText]);
 
-  // Show all tags (not just fragments) so user sees everything selected in config area
-  const allTags = useMemo(() => tags.filter((t) => t.type !== "template"), [tags]);
+  const allTags = parsed.tags;
 
-  // Resolve tag prompt for hover tooltip
   const resolveTagPrompt = (tag: PromptTag): string => {
     if (tag.type === "fragment") {
       const frag = getFragmentById(tag.id);
@@ -63,9 +76,17 @@ export default function SaveTemplateDialog({
     }
   };
 
+  const hasChanges = useMemo(() => {
+    if (!template) return false;
+    return (
+      name.trim() !== template.name ||
+      userTextState.trim() !== parsed.userText
+    );
+  }, [name, userTextState, template, parsed.userText]);
+
   const isValid = name.trim() && userTextState.trim();
 
-  if (!open) return null;
+  if (!open || !template) return null;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center">
@@ -73,7 +94,7 @@ export default function SaveTemplateDialog({
       <div className="relative w-[520px] max-h-[80vh] bg-white rounded-2xl shadow-xl p-6 animate-in fade-in zoom-in-95 duration-150 flex flex-col">
         <div className="flex items-center justify-between mb-5 shrink-0">
           <h3 className="text-[15px] font-semibold text-gray-800">
-            保存为模板
+            {template.name}
           </h3>
           <button
             onClick={onClose}
@@ -145,24 +166,20 @@ export default function SaveTemplateDialog({
           </Button>
           <Button
             onClick={() => {
-              if (!isValid) return;
-
-              // Build promptContent from all tags + edited user text
-              const tagPlaceholders = allTags.map(
-                (t) => `{{${t.type}:${t.id}|${t.name}}}`
-              ).join(" ");
+              if (!isValid || !hasChanges) return;
+              const tagPlaceholders = allTags
+                .map((t) => `{{${t.type}:${t.id}|${t.name}}}`)
+                .join(" ");
               const newPromptContent = tagPlaceholders
                 ? `${tagPlaceholders} ${userTextState.trim()}`
                 : userTextState.trim();
 
-              onSave({
+              onSave(template.id, {
                 name: name.trim(),
                 promptContent: newPromptContent,
               });
-              setName("");
-              setUserTextState("");
             }}
-            disabled={!isValid}
+            disabled={!isValid || !hasChanges}
             className="h-9 px-4 text-[13px] rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white disabled:opacity-50"
           >
             <Save className="w-3.5 h-3.5 mr-1.5" />

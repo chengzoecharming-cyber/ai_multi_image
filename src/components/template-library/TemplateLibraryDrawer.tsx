@@ -15,14 +15,13 @@ import type { PromptTag } from "@/lib/prompt";
 import {
   TEMPLATE_CATEGORY_RULES,
   TEMPLATE_STYLE_RULES,
-  TEMPLATE_TYPE_RULES,
-  TEMPLATE_SOURCE_OPTIONS,
   getEnabledOptions,
 } from "@/lib/prompt/rules";
 import type { PromptGroup } from "@/lib/types";
-import { getPromptGroups } from "@/lib/api";
+import { getPromptGroups, updatePromptGroup, deletePromptGroup } from "@/lib/api";
 import PromptFragmentCard from "./PromptFragmentCard";
 import MyTemplateCard from "./MyTemplateCard";
+import TemplateDetailDialog from "./TemplateDetailDialog";
 
 type TabKey = PromptFragmentGroup | "public_templates" | "my_templates";
 
@@ -37,6 +36,8 @@ interface TemplateLibraryDrawerProps {
   onClose: () => void;
   /** Insert a tag into the prompt editor */
   onInsertTag: (tag: PromptTag) => void;
+  /** Remove a tag from the prompt editor by id */
+  onRemoveTag?: (tagId: string) => void;
   onUseMyTemplate: (template: PromptGroup) => void;
   onInsertTemplate: (template: PromptGroup) => void;
   onReplaceTemplate: (template: PromptGroup) => void;
@@ -47,6 +48,7 @@ export default function TemplateLibraryDrawer({
   open,
   onClose,
   onInsertTag,
+  onRemoveTag,
   onUseMyTemplate,
   onInsertTemplate,
   onReplaceTemplate,
@@ -71,8 +73,6 @@ export default function TemplateLibraryDrawer({
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [styleFilter, setStyleFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [sourceFilter, setSourceFilter] = useState("all");
 
   useEffect(() => {
     if (open && activeTab === "public_templates") {
@@ -128,20 +128,35 @@ export default function TemplateLibraryDrawer({
     }
   };
 
+  // -- Detail dialog --
+  const [detailTemplate, setDetailTemplate] = useState<PromptGroup | null>(null);
+
+  const handleDetailSave = async (id: string, data: { name: string; promptContent: string }) => {
+    try {
+      await updatePromptGroup(id, data);
+      setDetailTemplate(null);
+      loadMyTemplates();
+    } catch (err) {
+      console.error("Failed to update template:", err);
+    }
+  };
+
+  const handleDelete = async (template: PromptGroup) => {
+    if (!window.confirm(`确定要删除模板「${template.name}」吗？`)) return;
+    try {
+      await deletePromptGroup(template.id);
+      loadMyTemplates();
+    } catch (err) {
+      console.error("Failed to delete template:", err);
+    }
+  };
+
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/20 backdrop-blur-[1px]"
-        onClick={onClose}
-      />
-
-      {/* Drawer */}
-      <div className="relative w-[800px] h-full bg-[#F7F8FA] shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+    <div className="absolute left-full top-0 w-[960px] h-full bg-[#F7F8FA] flex flex-col z-50">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-gray-100">
+        <div className="flex items-center justify-between px-5 py-3 bg-[#F7F8FA] border-b border-gray-100">
           <h2 className="text-[14px] font-semibold text-gray-800">模板库</h2>
           <button
             onClick={onClose}
@@ -152,7 +167,7 @@ export default function TemplateLibraryDrawer({
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 px-5 py-2 bg-white border-b border-gray-100 overflow-x-auto">
+        <div className="flex items-center gap-1 px-5 py-2 bg-[#F7F8FA] border-b border-gray-100 overflow-x-auto">
           {TAB_LIST.map((tab) => (
             <button
               key={tab.key}
@@ -175,7 +190,7 @@ export default function TemplateLibraryDrawer({
             /* Public Templates Tab */
             <div className="flex flex-col h-full">
               {/* Filters */}
-              <div className="px-5 py-3 space-y-3 bg-white border-b border-gray-100">
+              <div className="px-5 py-3 space-y-3 bg-[#F7F8FA] border-b border-gray-100">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
                   <Input
@@ -216,30 +231,6 @@ export default function TemplateLibraryDrawer({
                       {opt.label}
                     </button>
                   ))}
-                </div>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={typeFilter}
-                    onChange={(e) => setTypeFilter(e.target.value)}
-                    className="h-8 px-3 text-[12px] bg-[#F5F6F8] border-0 rounded-lg text-gray-600 outline-none"
-                  >
-                    {typeOptions.map((opt) => (
-                      <option key={opt.id} value={opt.id}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={sourceFilter}
-                    onChange={(e) => setSourceFilter(e.target.value)}
-                    className="h-8 px-3 text-[12px] bg-[#F5F6F8] border-0 rounded-lg text-gray-600 outline-none"
-                  >
-                    {TEMPLATE_SOURCE_OPTIONS.map((opt) => (
-                      <option key={opt.id} value={opt.id}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
                 </div>
               </div>
 
@@ -338,6 +329,8 @@ export default function TemplateLibraryDrawer({
                         onUseMyTemplate(t);
                         onClose();
                       }}
+                      onDetail={(t) => setDetailTemplate(t)}
+                      onDelete={handleDelete}
                     />
                   ))}
                 </div>
@@ -362,10 +355,9 @@ export default function TemplateLibraryDrawer({
                       onInsertTag(tag);
                     }}
                     onRemove={
-                      isSelected
-                        ? () => {
-                            // Tag removal is handled by the editor itself
-                            // This is just for visual feedback in the drawer
+                      isSelected && onRemoveTag
+                        ? (frag) => {
+                            onRemoveTag(frag.id);
                           }
                         : undefined
                     }
@@ -376,7 +368,14 @@ export default function TemplateLibraryDrawer({
             </div>
           )}
         </div>
+
+        {/* Template Detail Dialog */}
+        <TemplateDetailDialog
+          open={!!detailTemplate}
+          template={detailTemplate}
+          onClose={() => setDetailTemplate(null)}
+          onSave={handleDetailSave}
+        />
       </div>
-    </div>
-  );
+    );
 }

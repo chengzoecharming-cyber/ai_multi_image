@@ -10,6 +10,7 @@
 import { PromptFragment, PromptFragmentGroup } from "./types";
 
 export const FRAGMENT_GROUPS: { key: PromptFragmentGroup; label: string }[] = [
+  { key: "platform", label: "电商平台" },
   { key: "product_category", label: "产品类目" },
   { key: "image_type", label: "图片用途" },
   { key: "visual_style", label: "视觉风格" },
@@ -20,6 +21,52 @@ export const FRAGMENT_GROUPS: { key: PromptFragmentGroup; label: string }[] = [
 ];
 
 export const DEFAULT_FRAGMENTS: PromptFragment[] = [
+  // ───────────────── platform ─────────────────
+  {
+    id: "temu",
+    group: "platform",
+    name: "Temu",
+    description: "适合 Temu 平台的商品图，强调移动端浏览、清晰主体、直接转化和快速决策。",
+    promptFragment:
+      "Temu-style e-commerce product image, mobile-first commercial presentation, clear product focus, clean and attractive composition, strong visual clarity, suitable for fast browsing and conversion-oriented shopping",
+    tags: ["temu"],
+    sortOrder: 1,
+    enabled: true,
+  },
+  {
+    id: "amazon",
+    group: "platform",
+    name: "Amazon",
+    description: "适合 Amazon 平台的商品图，强调规范、干净、主体清晰和专业商品摄影感。",
+    promptFragment:
+      "Amazon-ready product listing image, clean and compliant e-commerce composition, clear product silhouette, professional product photography, minimal distractions, high clarity, suitable for marketplace display",
+    tags: ["amazon"],
+    sortOrder: 2,
+    enabled: true,
+  },
+  {
+    id: "ozen",
+    group: "platform",
+    name: "Ozen",
+    description: "适合 Ozen 平台的商品图，强调清晰、实用、可信赖的电商展示，适合跨境和商品详情展示。",
+    promptFragment:
+      "Ozen-style marketplace product image, clear and practical e-commerce presentation, trustworthy product display, clean background, visible product structure and material details, suitable for cross-border marketplace shopping",
+    tags: ["ozen"],
+    sortOrder: 3,
+    enabled: true,
+  },
+  {
+    id: "shein",
+    group: "platform",
+    name: "SHEIN",
+    description: "适合 SHEIN 平台的商品图，强调移动端展示、视觉吸引力、轻商业感和快速浏览体验。",
+    promptFragment:
+      "SHEIN-style product image, visually attractive mobile commerce presentation, clean but stylish composition, strong product appeal, lightweight commercial visual style, suitable for fast-scrolling shopping experience",
+    tags: ["shein"],
+    sortOrder: 4,
+    enabled: true,
+  },
+
   // ───────────────── product_category ─────────────────
   {
     id: "fastener",

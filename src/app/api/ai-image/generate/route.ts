@@ -94,24 +94,21 @@ export async function POST(request: NextRequest) {
       data: { status: "processing" },
     });
 
-    // Call Image Provider to generate multiple images
+    // Call Image Provider to generate a single image
     const provider = getImageProvider();
-    const outputCount = config?.outputCount || 4;
     const imageUrls: string[] = [];
 
-    for (let i = 0; i < outputCount; i++) {
-      const result = await provider.generate({
-        prompt: finalPrompt,
-        negativePrompt: finalNegativePrompt,
-        referenceImageUrls: referenceImageUrls || [],
-        width: config?.width || 1024,
-        height: config?.height || 1024,
-        model: config?.model,
-        quality: config?.quality,
-      });
-      if (result.success && result.imageUrl) {
-        imageUrls.push(result.imageUrl);
-      }
+    const result = await provider.generate({
+      prompt: finalPrompt,
+      negativePrompt: finalNegativePrompt,
+      referenceImageUrls: referenceImageUrls || [],
+      width: config?.width || 1024,
+      height: config?.height || 1024,
+      model: config?.model,
+      quality: config?.quality,
+    });
+    if (result.success && result.imageUrl) {
+      imageUrls.push(result.imageUrl);
     }
 
     if (imageUrls.length > 0) {

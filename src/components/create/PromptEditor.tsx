@@ -195,7 +195,7 @@ const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(function Pro
             <span
               key={`${tag.type}:${tag.id}`}
               className={cn(
-                "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border",
+                "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[12px] font-medium border",
                 tag.type === "product" && "bg-sky-50 text-sky-700 border-sky-200",
                 tag.type === "template" && "bg-amber-50 text-amber-700 border-amber-200",
                 tag.type === "fragment" && "bg-indigo-50 text-indigo-700 border-indigo-200"

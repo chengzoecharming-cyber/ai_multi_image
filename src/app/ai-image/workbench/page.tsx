@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Wand2, ChevronRight, Save } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { PromptGroup, ImageTask, ReferenceImage, PromptGroupConfig } from "@/lib/types";
@@ -18,7 +19,7 @@ import {
   extractTags,
   removeTag,
 } from "@/lib/prompt";
-import type { PromptTag } from "@/lib/prompt";
+import type { PromptTag, PromptFragment } from "@/lib/prompt";
 import SizeSelector from "@/components/create/SizeSelector";
 import PromptEditor, { type PromptEditorRef } from "@/components/create/PromptEditor";
 import ReferenceUploader from "@/components/create/ReferenceUploader";
@@ -40,6 +41,14 @@ const DEFAULT_CONFIG: PromptGroupConfig = {
 // Simple hash for detecting modifications
 function hashConfig(obj: unknown): string {
   return JSON.stringify(obj);
+}
+
+/** Extract plain user text from content by removing tag placeholders */
+function getUserText(content: string): string {
+  return content
+    .replace(/\{\{(fragment|template|product):([^}|]+)(?:\|[^}]*)?\}\}/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export default function WorkbenchPage() {
@@ -70,12 +79,14 @@ export default function WorkbenchPage() {
   const [myTemplates, setMyTemplates] = useState<PromptGroup[]>([]);
 
   // -- Generation state --
-  const [isGenerating, setIsGenerating] = useState(false);
+  // Tasks currently being generated (can be multiple)
+  const [generatingTasks, setGeneratingTasks] = useState<ImageTask[]>([]);
   const [latestTask, setLatestTask] = useState<ImageTask | null>(null);
   const [taskHistory, setTaskHistory] = useState<ImageTask[]>([]);
 
   // -- Right panel view state --
   const [showHistory, setShowHistory] = useState(false);
+  const hasGenerating = generatingTasks.length > 0;
 
   // -- UI state --
   const [templateLibraryOpen, setTemplateLibraryOpen] = useState(false);
@@ -223,29 +234,32 @@ export default function WorkbenchPage() {
   }, [currentTemplate, promptContent, negativePrompt, config, references, selectedFragmentIds]);
 
   const handleSaveAsTemplate = useCallback(
-    async (data: {
-      name: string;
-      selectedFragmentIds: string[];
-      userPrompt: string;
-      negativePrompt: string;
-      config: PromptGroupConfig;
-      referenceImages: string[];
-    }) => {
+    async (data: { name: string; promptContent: string }) => {
       try {
+        const newTags = extractTags(data.promptContent);
+        const newFragmentIds = newTags
+          .filter((t) => t.type === "fragment")
+          .map((t) => t.id);
+
         const res = await createPromptGroup({
           name: data.name,
-          promptContent,
+          promptContent: data.promptContent,
           negativePrompt,
           configJson: JSON.stringify({
             ...config,
-            selectedFragmentIds,
+            selectedFragmentIds: newFragmentIds,
           }),
           categoryId: currentTemplate?.categoryId || "",
           references,
         });
         setCurrentTemplate(res.data);
         setOriginalHash(
-          hashConfig({ promptContent, negativePrompt, config, references })
+          hashConfig({
+            promptContent: data.promptContent,
+            negativePrompt,
+            config,
+            references,
+          })
         );
         setSaveTemplateOpen(false);
         toast.success("已另存为新模板");
@@ -255,7 +269,7 @@ export default function WorkbenchPage() {
         console.error(err);
       }
     },
-    [promptContent, negativePrompt, config, references, currentTemplate, selectedFragmentIds]
+    [negativePrompt, config, references, currentTemplate]
   );
 
   const handleGenerate = useCallback(async () => {
@@ -264,7 +278,19 @@ export default function WorkbenchPage() {
       toast.error("请填写创意描述或上传参考图");
       return;
     }
-    setIsGenerating(true);
+    // Create a placeholder task to show in the generating list immediately
+    const placeholderTask: ImageTask = {
+      id: `gen-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      tenantId: "default",
+      userId: "default",
+      promptSnapshot: builtPrompt.positivePrompt,
+      configSnapshot: config,
+      referenceImagesSnapshot: references,
+      status: "processing",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setGeneratingTasks((prev) => [placeholderTask, ...prev]);
     try {
       const res = await generateImage({
         promptContent: builtPrompt.positivePrompt,
@@ -278,7 +304,7 @@ export default function WorkbenchPage() {
       const task = res.data;
       setLatestTask(task);
       setTaskHistory((prev) => [task, ...prev]);
-      setShowHistory(true);
+      setGeneratingTasks((prev) => prev.filter((t) => t.id !== placeholderTask.id));
       if (task.status === "completed" && task.resultImageUrl) {
         toast.success("图片生成成功");
       } else if (task.status === "failed") {
@@ -287,20 +313,32 @@ export default function WorkbenchPage() {
     } catch (err) {
       toast.error("生成请求失败");
       console.error(err);
-    } finally {
-      setIsGenerating(false);
+      // Remove placeholder on error
+      setGeneratingTasks((prev) => prev.filter((t) => t.id !== placeholderTask.id));
     }
   }, [builtPrompt, references, config, selectedFragmentIds]);
 
   const handleRetry = useCallback(async () => {
     if (!latestTask) return;
-    setIsGenerating(true);
+    const placeholderTask: ImageTask = {
+      id: `gen-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      tenantId: "default",
+      userId: "default",
+      promptSnapshot: latestTask.promptSnapshot,
+      configSnapshot: latestTask.configSnapshot,
+      referenceImagesSnapshot: latestTask.referenceImagesSnapshot,
+      status: "processing",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setGeneratingTasks((prev) => [placeholderTask, ...prev]);
     try {
       const { retryTask } = await import("@/lib/api");
       const res = await retryTask(latestTask.id);
       const task = res.data;
       setLatestTask(task);
       setTaskHistory((prev) => [task, ...prev.filter((t) => t.id !== task.id)]);
+      setGeneratingTasks((prev) => prev.filter((t) => t.id !== placeholderTask.id));
       if (task.status === "completed" && task.resultImageUrl) {
         toast.success("图片生成成功");
       } else if (task.status === "failed") {
@@ -309,10 +347,22 @@ export default function WorkbenchPage() {
     } catch (err) {
       toast.error("重试失败");
       console.error(err);
-    } finally {
-      setIsGenerating(false);
+      setGeneratingTasks((prev) => prev.filter((t) => t.id !== placeholderTask.id));
     }
   }, [latestTask]);
+
+  const handleDeleteTask = useCallback(async (taskId: string) => {
+    try {
+      const { deleteTask } = await import("@/lib/api");
+      await deleteTask(taskId);
+      setTaskHistory((prev) => prev.filter((t) => t.id !== taskId));
+      setLatestTask((prev) => (prev?.id === taskId ? null : prev));
+      toast.success("已删除生成记录");
+    } catch (err) {
+      toast.error("删除失败");
+      console.error(err);
+    }
+  }, []);
 
   const handleDownload = useCallback(() => {
     if (!latestTask?.resultImageUrl) return;
@@ -390,9 +440,9 @@ export default function WorkbenchPage() {
   );
 
   return (
-    <div className="h-screen flex bg-[#F7F8FA]">
+    <div className="h-screen flex bg-[#F7F8FA] overflow-hidden">
       {/* Left config panel */}
-      <div className="w-[400px] shrink-0 flex flex-col bg-white">
+      <div className="w-[400px] shrink-0 flex flex-col bg-white relative">
         {/* Scrollable config area */}
         <div className="flex-1 overflow-y-auto px-[16px] py-6 space-y-6">
           {/* Product & composition preview */}
@@ -449,7 +499,13 @@ export default function WorkbenchPage() {
               </label>
               <button
                 onClick={() => setSaveTemplateOpen(true)}
-                className="flex items-center text-[12px] text-gray-500 hover:text-indigo-600 transition-colors"
+                disabled={!promptContent.trim()}
+                className={cn(
+                  "flex items-center text-[12px] transition-colors",
+                  promptContent.trim()
+                    ? "text-gray-500 hover:text-indigo-600"
+                    : "text-gray-300 cursor-not-allowed"
+                )}
               >
                 <Save className="w-3.5 h-3.5 mr-1" />
                 保存为模版
@@ -464,7 +520,6 @@ export default function WorkbenchPage() {
                   ref={promptEditorRef}
                   value={promptContent}
                   onChange={setPromptContent}
-                  disabled={isGenerating}
                   tags={tags}
                   onRemoveTag={(tagId) => {
                     setPromptContent((prev) => removeTag(prev, tagId));
@@ -482,12 +537,18 @@ export default function WorkbenchPage() {
                 </button>
               </div>
               <ProductTagSelector
-                selectedIds={tags.filter(t => t.type === "product").map(t => t.id)}
-                onToggleTag={(tag, selected) => {
+                selectedIds={tags.filter(t => t.type === "fragment").map(t => t.id)}
+                onToggleFragment={(fragment: PromptFragment, selected: boolean) => {
                   if (selected) {
+                    const tag: PromptTag = {
+                      id: fragment.id,
+                      type: "fragment",
+                      name: fragment.name,
+                      prompt: fragment.promptFragment,
+                    };
                     handleInsertTag(tag);
                   } else {
-                    setPromptContent((prev) => removeTag(prev, tag.id));
+                    setPromptContent((prev) => removeTag(prev, fragment.id));
                   }
                 }}
               />
@@ -515,7 +576,6 @@ export default function WorkbenchPage() {
               value={negativePrompt}
               onChange={(e) => setNegativePrompt(e.target.value)}
               placeholder="输入不希望在画面中出现的内容..."
-              disabled={isGenerating}
               className="w-full min-h-[80px] px-4 py-3 text-[13px] bg-[#F5F6F8] border-0 rounded-xl resize-none outline-none placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0"
             />
           </div>
@@ -529,7 +589,6 @@ export default function WorkbenchPage() {
               images={references}
               onAdd={handleAddReferences}
               onRemove={handleRemoveReference}
-              disabled={isGenerating}
             />
           </div>
         </div>
@@ -542,27 +601,49 @@ export default function WorkbenchPage() {
             isModified={isModified}
             onSave={handleSaveTemplate}
             onSaveAs={() => setSaveTemplateOpen(true)}
-            disabled={isGenerating}
           />
 
           {/* Generate button */}
           <Button
             onClick={handleGenerate}
-            disabled={isGenerating || (!builtPrompt.positivePrompt.trim() && references.length === 0)}
+            disabled={!builtPrompt.positivePrompt.trim() && references.length === 0}
             className="w-full h-[52px] mt-4 rounded-2xl text-[15px] font-semibold text-white border-0 shadow-lg shadow-indigo-500/20 bg-gradient-to-r from-[#6366F1] to-[#8B5CF6] hover:from-[#5558E0] hover:to-[#7C4FE6] disabled:opacity-60"
           >
             <Wand2 className="w-5 h-5 mr-2" />
-            {isGenerating ? "生成中..." : "立即生成"}
+            立即生成
           </Button>
         </div>
+
+        {/* Template library drawer */}
+        {templateLibraryOpen && (
+          <TemplateLibraryDrawer
+            open={templateLibraryOpen}
+            onClose={() => setTemplateLibraryOpen(false)}
+            onInsertTag={handleInsertTag}
+            onRemoveTag={(tagId) => {
+              setPromptContent((prev) => removeTag(prev, tagId));
+            }}
+            onUseMyTemplate={handleUseMyTemplate}
+            onInsertTemplate={handleInsertTemplate}
+            onReplaceTemplate={handleReplaceTemplate}
+            selectedFragmentIds={selectedFragmentIds}
+          />
+        )}
       </div>
 
       {/* Right preview panel */}
       <div
-        className="flex-1 flex flex-col min-w-0"
+        className="flex-1 flex flex-col min-w-0 relative"
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleDrop}
       >
+        {/* Backdrop when drawer is open */}
+        {templateLibraryOpen && (
+          <div
+            className="absolute inset-0 bg-black/20 z-40"
+            onClick={() => setTemplateLibraryOpen(false)}
+          />
+        )}
         {/* Top bar */}
         {!showHistory && (
           <div className="flex items-center justify-between px-6 pt-6 pb-3">
@@ -588,8 +669,8 @@ export default function WorkbenchPage() {
           <PreviewPanel
             references={references}
             latestTask={latestTask}
+            generatingTasks={generatingTasks}
             taskHistory={taskHistory}
-            isGenerating={isGenerating}
             showHistory={showHistory}
             onRetry={handleRetry}
             onDownload={handleDownload}
@@ -598,20 +679,11 @@ export default function WorkbenchPage() {
             onCloseHistory={() => setShowHistory(false)}
             onOpenHistory={() => setShowHistory(true)}
             onUploadFile={handleUploadFile}
+            onDeleteTask={handleDeleteTask}
+            onRefreshTasks={loadTasks}
           />
         </div>
       </div>
-
-      {/* Template library drawer */}
-      <TemplateLibraryDrawer
-        open={templateLibraryOpen}
-        onClose={() => setTemplateLibraryOpen(false)}
-        onInsertTag={handleInsertTag}
-        onUseMyTemplate={handleUseMyTemplate}
-        onInsertTemplate={handleInsertTemplate}
-        onReplaceTemplate={handleReplaceTemplate}
-        selectedFragmentIds={selectedFragmentIds}
-      />
 
       {/* Save template dialog */}
       <SaveTemplateDialog
@@ -619,10 +691,8 @@ export default function WorkbenchPage() {
         onClose={() => setSaveTemplateOpen(false)}
         onSave={handleSaveAsTemplate}
         tags={tags}
-        userPrompt={promptContent}
-        negativePrompt={negativePrompt}
-        config={config}
-        referenceImages={references.map((r) => r.imageUrl)}
+        promptContent={promptContent}
+        userText={getUserText(promptContent)}
       />
     </div>
   );

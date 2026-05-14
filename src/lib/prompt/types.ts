@@ -34,6 +34,7 @@ export interface PromptFragment {
 
 /** Fragment group keys */
 export type PromptFragmentGroup =
+  | "platform"
   | "product_category"
   | "image_type"
   | "visual_style"

@@ -90,6 +90,10 @@ export async function retryTask(id: string): Promise<{ data: ImageTask }> {
   return fetchJson(`${API_BASE}/ai-image/tasks/${id}/retry`, { method: "POST" });
 }
 
+export async function deleteTask(id: string): Promise<void> {
+  await fetchJson(`${API_BASE}/ai-image/tasks/${id}`, { method: "DELETE" });
+}
+
 // 上传 API
 export async function uploadFile(file: File): Promise<{ data: { url: string; name: string; size: number; type: string } }> {
   const formData = new FormData();

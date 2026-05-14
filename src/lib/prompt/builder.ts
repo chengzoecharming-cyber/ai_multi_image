@@ -28,6 +28,7 @@ const STRUCTURE_PRESERVATION =
 
 /** Group order for building the prompt */
 const GROUP_ORDER: PromptFragmentGroup[] = [
+  "platform",
   "product_category",
   "image_type",
   "visual_style",
@@ -38,6 +39,7 @@ const GROUP_ORDER: PromptFragmentGroup[] = [
 
 /** Human-readable labels for each group */
 const GROUP_LABELS: Record<PromptFragmentGroup, string> = {
+  platform: "Platform",
   product_category: "Product category",
   image_type: "Image purpose",
   visual_style: "Visual style",

@@ -38,7 +38,7 @@ export default function PromptFragmentCard({
           {/* Hover info icon */}
           <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
-              className="w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-sm hover:bg-white"
+              className="w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white"
               title={fragment.promptFragment}
               onClick={(e) => e.stopPropagation()}
             >
@@ -51,7 +51,7 @@ export default function PromptFragmentCard({
           <span className="text-xs text-gray-300">示例图</span>
           <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
-              className="w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-sm hover:bg-white"
+              className="w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white"
               title={fragment.promptFragment}
               onClick={(e) => e.stopPropagation()}
             >
