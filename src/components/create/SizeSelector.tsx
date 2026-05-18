@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { SIZE_OPTIONS } from "@/lib/prompt/rules";
+import { SIZE_OPTIONS } from "@/lib/prompt/fragments";
 import { Settings2 } from "lucide-react";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";

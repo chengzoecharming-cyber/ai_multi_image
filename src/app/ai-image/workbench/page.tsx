@@ -1,33 +1,32 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { Wand2, ChevronRight, Save } from "lucide-react";
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { Wand2, Eye, Upload, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
-import type { PromptGroup, ImageTask, ReferenceImage, PromptGroupConfig } from "@/lib/types";
+import type { ImageTask, PromptGroup, PromptGroupConfig } from "@/lib/types";
 import {
   generateImage,
   getTasks,
-  createPromptGroup,
-  updatePromptGroup,
   uploadFile,
   getPromptGroups,
 } from "@/lib/api";
-import {
-  buildPromptFromContent,
-  extractTags,
-  removeTag,
-} from "@/lib/prompt";
-import type { PromptTag, PromptFragment } from "@/lib/prompt";
+import { buildPromptFromTemplate } from "@/lib/prompt";
+import type { PromptTemplate } from "@/lib/prompt/templates";
+import { getTemplateById } from "@/lib/prompt/templates";
 import SizeSelector from "@/components/create/SizeSelector";
-import PromptEditor, { type PromptEditorRef } from "@/components/create/PromptEditor";
 import ReferenceUploader from "@/components/create/ReferenceUploader";
-import CurrentTemplateBar from "@/components/create/CurrentTemplateBar";
 import PreviewPanel from "@/components/create/PreviewPanel";
-import ProductTagSelector from "@/components/create/ProductTagSelector";
-import TemplateLibraryDrawer from "@/components/template-library/TemplateLibraryDrawer";
-import SaveTemplateDialog from "@/components/template-library/SaveTemplateDialog";
+import TemplateSelector from "@/components/create/TemplateSelector";
+import TemplateVariableForm from "@/components/create/TemplateVariableForm";
 
 // Default empty config
 const DEFAULT_CONFIG: PromptGroupConfig = {
@@ -36,50 +35,45 @@ const DEFAULT_CONFIG: PromptGroupConfig = {
   height: 1024,
   model: "default",
   quality: "standard",
+  strictSize: true,
+  generationModeId: "conservative_enhancement",
 };
+
+// Generation mode options
+const GENERATION_MODES = [
+  { id: "conservative_enhancement", name: "保守优化", description: "尽量保持产品结构不变，只优化背景、光影、清晰度和商品展示效果" },
+  { id: "commercial_showcase", name: "商业展示", description: "在保持主要结构的基础上，增强商品图的商业质感和展示效果" },
+  { id: "creative_scene", name: "创意场景", description: "生成更有氛围和创意的商品图，但可能对产品结构产生更大变化" },
+];
 
 // Simple hash for detecting modifications
 function hashConfig(obj: unknown): string {
   return JSON.stringify(obj);
 }
 
-/** Extract plain user text from content by removing tag placeholders */
-function getUserText(content: string): string {
-  return content
-    .replace(/\{\{(fragment|template|product):([^}|]+)(?:\|[^}]*)?\}\}/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 export default function WorkbenchPage() {
-  // -- Core state --
-  const [promptContent, setPromptContent] = useState("");
-  const [negativePrompt, setNegativePrompt] = useState("");
+  // -- Core state (template-first) --
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [variableValues, setVariableValues] = useState<Record<string, string>>({});
+  const [userDescription, setUserDescription] = useState("");
   const [config, setConfig] = useState<PromptGroupConfig>(DEFAULT_CONFIG);
-  const [references, setReferences] = useState<ReferenceImage[]>([]);
+  const [productImageUrl, setProductImageUrl] = useState<string | null>(null);
+  const [styleReferenceUrls, setStyleReferenceUrls] = useState<string[]>([]);
 
-  // Editor ref for inserting tags
-  const promptEditorRef = useRef<PromptEditorRef>(null);
-
-  // -- Tags derived from promptContent (single source of truth) --
-  const tags = useMemo(() => extractTags(promptContent), [promptContent]);
-  const selectedFragmentIds = useMemo(
-    () => tags.filter((t) => t.type === "fragment").map((t) => t.id),
-    [tags]
+  // -- Derived: current template object --
+  const currentTemplate = useMemo(
+    () => (selectedTemplateId ? getTemplateById(selectedTemplateId) || null : null),
+    [selectedTemplateId]
   );
 
-  // -- Template state --
-  const [currentTemplate, setCurrentTemplate] = useState<PromptGroup | null>(null);
-  const [originalHash, setOriginalHash] = useState<string>("");
-  const isModified = currentTemplate
-    ? hashConfig({ promptContent, negativePrompt, config, references }) !== originalHash
-    : false;
+  // -- UI expand/collapse state --
+  const [showPromptPreview, setShowPromptPreview] = useState(false);
+  const [showFullPromptDialog, setShowFullPromptDialog] = useState(false);
 
   // -- My templates --
   const [myTemplates, setMyTemplates] = useState<PromptGroup[]>([]);
 
   // -- Generation state --
-  // Tasks currently being generated (can be multiple)
   const [generatingTasks, setGeneratingTasks] = useState<ImageTask[]>([]);
   const [latestTask, setLatestTask] = useState<ImageTask | null>(null);
   const [taskHistory, setTaskHistory] = useState<ImageTask[]>([]);
@@ -89,17 +83,21 @@ export default function WorkbenchPage() {
   const hasGenerating = generatingTasks.length > 0;
 
   // -- UI state --
-  const [templateLibraryOpen, setTemplateLibraryOpen] = useState(false);
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
 
-  // -- Computed: built prompt preview (using tags from promptContent) --
+  // -- Computed: built prompt preview --
   const builtPrompt = useMemo(() => {
-    return buildPromptFromContent(
-      promptContent,
-      negativePrompt,
-      references.length
-    );
-  }, [promptContent, negativePrompt, references.length]);
+    if (!currentTemplate) {
+      return { positivePrompt: "", negativePrompt: "" };
+    }
+    return buildPromptFromTemplate({
+      templateId: currentTemplate.id,
+      variableValues,
+      userDescription: userDescription || undefined,
+      hasProductImage: !!productImageUrl,
+      hasStyleReferences: styleReferenceUrls.length > 0,
+    });
+  }, [currentTemplate, variableValues, userDescription, productImageUrl, styleReferenceUrls]);
 
   // Load task history + my templates on mount
   useEffect(() => {
@@ -125,73 +123,16 @@ export default function WorkbenchPage() {
     }
   };
 
-  // -- Insert tag into editor --
-  const handleInsertTag = useCallback((tag: PromptTag) => {
-    const editor = promptEditorRef.current;
-    if (editor) {
-      editor.insertTag(tag);
+  // -- Template selection --
+  const handleSelectTemplate = useCallback((template: PromptTemplate) => {
+    setSelectedTemplateId(template.id);
+    // Reset variables to defaults
+    const defaults: Record<string, string> = {};
+    for (const v of template.variables) {
+      defaults[v.key] = v.defaultValue || "";
     }
-  }, []);
-
-  // -- Template use handler --
-  const handleUseMyTemplate = useCallback((template: PromptGroup) => {
-    setPromptContent(template.promptContent || "");
-    setNegativePrompt(template.negativePrompt || "");
-    if (template.config) {
-      setConfig({
-        ...DEFAULT_CONFIG,
-        ...template.config,
-      });
-    }
-    if (template.references && template.references.length > 0) {
-      setReferences(template.references);
-    }
-    setCurrentTemplate(template);
-    setOriginalHash(
-      hashConfig({
-        promptContent: template.promptContent || "",
-        negativePrompt: template.negativePrompt || "",
-        config: template.config || DEFAULT_CONFIG,
-        references: template.references || [],
-      })
-    );
-    toast.success(`已加载模板「${template.name}」`);
-  }, []);
-
-  // -- Template insert/replace handlers (公共模板) --
-  const handleInsertTemplate = useCallback((template: PromptGroup) => {
-    setPromptContent((prev) => {
-      if (!prev) return template.promptContent;
-      return `${prev}，${template.promptContent}`;
-    });
-    if (template.negativePrompt) {
-      setNegativePrompt((prev) => {
-        if (!prev) return template.negativePrompt!;
-        return `${prev}，${template.negativePrompt}`;
-      });
-    }
-    toast.success(`已插入模板「${template.name}」`);
-  }, []);
-
-  const handleReplaceTemplate = useCallback((template: PromptGroup) => {
-    setPromptContent(template.promptContent);
-    if (template.negativePrompt) setNegativePrompt(template.negativePrompt);
-    if (template.config) {
-      setConfig((prev) => ({ ...prev, ...template.config }));
-    }
-    if (template.references && template.references.length > 0) {
-      setReferences(template.references);
-    }
-    setCurrentTemplate(template);
-    setOriginalHash(
-      hashConfig({
-        promptContent: template.promptContent,
-        negativePrompt: template.negativePrompt || "",
-        config: template.config || DEFAULT_CONFIG,
-        references: template.references || [],
-      })
-    );
-    toast.success(`已替换为模板「${template.name}」`);
+    setVariableValues(defaults);
+    toast.success(`已选择模版「${template.name}」`);
   }, []);
 
   // -- Handlers --
@@ -199,85 +140,47 @@ export default function WorkbenchPage() {
     setConfig((prev) => ({ ...prev, ratio: value, width, height }));
   }, []);
 
-  const handleAddReferences = useCallback((newImages: ReferenceImage[]) => {
-    setReferences((prev) => [...prev, ...newImages]);
-  }, []);
-
-  const handleRemoveReference = useCallback((index: number) => {
-    setReferences((prev) => prev.filter((_, i) => i !== index));
-  }, []);
-
-  const handleClearReferences = useCallback(() => {
-    setReferences([]);
-  }, []);
-
-  const handleSaveTemplate = useCallback(async () => {
-    if (!currentTemplate) return;
-    try {
-      await updatePromptGroup(currentTemplate.id, {
-        name: currentTemplate.name,
-        promptContent,
-        negativePrompt,
-        configJson: JSON.stringify({
-          ...config,
-          selectedFragmentIds,
-        }),
-        references,
-      });
-      setOriginalHash(hashConfig({ promptContent, negativePrompt, config, references }));
-      toast.success("模板已保存");
-      loadMyTemplates();
-    } catch (err) {
-      toast.error("保存失败");
-      console.error(err);
-    }
-  }, [currentTemplate, promptContent, negativePrompt, config, references, selectedFragmentIds]);
-
-  const handleSaveAsTemplate = useCallback(
-    async (data: { name: string; promptContent: string }) => {
+  // Product image handlers
+  const handleProductImageUpload = useCallback(
+    async (files: FileList) => {
+      const fileArray = Array.from(files).filter((f) => f.type.startsWith("image/"));
+      if (!fileArray.length) return;
+      const file = fileArray[0];
       try {
-        const newTags = extractTags(data.promptContent);
-        const newFragmentIds = newTags
-          .filter((t) => t.type === "fragment")
-          .map((t) => t.id);
-
-        const res = await createPromptGroup({
-          name: data.name,
-          promptContent: data.promptContent,
-          negativePrompt,
-          configJson: JSON.stringify({
-            ...config,
-            selectedFragmentIds: newFragmentIds,
-          }),
-          categoryId: currentTemplate?.categoryId || "",
-          references,
-        });
-        setCurrentTemplate(res.data);
-        setOriginalHash(
-          hashConfig({
-            promptContent: data.promptContent,
-            negativePrompt,
-            config,
-            references,
-          })
-        );
-        setSaveTemplateOpen(false);
-        toast.success("已另存为新模板");
-        loadMyTemplates();
+        const res = await uploadFile(file);
+        setProductImageUrl(res.data.url);
+        toast.success("商品主体图已上传");
       } catch (err) {
-        toast.error("保存失败");
+        toast.error("上传失败");
         console.error(err);
       }
     },
-    [negativePrompt, config, references, currentTemplate]
+    []
   );
 
+  const handleRemoveProductImage = useCallback(() => {
+    setProductImageUrl(null);
+  }, []);
+
+  // Style reference handlers
+  const handleAddStyleReferences = useCallback((newUrls: string[]) => {
+    setStyleReferenceUrls((prev) => [...prev, ...newUrls]);
+  }, []);
+
+  const handleRemoveStyleReference = useCallback((index: number) => {
+    setStyleReferenceUrls((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
   const handleGenerate = useCallback(async () => {
-    // Require at least prompt content or reference images
-    if (!builtPrompt.positivePrompt.trim() && references.length === 0) {
-      toast.error("请填写创意描述或上传参考图");
+    if (!currentTemplate) {
+      toast.error("请先选择一个模版");
       return;
     }
+    if (!productImageUrl) {
+      toast.error("请上传商品主体图");
+      return;
+    }
+
     // Create a placeholder task to show in the generating list immediately
     const placeholderTask: ImageTask = {
       id: `gen-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -285,20 +188,26 @@ export default function WorkbenchPage() {
       userId: "default",
       promptSnapshot: builtPrompt.positivePrompt,
       configSnapshot: config,
-      referenceImagesSnapshot: references,
+      referenceImagesSnapshot: {
+        productImageUrl,
+        styleReferenceUrls,
+      },
       status: "processing",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
     setGeneratingTasks((prev) => [placeholderTask, ...prev]);
+
     try {
       const res = await generateImage({
-        promptContent: builtPrompt.positivePrompt,
-        negativePrompt: builtPrompt.negativePrompt,
-        referenceImageUrls: references.map((r) => r.imageUrl),
+        templateId: currentTemplate.id,
+        variableValues,
+        userDescription: userDescription || undefined,
+        productImageUrl,
+        styleReferenceUrls,
         config: {
           ...config,
-          selectedFragmentIds,
+          generationModeId: config.generationModeId || DEFAULT_CONFIG.generationModeId,
         },
       });
       const task = res.data;
@@ -313,10 +222,9 @@ export default function WorkbenchPage() {
     } catch (err) {
       toast.error("生成请求失败");
       console.error(err);
-      // Remove placeholder on error
       setGeneratingTasks((prev) => prev.filter((t) => t.id !== placeholderTask.id));
     }
-  }, [builtPrompt, references, config, selectedFragmentIds]);
+  }, [currentTemplate, builtPrompt, productImageUrl, styleReferenceUrls, config, variableValues, userDescription]);
 
   const handleRetry = useCallback(async () => {
     if (!latestTask) return;
@@ -388,27 +296,47 @@ export default function WorkbenchPage() {
       e.preventDefault();
       const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"));
       if (!files.length) return;
-      const remaining = 5 - references.length;
-      const toUpload = files.slice(0, remaining);
-      const newImages: ReferenceImage[] = [];
-      for (const file of toUpload) {
+
+      if (!productImageUrl) {
         try {
-          const res = await uploadFile(file);
-          newImages.push({
-            imageUrl: res.data.url,
-            imageName: res.data.name,
-            sortOrder: references.length + newImages.length,
-          });
+          const res = await uploadFile(files[0]);
+          setProductImageUrl(res.data.url);
+          toast.success("商品主体图已上传");
         } catch (err) {
           console.error("Upload failed:", err);
         }
-      }
-      if (newImages.length > 0) {
-        setReferences((prev) => [...prev, ...newImages]);
-        toast.success(`已上传 ${newImages.length} 张参考图`);
+        const remaining = files.slice(1);
+        const newUrls: string[] = [];
+        for (const file of remaining.slice(0, 5 - styleReferenceUrls.length)) {
+          try {
+            const res = await uploadFile(file);
+            newUrls.push(res.data.url);
+          } catch (err) {
+            console.error("Upload failed:", err);
+          }
+        }
+        if (newUrls.length > 0) {
+          setStyleReferenceUrls((prev) => [...prev, ...newUrls]);
+          toast.success(`已上传 ${newUrls.length} 张风格参考图`);
+        }
+      } else {
+        const toUpload = files.slice(0, 5 - styleReferenceUrls.length);
+        const newUrls: string[] = [];
+        for (const file of toUpload) {
+          try {
+            const res = await uploadFile(file);
+            newUrls.push(res.data.url);
+          } catch (err) {
+            console.error("Upload failed:", err);
+          }
+        }
+        if (newUrls.length > 0) {
+          setStyleReferenceUrls((prev) => [...prev, ...newUrls]);
+          toast.success(`已上传 ${newUrls.length} 张风格参考图`);
+        }
       }
     },
-    [references]
+    [productImageUrl, styleReferenceUrls]
   );
 
   // File upload from empty-state click
@@ -416,49 +344,86 @@ export default function WorkbenchPage() {
     async (files: FileList) => {
       const fileArray = Array.from(files).filter((f) => f.type.startsWith("image/"));
       if (!fileArray.length) return;
-      const remaining = 5 - references.length;
-      const toUpload = fileArray.slice(0, remaining);
-      const newImages: ReferenceImage[] = [];
-      for (const file of toUpload) {
+
+      if (!productImageUrl) {
         try {
-          const res = await uploadFile(file);
-          newImages.push({
-            imageUrl: res.data.url,
-            imageName: res.data.name,
-            sortOrder: references.length + newImages.length,
-          });
+          const res = await uploadFile(fileArray[0]);
+          setProductImageUrl(res.data.url);
+          toast.success("商品主体图已上传");
         } catch (err) {
           console.error("Upload failed:", err);
         }
-      }
-      if (newImages.length > 0) {
-        setReferences((prev) => [...prev, ...newImages]);
-        toast.success(`已上传 ${newImages.length} 张参考图`);
+        const remaining = fileArray.slice(1);
+        const newUrls: string[] = [];
+        for (const file of remaining.slice(0, 5 - styleReferenceUrls.length)) {
+          try {
+            const res = await uploadFile(file);
+            newUrls.push(res.data.url);
+          } catch (err) {
+            console.error("Upload failed:", err);
+          }
+        }
+        if (newUrls.length > 0) {
+          setStyleReferenceUrls((prev) => [...prev, ...newUrls]);
+          toast.success(`已上传 ${newUrls.length} 张风格参考图`);
+        }
+      } else {
+        const toUpload = fileArray.slice(0, 5 - styleReferenceUrls.length);
+        const newUrls: string[] = [];
+        for (const file of toUpload) {
+          try {
+            const res = await uploadFile(file);
+            newUrls.push(res.data.url);
+          } catch (err) {
+            console.error("Upload failed:", err);
+          }
+        }
+        if (newUrls.length > 0) {
+          setStyleReferenceUrls((prev) => [...prev, ...newUrls]);
+          toast.success(`已上传 ${newUrls.length} 张风格参考图`);
+        }
       }
     },
-    [references]
+    [productImageUrl, styleReferenceUrls]
   );
 
   return (
     <div className="h-screen flex bg-[#F7F8FA] overflow-hidden">
       {/* Left config panel */}
-      <div className="w-[400px] shrink-0 flex flex-col bg-white relative">
+      <div className="w-[420px] shrink-0 flex flex-col bg-white relative">
         {/* Scrollable config area */}
         <div className="flex-1 overflow-y-auto px-[16px] py-6 space-y-6">
-          {/* Product & composition preview */}
+          {/* Step 1: Select Template */}
           <div>
-            <label className="block text-[14px] font-bold text-gray-800 mb-3">
-              商品及构图
+            <label className="block text-[14px] font-bold text-gray-800 mb-1">
+              <span className="text-red-500 mr-1">*</span>1. 选择模版
             </label>
+            <p className="text-[12px] text-gray-500 mb-3">
+              每个模版都是完整的 Prompt 方案，选择后填写变量即可生成。
+            </p>
+            <TemplateSelector
+              selectedTemplateId={selectedTemplateId}
+              onSelect={handleSelectTemplate}
+            />
+          </div>
+
+          {/* Step 2: Upload Product Image */}
+          <div>
+            <label className="block text-[14px] font-bold text-gray-800 mb-1">
+              <span className="text-red-500 mr-1">*</span>2. 上传商品图
+            </label>
+            <p className="text-[12px] text-gray-500 mb-2">
+              AI 将以此图为基准，保持产品外形、结构和比例。
+            </p>
             <div className="rounded-2xl bg-[#F8F9FB] h-[180px] flex items-center justify-center overflow-hidden relative group">
-              {references.length > 0 ? (
+              {productImageUrl ? (
                 <>
                   <img
-                    src={references[0].imageUrl}
+                    src={productImageUrl}
                     alt="商品预览"
                     className="w-full h-full object-contain"
                   />
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-2">
                     <label className="px-4 py-2 bg-white text-gray-800 text-[13px] font-medium rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
                       重新上传
                       <input
@@ -466,15 +431,117 @@ export default function WorkbenchPage() {
                         accept="image/jpeg,image/jpg,image/png,image/webp"
                         className="hidden"
                         onChange={(e) => {
-                          if (e.target.files) handleUploadFile(e.target.files);
+                          if (e.target.files) handleProductImageUpload(e.target.files);
                         }}
                       />
                     </label>
+                    <button
+                      onClick={handleRemoveProductImage}
+                      className="px-4 py-2 bg-red-50 text-red-600 text-[13px] font-medium rounded-lg hover:bg-red-100 transition-colors"
+                    >
+                      删除
+                    </button>
                   </div>
                 </>
               ) : (
-                <span className="text-[13px] text-gray-400">从右侧上传图片后开始制作</span>
+                <label className="flex flex-col items-center justify-center w-full h-full cursor-pointer">
+                  <Upload className="w-8 h-8 text-gray-300 mb-2" />
+                  <span className="text-[13px] text-gray-400">点击上传商品主体图</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files) handleProductImageUpload(e.target.files);
+                    }}
+                  />
+                </label>
               )}
+            </div>
+          </div>
+
+          {/* Step 3: Style References (Optional) */}
+          <div>
+            <label className="block text-[14px] font-bold text-gray-800 mb-1">
+              3. 风格参考图<span className="text-gray-400 font-normal text-sm ml-1">（可选）</span>
+            </label>
+            <p className="text-[12px] text-gray-500 mb-2">
+              AI 只参考视觉风格，不改变商品主体结构。
+            </p>
+            <ReferenceUploader
+              urls={styleReferenceUrls}
+              onAdd={handleAddStyleReferences}
+              onRemove={handleRemoveStyleReference}
+              maxCount={5}
+            />
+          </div>
+
+          {/* Step 4: Template Variables */}
+          {currentTemplate && (
+            <div>
+              <label className="block text-[14px] font-bold text-gray-800 mb-3">
+                4. 填写模版变量
+              </label>
+              <TemplateVariableForm
+                template={currentTemplate}
+                values={variableValues}
+                onChange={setVariableValues}
+              />
+            </div>
+          )}
+
+          {/* Step 5: Free Description (Optional) */}
+          <div>
+            <label className="block text-[14px] font-bold text-gray-800 mb-1">
+              5. 补充自由描述<span className="text-gray-400 font-normal text-sm ml-1">（可选）</span>
+            </label>
+            <p className="text-[12px] text-gray-500 mb-2">
+              在模版基础上追加个性化要求。
+            </p>
+            <textarea
+              value={userDescription}
+              onChange={(e) => setUserDescription(e.target.value)}
+              placeholder="例如：需要在右上角增加一个对比区域、背景使用深蓝色..."
+              className="w-full min-h-[80px] px-4 py-3 text-[13px] bg-[#F5F6F8] border-0 rounded-xl resize-none outline-none placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
+          </div>
+
+          {/* Generation mode */}
+          <div>
+            <label className="block text-[14px] font-bold text-gray-800 mb-3">
+              生成模式
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {GENERATION_MODES.map((mode) => {
+                const isActive = (config.generationModeId || DEFAULT_CONFIG.generationModeId) === mode.id;
+                return (
+                  <button
+                    key={mode.id}
+                    onClick={() =>
+                      setConfig((prev) => ({ ...prev, generationModeId: mode.id }))
+                    }
+                    className={cn(
+                      "flex flex-col items-start p-3 rounded-xl border text-left transition-all",
+                      isActive
+                        ? "border-indigo-500 bg-indigo-50/40 shadow-sm"
+                        : "border-gray-200 bg-white hover:border-gray-300"
+                    )}
+                    title={mode.description}
+                  >
+                    <span
+                      className={cn(
+                        "text-[13px] font-semibold",
+                        isActive ? "text-indigo-700" : "text-gray-800"
+                      )}
+                    >
+                      {mode.name}
+                    </span>
+                    <span className="text-[11px] text-gray-500 mt-1 leading-snug">
+                      {mode.description}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -489,146 +556,98 @@ export default function WorkbenchPage() {
               height={config.height}
               onChange={handleSizeChange}
             />
-          </div>
-
-          {/* Prompt editor */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <label className="text-[14px] font-bold text-gray-800">
-                <span className="text-red-500 mr-1">*</span>创意灵感
-              </label>
+            <div className="mt-3 flex items-center gap-2">
               <button
-                onClick={() => setSaveTemplateOpen(true)}
-                disabled={!promptContent.trim()}
+                type="button"
+                onClick={() => setConfig((prev) => ({ ...prev, strictSize: prev.strictSize !== false ? false : true }))}
                 className={cn(
-                  "flex items-center text-[12px] transition-colors",
-                  promptContent.trim()
-                    ? "text-gray-500 hover:text-indigo-600"
-                    : "text-gray-300 cursor-not-allowed"
+                  "px-3 py-1.5 rounded-lg text-[12px] border transition-colors",
+                  config.strictSize !== false
+                    ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                    : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
                 )}
               >
-                <Save className="w-3.5 h-3.5 mr-1" />
-                保存为模版
+                严格尺寸: {config.strictSize !== false ? "开" : "关"}
               </button>
-            </div>
-            <div>
-              <div className="mb-3">
-                <label className="block text-[12px] font-semibold text-gray-700 mb-2">
-                  创意描述
-                </label>
-                <PromptEditor
-                  ref={promptEditorRef}
-                  value={promptContent}
-                  onChange={setPromptContent}
-                  tags={tags}
-                  onRemoveTag={(tagId) => {
-                    setPromptContent((prev) => removeTag(prev, tagId));
-                  }}
-                />
-              </div>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[12px] font-semibold text-gray-700">描述词推荐</span>
-                <button
-                  onClick={() => setTemplateLibraryOpen(true)}
-                  className="flex items-center text-[12px] text-gray-500 hover:text-indigo-600 transition-colors"
-                >
-                  从模版库添加
-                  <ChevronRight className="w-3.5 h-3.5 ml-1" />
-                </button>
-              </div>
-              <ProductTagSelector
-                selectedIds={tags.filter(t => t.type === "fragment").map(t => t.id)}
-                onToggleFragment={(fragment: PromptFragment, selected: boolean) => {
-                  if (selected) {
-                    const tag: PromptTag = {
-                      id: fragment.id,
-                      type: "fragment",
-                      name: fragment.name,
-                      prompt: fragment.promptFragment,
-                    };
-                    handleInsertTag(tag);
-                  } else {
-                    setPromptContent((prev) => removeTag(prev, fragment.id));
-                  }
-                }}
-              />
+              <span className="text-[12px] text-gray-500">
+                建议保持开启，避免尺寸被自动适配
+              </span>
             </div>
           </div>
 
-          {/* Built prompt preview */}
-          {builtPrompt.positivePrompt && (
-            <div>
-              <label className="block text-[12px] font-semibold text-gray-500 mb-2">
-                系统组合 Prompt（预览）
+          {/* Step 6: Prompt Preview (collapsible) */}
+          <div>
+            <button
+              onClick={() => setShowPromptPreview((v) => !v)}
+              className="flex items-center justify-between w-full text-left"
+            >
+              <label className="text-[14px] font-bold text-gray-800 cursor-pointer">
+                6. 查看最终 Prompt
               </label>
-              <div className="p-3 bg-[#F5F6F8] rounded-xl text-[11px] text-gray-500 leading-relaxed whitespace-pre-wrap">
-                {builtPrompt.positivePrompt}
+              {showPromptPreview ? (
+                <ChevronUp className="w-4 h-4 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-gray-400" />
+              )}
+            </button>
+            {showPromptPreview && (
+              <div className="mt-3 space-y-3">
+                {currentTemplate ? (
+                  <>
+                    <div>
+                      <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+                        正向 Prompt
+                      </span>
+                      <div className="mt-1 p-3 bg-indigo-50 rounded-lg border border-indigo-100 max-h-[200px] overflow-y-auto">
+                        <pre className="text-[11px] text-gray-700 leading-relaxed whitespace-pre-wrap font-mono">
+                          {builtPrompt.positivePrompt}
+                        </pre>
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+                        负向 Prompt
+                      </span>
+                      <div className="mt-1 p-3 bg-gray-50 rounded-lg border border-gray-100 max-h-[120px] overflow-y-auto">
+                        <pre className="text-[11px] text-gray-600 leading-relaxed whitespace-pre-wrap font-mono">
+                          {builtPrompt.negativePrompt}
+                        </pre>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowFullPromptDialog(true)}
+                      className="flex items-center text-[12px] text-indigo-600 hover:text-indigo-700 transition-colors"
+                    >
+                      <Eye className="w-3.5 h-3.5 mr-1" />
+                      在新窗口查看完整 Prompt
+                    </button>
+                  </>
+                ) : (
+                  <p className="text-[13px] text-gray-400 py-4 text-center">
+                    请先选择一个模版
+                  </p>
+                )}
               </div>
-            </div>
-          )}
-
-          {/* Negative prompt */}
-          <div>
-            <label className="block text-[14px] font-bold text-gray-800 mb-3">
-              排除内容
-            </label>
-            <textarea
-              value={negativePrompt}
-              onChange={(e) => setNegativePrompt(e.target.value)}
-              placeholder="输入不希望在画面中出现的内容..."
-              className="w-full min-h-[80px] px-4 py-3 text-[13px] bg-[#F5F6F8] border-0 rounded-xl resize-none outline-none placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0"
-            />
-          </div>
-
-          {/* Reference upload */}
-          <div>
-            <label className="block text-[14px] font-bold text-gray-800 mb-3">
-              风格参考<span className="text-gray-400 font-normal text-sm ml-1">（非必填）</span>
-            </label>
-            <ReferenceUploader
-              images={references}
-              onAdd={handleAddReferences}
-              onRemove={handleRemoveReference}
-            />
+            )}
           </div>
         </div>
 
         {/* Bottom action area */}
-        <div className="shrink-0 px-[16px] pt-4 pb-6 bg-white">
-          {/* Current template bar */}
-          <CurrentTemplateBar
-            templateName={currentTemplate?.name}
-            isModified={isModified}
-            onSave={handleSaveTemplate}
-            onSaveAs={() => setSaveTemplateOpen(true)}
-          />
-
-          {/* Generate button */}
+        <div className="shrink-0 px-[16px] pt-4 pb-6 bg-white border-t border-gray-100">
           <Button
             onClick={handleGenerate}
-            disabled={!builtPrompt.positivePrompt.trim() && references.length === 0}
-            className="w-full h-[52px] mt-4 rounded-2xl text-[15px] font-semibold text-white border-0 shadow-lg shadow-indigo-500/20 bg-gradient-to-r from-[#6366F1] to-[#8B5CF6] hover:from-[#5558E0] hover:to-[#7C4FE6] disabled:opacity-60"
+            disabled={!currentTemplate || !productImageUrl}
+            className="w-full h-[52px] rounded-2xl text-[15px] font-semibold text-white border-0 shadow-lg shadow-indigo-500/20 bg-gradient-to-r from-[#6366F1] to-[#8B5CF6] hover:from-[#5558E0] hover:to-[#7C4FE6] disabled:opacity-60"
           >
             <Wand2 className="w-5 h-5 mr-2" />
             立即生成
           </Button>
+          {!currentTemplate && (
+            <p className="text-center text-[12px] text-gray-400 mt-2">
+              请先选择模版并上传商品图
+            </p>
+          )}
         </div>
-
-        {/* Template library drawer */}
-        {templateLibraryOpen && (
-          <TemplateLibraryDrawer
-            open={templateLibraryOpen}
-            onClose={() => setTemplateLibraryOpen(false)}
-            onInsertTag={handleInsertTag}
-            onRemoveTag={(tagId) => {
-              setPromptContent((prev) => removeTag(prev, tagId));
-            }}
-            onUseMyTemplate={handleUseMyTemplate}
-            onInsertTemplate={handleInsertTemplate}
-            onReplaceTemplate={handleReplaceTemplate}
-            selectedFragmentIds={selectedFragmentIds}
-          />
-        )}
       </div>
 
       {/* Right preview panel */}
@@ -637,13 +656,6 @@ export default function WorkbenchPage() {
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleDrop}
       >
-        {/* Backdrop when drawer is open */}
-        {templateLibraryOpen && (
-          <div
-            className="absolute inset-0 bg-black/20 z-40"
-            onClick={() => setTemplateLibraryOpen(false)}
-          />
-        )}
         {/* Top bar */}
         {!showHistory && (
           <div className="flex items-center justify-between px-6 pt-6 pb-3">
@@ -667,33 +679,85 @@ export default function WorkbenchPage() {
         {/* Preview area */}
         <div className="flex-1 overflow-y-auto">
           <PreviewPanel
-            references={references}
+            productImageUrl={productImageUrl}
+            styleReferenceUrls={styleReferenceUrls}
             latestTask={latestTask}
             generatingTasks={generatingTasks}
             taskHistory={taskHistory}
             showHistory={showHistory}
             onRetry={handleRetry}
             onDownload={handleDownload}
-            onClearReferences={handleClearReferences}
+            onRemoveProductImage={handleRemoveProductImage}
+            onRemoveStyleReference={handleRemoveStyleReference}
             onSelectTask={setLatestTask}
             onCloseHistory={() => setShowHistory(false)}
             onOpenHistory={() => setShowHistory(true)}
             onUploadFile={handleUploadFile}
             onDeleteTask={handleDeleteTask}
             onRefreshTasks={loadTasks}
+            onLoadTaskConfig={() => {
+              // Template-first tasks cannot be restored to the old editor
+              toast.info("历史记录查看功能即将适配新模版系统");
+            }}
           />
         </div>
       </div>
 
-      {/* Save template dialog */}
-      <SaveTemplateDialog
-        open={saveTemplateOpen}
-        onClose={() => setSaveTemplateOpen(false)}
-        onSave={handleSaveAsTemplate}
-        tags={tags}
-        promptContent={promptContent}
-        userText={getUserText(promptContent)}
-      />
+      {/* Full Prompt Dialog */}
+      <Dialog open={showFullPromptDialog} onOpenChange={setShowFullPromptDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>完整 Prompt</DialogTitle>
+            <DialogDescription>
+              基于模版「{currentTemplate?.name}」生成的最终 Prompt
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-2">
+            <div>
+              <h4 className="text-[12px] font-semibold text-gray-500 mb-2">模版信息</h4>
+              <div className="p-2.5 bg-gray-50 rounded-lg">
+                <p className="text-[12px] text-gray-700">
+                  <span className="font-medium">模版：</span>{currentTemplate?.name}
+                </p>
+                <p className="text-[12px] text-gray-600 mt-1">
+                  <span className="font-medium">描述：</span>{currentTemplate?.description}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-[12px] font-semibold text-gray-500 mb-2">变量值</h4>
+              <div className="p-2.5 bg-gray-50 rounded-lg space-y-1">
+                {currentTemplate?.variables.map((v) => (
+                  <p key={v.key} className="text-[12px] text-gray-700">
+                    <span className="font-medium">{v.label}：</span>
+                    {variableValues[v.key] || "（未填写）"}
+                  </p>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-[12px] font-semibold text-gray-500 mb-2">正向 Prompt</h4>
+              <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-100">
+                <pre className="text-[12px] text-gray-700 leading-relaxed whitespace-pre-wrap font-mono">
+                  {builtPrompt.positivePrompt}
+                </pre>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-[12px] font-semibold text-gray-500 mb-2">负向 Prompt</h4>
+              <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                <pre className="text-[12px] text-gray-600 leading-relaxed whitespace-pre-wrap font-mono">
+                  {builtPrompt.negativePrompt}
+                </pre>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

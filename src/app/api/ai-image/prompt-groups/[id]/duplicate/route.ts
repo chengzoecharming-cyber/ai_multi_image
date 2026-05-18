@@ -26,7 +26,6 @@ export async function POST(
       data: {
         tenantId: original.tenantId,
         userId: original.userId,
-        categoryId: original.categoryId,
         name: `${original.name} (复制)`,
         promptContent: original.promptContent,
         negativePrompt: original.negativePrompt,
@@ -43,7 +42,6 @@ export async function POST(
         },
       },
       include: {
-        category: true,
         references: {
           orderBy: { sortOrder: "asc" },
         },

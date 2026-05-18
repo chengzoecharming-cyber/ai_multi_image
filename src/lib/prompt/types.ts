@@ -34,11 +34,10 @@ export interface PromptFragment {
 
 /** Fragment group keys */
 export type PromptFragmentGroup =
+  | "generation_mode"
   | "platform"
   | "product_category"
   | "image_type"
-  | "visual_style"
-  | "background"
   | "angle"
   | "material"
   | "negative";
@@ -51,7 +50,7 @@ export interface FragmentGroupDef {
   description?: string;
 }
 
-/** Input to the new Fragment-based Prompt Builder */
+/** Input to the Fragment-based Prompt Builder */
 export interface PromptBuilderInput {
   /** Selected prompt fragments */
   selectedFragments: PromptFragment[];
@@ -59,20 +58,12 @@ export interface PromptBuilderInput {
   userPrompt: string;
   /** User's handwritten negative prompt */
   userNegativePrompt?: string;
-  /** Whether to preserve reference image structure */
-  preserveStructure?: boolean;
-}
-
-/** Legacy input to the field-based Prompt Builder (kept for backward compat) */
-export interface LegacyPromptBuilderInput {
-  /** Structured field selections */
-  fields: PromptFieldSelections;
-  /** User's handwritten additional prompt */
-  userPrompt: string;
-  /** User's negative prompt */
-  negativePrompt?: string;
-  /** Whether to preserve reference image structure */
-  preserveStructure?: boolean;
+  /** Whether a product reference image is provided */
+  hasProductImage?: boolean;
+  /** Whether style reference images are provided */
+  hasStyleReferences?: boolean;
+  /** Generation mode fragment id (defaults to conservative_enhancement) */
+  generationModeId?: string;
 }
 
 /** Output from the Prompt Builder */
@@ -93,36 +84,7 @@ export interface PromptSection {
   source: "system" | "field" | "user";
 }
 
-/** Legacy: user's field selections for prompt generation (kept for backward compat) */
-export interface PromptFieldSelections {
-  platform?: string;
-  productCategory?: string;
-  imageType?: string;
-  visualTags?: string[];
-  background?: string;
-  angle?: string;
-  negativeTags?: string[];
-}
-
-/** Legacy: rule option (kept for backward compat with rules.ts) */
-export interface PromptRuleOption {
-  id: string;
-  label: string;
-  promptFragment: string;
-  sortOrder: number;
-  enabled: boolean;
-}
-
-/** Legacy: rule category (kept for backward compat with rules.ts) */
-export interface PromptRuleCategory {
-  key: string;
-  label: string;
-  description?: string;
-  allowMultiple: boolean;
-  options: PromptRuleOption[];
-}
-
-/** Legacy: extended config (kept for backward compat) */
+/** Extended prompt generation config */
 export interface ExtendedPromptConfig {
   ratio?: string;
   width?: number;
@@ -130,12 +92,10 @@ export interface ExtendedPromptConfig {
   model?: string;
   quality?: string;
   outputCount?: number;
-  /** Legacy structured field selections */
-  promptFields?: PromptFieldSelections;
-  /** Selected fragment ids (new) */
+  /** Selected fragment ids */
   selectedFragmentIds?: string[];
-  /** Selected tags (newer) */
-  selectedTags?: PromptTag[];
+  /** Generation mode fragment id */
+  generationModeId?: string;
   /** Provider-specific config (reserved for future ComfyUI integration) */
   providerConfig?: {
     workflowId?: string | null;

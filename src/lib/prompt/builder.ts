@@ -5,6 +5,8 @@
  * - Selected prompt fragments (grouped by category)
  * - User's handwritten prompt
  * - User's negative prompt
+ * - Product reference image role (primary source for product structure)
+ * - Style reference images role (background, lighting, atmosphere only)
  *
  * Output is structured into readable sections.
  */
@@ -18,32 +20,48 @@ import {
 } from "./types";
 import { getFragmentById, getFragmentsByIds } from "./fragments";
 
-/** Default base instruction for product image generation */
+/** Default base instruction — user-description-first, avoid conflicts with background/style fragments */
 const BASE_INSTRUCTION =
-  "Generate a professional e-commerce product image based on the reference image.";
+  "Use the reference image as the ground truth for the product. Do not invent or add objects, parts, labels, text, logos, or any scene elements the user did not request. Only change what the user explicitly describes (including selected tags/fragments).";
 
-/** Default structure preservation instruction */
-const STRUCTURE_PRESERVATION =
-  "Preserve the original product shape, proportions, structure and key details from the reference image.";
+/** Product reference preservation — highest priority, preserves structure */
+const PRODUCT_REFERENCE_INSTRUCTION =
+  "Use the product reference image as the primary source. Preserve the original product shape, proportions, geometry, structure, holes, grooves, edges, threads, cutting edges, mounting points and key mechanical details.";
+
+/** Style reference instruction — only for visual atmosphere */
+const STYLE_REFERENCE_INSTRUCTION =
+  "Use style reference images only for background, lighting, color tone, material mood and visual atmosphere. Do not copy objects from style reference images. Do not change the product structure based on style reference images.";
+
+/** Combined reference instruction when both are present */
+const COMBINED_REFERENCE_INSTRUCTION =
+  "Use the product reference image as the primary source. Preserve the original product shape, proportions, geometry, structure, holes, grooves, edges, threads, cutting edges, mounting points and key mechanical details. " +
+  "Use style reference images only for background, lighting, color tone, material mood and visual atmosphere. Do not copy objects from style reference images. Do not change the product structure based on style reference images. " +
+  "Only improve the background, lighting, material appearance and commercial presentation.";
+
+/** Fallback reference preservation when only legacy info is available */
+const REFERENCE_PRESERVATION =
+  "Use the reference image as the primary source. Preserve the original product shape, proportions, geometry, holes, grooves, edges, threads, cutting edges, mounting points and key mechanical details. Do not redesign the product. Do not add or remove any parts. Only improve the background, lighting, material appearance and commercial presentation.";
+
+/** Precision lock for mechanical parts (conservative mode) */
+const PRECISION_LOCK_INSTRUCTION =
+  "Mechanical accuracy is critical. Treat the product geometry as immutable: do not alter hole count/positions/diameters, slot widths, thread pitch/profile, edges, chamfers, radii, angles, clearances, or overall dimensions. Do not smooth away sharp features. Do not merge or delete small details. If the user asks for changes that would affect geometry, request explicit confirmation.";
 
 /** Group order for building the prompt */
 const GROUP_ORDER: PromptFragmentGroup[] = [
+  "generation_mode",
   "platform",
   "product_category",
   "image_type",
-  "visual_style",
-  "background",
   "angle",
   "material",
 ];
 
 /** Human-readable labels for each group */
 const GROUP_LABELS: Record<PromptFragmentGroup, string> = {
+  generation_mode: "Generation mode",
   platform: "Platform",
   product_category: "Product category",
-  image_type: "Image purpose",
-  visual_style: "Visual style",
-  background: "Background",
+  image_type: "Image type",
   angle: "Angle",
   material: "Material",
   negative: "Negative",
@@ -97,11 +115,43 @@ export function resolveNegativePromptContent(
 }
 
 /**
+ * Build reference preservation section based on what types of reference images are present.
+ */
+function buildReferenceSection(input: PromptBuilderInput): PromptSection {
+  if (input.hasProductImage && input.hasStyleReferences) {
+    return {
+      key: "reference",
+      label: "Reference",
+      content: COMBINED_REFERENCE_INSTRUCTION,
+      source: "system",
+    };
+  }
+  if (input.hasProductImage) {
+    return {
+      key: "reference",
+      label: "Reference",
+      content: PRODUCT_REFERENCE_INSTRUCTION + " Only improve the background, lighting, material appearance and commercial presentation.",
+      source: "system",
+    };
+  }
+  if (input.hasStyleReferences) {
+    return {
+      key: "reference",
+      label: "Reference",
+      content: STYLE_REFERENCE_INSTRUCTION + " Only improve the background, lighting, material appearance and commercial presentation.",
+      source: "system",
+    };
+  }
+  return {
+    key: "reference",
+    label: "Reference",
+    content: REFERENCE_PRESERVATION,
+    source: "system",
+  };
+}
+
+/**
  * Build the final prompt from selected fragments and user input.
- *
- * Legacy path: when selectedFragments are explicitly provided.
- * New path: promptContent already contains {{type:id}} tags,
- *           and selectedFragments may be auto-derived or empty.
  */
 export function buildPrompt(input: PromptBuilderInput): PromptBuilderOutput {
   const sections: PromptSection[] = [];
@@ -114,7 +164,7 @@ export function buildPrompt(input: PromptBuilderInput): PromptBuilderOutput {
     source: "system",
   });
 
-  // 2. Group fragments by group (legacy path with explicit selections)
+  // 2. Group fragments by group
   const byGroup = new Map<PromptFragmentGroup, PromptFragment[]>();
   for (const frag of input.selectedFragments) {
     const list = byGroup.get(frag.group) || [];
@@ -125,7 +175,23 @@ export function buildPrompt(input: PromptBuilderInput): PromptBuilderOutput {
   // 3. Add each group section in defined order
   for (const group of GROUP_ORDER) {
     const fragments = byGroup.get(group);
-    if (!fragments || fragments.length === 0) continue;
+    if (!fragments || fragments.length === 0) {
+      // For generation_mode, inject default if none selected
+      if (group === "generation_mode") {
+        const defaultMode = getFragmentById(
+          input.generationModeId || "conservative_enhancement"
+        );
+        if (defaultMode) {
+          sections.push({
+            key: group,
+            label: GROUP_LABELS[group],
+            content: defaultMode.promptFragment,
+            source: "system",
+          });
+        }
+      }
+      continue;
+    }
     const content = fragments.map((f) => f.promptFragment).join(". ");
     sections.push({
       key: group,
@@ -135,17 +201,20 @@ export function buildPrompt(input: PromptBuilderInput): PromptBuilderOutput {
     });
   }
 
-  // 4. Structure preservation (if reference images are present)
-  if (input.preserveStructure !== false) {
+  // 5. Reference image preservation requirement
+  sections.push(buildReferenceSection(input));
+
+  // 5.1 Precision lock (only when conservative + product reference)
+  if (input.hasProductImage && (input.generationModeId || "conservative_enhancement") === "conservative_enhancement") {
     sections.push({
-      key: "structure",
-      label: "Reference",
-      content: STRUCTURE_PRESERVATION,
+      key: "precision",
+      label: "Precision",
+      content: PRECISION_LOCK_INSTRUCTION,
       source: "system",
     });
   }
 
-  // 5. User's handwritten prompt (resolve any fragment placeholders)
+  // 6. User's handwritten prompt (resolve any fragment placeholders)
   if (input.userPrompt?.trim()) {
     const resolved = resolvePromptContent(input.userPrompt.trim());
     sections.push({
@@ -184,7 +253,18 @@ function buildNegativeSections(
 ): PromptSection[] {
   const sections: PromptSection[] = [];
 
-  // Negative fragments (legacy path)
+  // Auto precision negatives (conservative + product reference)
+  if (input.hasProductImage && (input.generationModeId || "conservative_enhancement") === "conservative_enhancement") {
+    sections.push({
+      key: "precision_negative",
+      label: "Negative",
+      content:
+        "changed geometry, distorted shape, wrong dimensions, deformed part, missing holes, extra holes, altered hole positions, altered hole diameter, missing threads, wrong thread pitch, melted details, over-smoothed edges, rounded sharp edges, missing grooves, extra grooves, fused parts, incorrect count of features",
+      source: "system",
+    });
+  }
+
+  // Negative fragments
   const negativeFrags = input.selectedFragments.filter(
     (f) => f.group === "negative"
   );
@@ -217,13 +297,15 @@ function buildNegativeSections(
 export function quickBuild(
   selectedFragments: PromptFragment[],
   userPrompt: string,
-  userNegativePrompt?: string
+  userNegativePrompt?: string,
+  generationModeId?: string
 ): { positive: string; negative: string } {
   const result = buildPrompt({
     selectedFragments,
     userPrompt,
     userNegativePrompt,
-    preserveStructure: true,
+    hasProductImage: true,
+    generationModeId,
   });
   return {
     positive: result.positivePrompt,
@@ -236,9 +318,10 @@ export function quickBuild(
  */
 export function previewPrompt(
   selectedFragments: PromptFragment[],
-  userPrompt: string
+  userPrompt: string,
+  generationModeId?: string
 ): string {
-  return quickBuild(selectedFragments, userPrompt).positive;
+  return quickBuild(selectedFragments, userPrompt, undefined, generationModeId).positive;
 }
 
 /**
@@ -250,7 +333,9 @@ export function previewPrompt(
 export function buildPromptFromContent(
   promptContent: string,
   negativePromptContent: string,
-  referencesLength: number
+  hasProductImage: boolean,
+  hasStyleReferences: boolean,
+  generationModeId?: string
 ): { positivePrompt: string; negativePrompt: string } {
   // Extract fragment tags from content
   const tagIds = extractTagIds(promptContent);
@@ -265,7 +350,9 @@ export function buildPromptFromContent(
     selectedFragments: fragments,
     userPrompt: cleanPrompt,
     userNegativePrompt: negativePromptContent,
-    preserveStructure: referencesLength > 0,
+    hasProductImage,
+    hasStyleReferences,
+    generationModeId,
   });
 
   return {
@@ -315,17 +402,21 @@ export function extractTags(content: string): PromptTag[] {
   return tags;
 }
 
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** Remove a tag by id from raw content */
+export function removeTag(content: string, tagId: string): string {
+  return content
+    .replace(
+      new RegExp(`\\{\\{(fragment|template|product):${escapeRegExp(tagId)}\\|[^}]+\\}\\}`, "g"),
+      ""
+    )
+    .replace(
+      new RegExp(`\\{\\{(fragment|template|product):${escapeRegExp(tagId)}\\}\\}`, "g"),
+      ""
+    )
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
-/** Remove tag by id from content */
-export function removeTag(content: string, tagId: string): string {
-  return content.replace(
-    new RegExp(`\\{\\{(fragment|template|product):${escapeRegExp(tagId)}\\|[^}]+\\}\\}`, "g"),
-    ""
-  ).replace(
-    new RegExp(`\\{\\{(fragment|template|product):${escapeRegExp(tagId)}\\}\\}`, "g"),
-    ""
-  ).replace(/\s+/g, " ").trim();
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

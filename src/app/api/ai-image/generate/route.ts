@@ -1,7 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getImageProvider } from "@/lib/image-providers";
-import { buildPrompt, getFragmentsByIds } from "@/lib/prompt";
+import { buildPrompt, getFragmentsByIds, buildPromptFromTemplate } from "@/lib/prompt";
+
+function fnv1a32(input: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
+}
+
+function deriveStableSeed(parts: Array<string | number | boolean | null | undefined>): number {
+  const s = parts.map((p) => String(p ?? "")).join("|");
+  return fnv1a32(s) % 2_147_483_647;
+}
 
 // POST /api/ai-image/generate
 export async function POST(request: NextRequest) {
@@ -9,75 +23,117 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       promptGroupId,
+      templateId,
+      variableValues,
+      userDescription,
       promptContent,
       negativePrompt,
-      referenceImageUrls,
+      productImageUrl,
+      styleReferenceUrls,
       config,
       tenantId = "default",
       userId = "default",
     } = body;
 
-    // Build final prompt using Prompt Builder
-    let finalPrompt = promptContent?.trim() || "";
-    let finalNegativePrompt = negativePrompt?.trim() || "";
+    let finalPrompt: string;
+    let finalNegativePrompt: string;
+    const generationModeId: string = config?.generationModeId || "conservative_enhancement";
+    const strictSize: boolean = config?.strictSize !== false;
 
-    // If selectedFragmentIds are provided, use new fragment-based builder
-    const selectedFragmentIds: string[] = config?.selectedFragmentIds || [];
-
-    if (selectedFragmentIds.length > 0) {
+    // Template-based generation (new path)
+    if (templateId) {
+      const builderResult = buildPromptFromTemplate({
+        templateId,
+        variableValues: variableValues || {},
+        userDescription: userDescription || "",
+        hasProductImage: !!productImageUrl,
+        hasStyleReferences: (styleReferenceUrls || []).length > 0,
+      });
+      finalPrompt = builderResult.positivePrompt;
+      finalNegativePrompt = builderResult.negativePrompt;
+    } else {
+      // Legacy fragment-based generation
+      const selectedFragmentIds: string[] = config?.selectedFragmentIds || [];
       const fragments = getFragmentsByIds(selectedFragmentIds);
       const builderResult = buildPrompt({
         selectedFragments: fragments,
         userPrompt: promptContent || "",
         userNegativePrompt: negativePrompt || "",
-        preserveStructure: (referenceImageUrls || []).length > 0,
+        hasProductImage: !!productImageUrl,
+        hasStyleReferences: (styleReferenceUrls || []).length > 0,
+        generationModeId,
       });
       finalPrompt = builderResult.positivePrompt;
       finalNegativePrompt = builderResult.negativePrompt;
-    } else {
-      // Legacy: fallback to old field-based builder
-      const promptFields = config?.promptFields;
-      if (promptFields && Object.keys(promptFields).length > 0) {
-        const { buildPromptFromFields } = await import("@/lib/prompt/legacy-builder");
-        const builderResult = buildPromptFromFields({
-          fields: promptFields,
-          userPrompt: promptContent || "",
-          negativePrompt: negativePrompt || "",
-          preserveStructure: (referenceImageUrls || []).length > 0,
-        });
-        finalPrompt = builderResult.positivePrompt;
-        finalNegativePrompt = builderResult.negativePrompt;
-      }
     }
 
     if (!finalPrompt) {
       return NextResponse.json({ error: "Prompt 内容不能为空" }, { status: 400 });
     }
 
-    // Create task record (save snapshot)
+    const width = Number.isFinite(config?.width) ? Number(config.width) : 1024;
+    const height = Number.isFinite(config?.height) ? Number(config.height) : 1024;
+    if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0) {
+      return NextResponse.json({ error: "生成尺寸不合法，请检查 width/height" }, { status: 400 });
+    }
+    const model = config?.model || "default";
+
+    const seed =
+      typeof config?.seed === "number" && Number.isFinite(config.seed)
+        ? Math.floor(config.seed)
+        : generationModeId === "conservative_enhancement" && !!productImageUrl
+          ? deriveStableSeed([productImageUrl, finalPrompt, finalNegativePrompt || "", width, height, model])
+          : undefined;
+
+    const editStrength =
+      !!productImageUrl
+        ? generationModeId === "conservative_enhancement"
+          ? 0.35
+          : generationModeId === "commercial_showcase"
+            ? 0.55
+            : 0.75
+        : undefined;
+
     const configSnapshot = JSON.stringify({
       ...config,
+      templateId: templateId || undefined,
+      variableValues: variableValues || undefined,
+      userDescription: userDescription || undefined,
       selectedFragmentIds: config?.selectedFragmentIds || [],
+      generationModeId,
       ratio: config?.ratio || "1:1",
-      width: config?.width || 1024,
-      height: config?.height || 1024,
-      model: config?.model || "default",
+      width,
+      height,
+      model,
       quality: config?.quality || "standard",
+      strictSize,
+      seed,
     });
+
+    const provider = getImageProvider();
+    const providerName = process.env.IMAGE_PROVIDER || "pollinations";
 
     const task = await prisma.aiImageTask.create({
       data: {
         tenantId,
         userId,
         promptGroupId: promptGroupId || null,
+        selectedFragmentIds: config?.selectedFragmentIds?.length > 0
+          ? JSON.stringify(config.selectedFragmentIds)
+          : null,
         promptSnapshot: finalPrompt,
+        userPrompt: promptContent?.trim() || userDescription?.trim() || null,
+        negativePromptSnapshot: finalNegativePrompt || null,
         configSnapshot,
-        referenceImagesSnapshot: JSON.stringify(referenceImageUrls || []),
+        referenceImagesSnapshot: JSON.stringify({
+          productImageUrl: productImageUrl || null,
+          styleReferenceUrls: styleReferenceUrls || [],
+        }),
         status: "pending",
+        provider: providerName,
       },
     });
 
-    // Update usage count if linked to a prompt group
     if (promptGroupId) {
       await prisma.aiPromptGroup.update({
         where: { id: promptGroupId },
@@ -88,35 +144,31 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Update status to processing
     await prisma.aiImageTask.update({
       where: { id: task.id },
       data: { status: "processing" },
     });
 
-    // Call Image Provider to generate a single image
-    const provider = getImageProvider();
-    const imageUrls: string[] = [];
-
     const result = await provider.generate({
       prompt: finalPrompt,
       negativePrompt: finalNegativePrompt,
-      referenceImageUrls: referenceImageUrls || [],
-      width: config?.width || 1024,
-      height: config?.height || 1024,
+      productImageUrl: productImageUrl || null,
+      styleReferenceUrls: styleReferenceUrls || [],
+      width,
+      height,
+      strictSize,
+      seed,
+      editStrength,
       model: config?.model,
       quality: config?.quality,
     });
-    if (result.success && result.imageUrl) {
-      imageUrls.push(result.imageUrl);
-    }
 
-    if (imageUrls.length > 0) {
+    if (result.success && result.imageUrl) {
       const updatedTask = await prisma.aiImageTask.update({
         where: { id: task.id },
         data: {
           status: "completed",
-          resultImageUrl: JSON.stringify(imageUrls),
+          resultImageUrl: JSON.stringify([result.imageUrl]),
         },
       });
       return NextResponse.json({ data: updatedTask });
@@ -125,7 +177,7 @@ export async function POST(request: NextRequest) {
         where: { id: task.id },
         data: {
           status: "failed",
-          errorMessage: "生成失败",
+          errorMessage: result.error || "生成失败",
         },
       });
       return NextResponse.json({ data: updatedTask });

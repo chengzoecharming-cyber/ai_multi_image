@@ -11,7 +11,6 @@ export async function GET(
     const group = await prisma.aiPromptGroup.findUnique({
       where: { id },
       include: {
-        category: true,
         references: {
           orderBy: { sortOrder: "asc" },
         },
@@ -19,13 +18,13 @@ export async function GET(
     });
 
     if (!group) {
-      return NextResponse.json({ error: "提示词组不存在" }, { status: 404 });
+      return NextResponse.json({ error: "模板不存在" }, { status: 404 });
     }
 
     return NextResponse.json({ data: group });
   } catch (error) {
     console.error("Failed to fetch prompt group:", error);
-    return NextResponse.json({ error: "获取提示词组失败" }, { status: 500 });
+    return NextResponse.json({ error: "获取模板详情失败" }, { status: 500 });
   }
 }
 
@@ -39,9 +38,10 @@ export async function PUT(
     const body = await request.json();
     const {
       name,
-      categoryId,
       promptContent,
+      finalPrompt,
       negativePrompt,
+      selectedFragmentIds,
       config,
       remark,
       coverImageUrl,
@@ -50,18 +50,22 @@ export async function PUT(
 
     const updateData: {
       name?: string;
-      categoryId?: string;
       promptContent?: string;
+      finalPrompt?: string | null;
       negativePrompt?: string | null;
+      selectedFragmentIds?: string | null;
       configJson?: string;
       remark?: string | null;
       coverImageUrl?: string | null;
     } = {};
 
     if (name !== undefined) updateData.name = name.trim();
-    if (categoryId !== undefined) updateData.categoryId = categoryId;
     if (promptContent !== undefined) updateData.promptContent = promptContent.trim();
+    if (finalPrompt !== undefined) updateData.finalPrompt = finalPrompt?.trim() || null;
     if (negativePrompt !== undefined) updateData.negativePrompt = negativePrompt?.trim() || null;
+    if (selectedFragmentIds !== undefined) {
+      updateData.selectedFragmentIds = selectedFragmentIds?.length > 0 ? JSON.stringify(selectedFragmentIds) : null;
+    }
     if (config !== undefined) updateData.configJson = JSON.stringify(config);
     if (remark !== undefined) updateData.remark = remark?.trim() || null;
     if (coverImageUrl !== undefined) updateData.coverImageUrl = coverImageUrl || null;
@@ -87,7 +91,6 @@ export async function PUT(
         } : undefined,
       },
       include: {
-        category: true,
         references: {
           orderBy: { sortOrder: "asc" },
         },
@@ -97,7 +100,7 @@ export async function PUT(
     return NextResponse.json({ data: group });
   } catch (error) {
     console.error("Failed to update prompt group:", error);
-    return NextResponse.json({ error: "更新提示词组失败" }, { status: 500 });
+    return NextResponse.json({ error: "更新模板失败" }, { status: 500 });
   }
 }
 
@@ -112,6 +115,6 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Failed to delete prompt group:", error);
-    return NextResponse.json({ error: "删除提示词组失败" }, { status: 500 });
+    return NextResponse.json({ error: "删除模板失败" }, { status: 500 });
   }
 }

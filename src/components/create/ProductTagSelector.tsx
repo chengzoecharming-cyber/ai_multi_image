@@ -7,12 +7,14 @@ import {
   PromptFragmentGroup,
   getFragmentsByGroup,
 } from "@/lib/prompt";
+import type { PromptGroup } from "@/lib/types";
 
-const SELECTOR_TABS: { key: PromptFragmentGroup; label: string }[] = [
+const SELECTOR_TABS: { key: PromptFragmentGroup | "my_templates"; label: string }[] = [
   { key: "platform", label: "电商平台" },
-  { key: "image_type", label: "图片用途" },
-  { key: "visual_style", label: "视觉风格" },
+  { key: "image_type", label: "图片类型" },
   { key: "angle", label: "拍摄角度" },
+  { key: "material", label: "材质表现" },
+  { key: "my_templates", label: "我的模版" },
 ];
 
 /** Emoji mapping for fragment ids — falls back to a generic icon */
@@ -24,21 +26,28 @@ function getEmojiForFragment(fragment: PromptFragment): string {
     ozen: "🏪",
     shein: "👗",
     // image_type
-    white_bg_main: "⬜",
+    white_main_image: "⬜",
+    single_product_feature_image: "⭐",
+    multi_sku_lineup_image: "📊",
+    usage_scene_image: "🏭",
+    detail_magnifier_image: "🔍",
+    compatible_tools_image: "🔧",
+    advantage_comparison_image: "⚖️",
+    specification_info_image: "📋",
+    packaging_image: "📦",
+    promo_sales_image: "🎯",
+    feature_explanation_image: "💡",
+    // material
     metal_texture: "🔩",
-    structure_detail: "🔍",
-    scene_application: "🏭",
-    display_pedestal: "🏛",
-    premium_poster: "🎨",
-    // visual_style
-    minimal_white: "⬜",
-    premium_light_gray: "🔘",
-    dark_metal: "⚫",
-    blue_tech: "🔵",
-    showcase: "🪟",
-    workbench: "🛠",
-    macro_detail: "🔬",
-    warm_commercial: "🟠",
+    brushed_metal: "✨",
+    polished_metal: "💎",
+    matte_metal: "🪨",
+    black_oxide: "⚫",
+    chrome_plated: "🔘",
+    cnc_machining_marks: "🔧",
+    precision_machining: "📐",
+    zinc_plated: "🔷",
+    anodized_aluminum: "🟣",
     // angle
     angle_front: "⬆️",
     angle_45: "↗️",
@@ -49,16 +58,18 @@ function getEmojiForFragment(fragment: PromptFragment): string {
 }
 
 /** Background color for the emoji box based on group */
-function getEmojiBg(group: PromptFragmentGroup): string {
+function getEmojiBg(group: PromptFragmentGroup | "my_templates"): string {
   switch (group) {
     case "platform":
       return "bg-orange-50";
     case "image_type":
       return "bg-sky-50";
-    case "visual_style":
-      return "bg-indigo-50";
+    case "material":
+      return "bg-stone-50";
     case "angle":
       return "bg-emerald-50";
+    case "my_templates":
+      return "bg-amber-50";
     default:
       return "bg-gray-50";
   }
@@ -67,21 +78,44 @@ function getEmojiBg(group: PromptFragmentGroup): string {
 interface ProductTagSelectorProps {
   selectedIds: string[];
   onToggleFragment: (fragment: PromptFragment, selected: boolean) => void;
+  myTemplates?: PromptGroup[];
+  onUseMyTemplate?: (template: PromptGroup) => void;
 }
 
 export default function ProductTagSelector({
   selectedIds = [],
   onToggleFragment,
+  myTemplates = [],
+  onUseMyTemplate,
 }: ProductTagSelectorProps) {
-  const [activeTab, setActiveTab] = useState<PromptFragmentGroup>("platform");
+  const [activeTab, setActiveTab] = useState<PromptFragmentGroup | "my_templates">("platform");
 
   const fragments = useMemo(
-    () => getFragmentsByGroup(activeTab),
+    () => activeTab === "my_templates" ? [] : getFragmentsByGroup(activeTab as PromptFragmentGroup),
     [activeTab]
   );
 
+  /** Handle fragment click with single-selection-per-group logic */
+  const handleFragmentClick = (fragment: PromptFragment) => {
+    const isSelected = selectedIds.includes(fragment.id);
+    if (isSelected) {
+      // Deselect
+      onToggleFragment(fragment, false);
+    } else {
+      // Single-selection per group: deselect any other fragment in the same group first
+      // Use getFragmentsByGroup so it works across tabs (fragments only contains current tab)
+      const allInGroup = getFragmentsByGroup(fragment.group);
+      const sameGroupSelected = allInGroup.filter((f) => selectedIds.includes(f.id));
+      for (const f of sameGroupSelected) {
+        onToggleFragment(f, false);
+      }
+      // Then select the clicked one
+      onToggleFragment(fragment, true);
+    }
+  };
+
   return (
-    <div className="bg-white rounded-xl flex overflow-hidden h-[320px] gap-3">
+    <div className="bg-white rounded-xl flex overflow-hidden h-[280px] gap-3">
       {/* Left tabs */}
       <div className="w-[90px] shrink-0 py-2">
         {SELECTOR_TABS.map((tab) => (
@@ -100,40 +134,75 @@ export default function ProductTagSelector({
         ))}
       </div>
 
-      {/* Right grid — scrollable, max 3 rows visible */}
+      {/* Right content */}
       <div className="flex-1 pt-2 pr-2 pb-2 overflow-y-auto">
-        <div className="grid grid-cols-3 gap-x-2 gap-y-3">
-          {fragments.map((fragment) => {
-            const isSelected = selectedIds.includes(fragment.id);
-            return (
+        {activeTab === "my_templates" ? (
+          /* My Templates Grid — same 3x3 style as fragment tabs */
+          <div className="grid grid-cols-3 gap-x-2 gap-y-3">
+            {myTemplates.map((template) => (
               <button
-                key={fragment.id}
-                onClick={() => onToggleFragment(fragment, !isSelected)}
+                key={template.id}
+                onClick={() => onUseMyTemplate?.(template)}
                 className="flex flex-col items-center gap-1 group"
               >
                 <div
                   className={cn(
                     "w-16 h-16 rounded-xl flex items-center justify-center text-2xl transition-all border-2",
-                    getEmojiBg(activeTab),
-                    isSelected
-                      ? "border-indigo-400 shadow-sm"
-                      : "border-transparent group-hover:border-gray-200"
+                    getEmojiBg("my_templates"),
+                    "border-transparent group-hover:border-gray-200"
                   )}
                 >
-                  {getEmojiForFragment(fragment)}
+                  📝
                 </div>
-                <span
-                  className={cn(
-                    "text-[12px] leading-tight text-center px-1 transition-colors",
-                    isSelected ? "text-indigo-600 font-medium" : "text-gray-600"
-                  )}
-                >
-                  {fragment.name}
+                <span className="text-[12px] leading-tight text-center px-1 text-gray-600 group-hover:text-indigo-600 transition-colors">
+                  {template.name}
                 </span>
               </button>
-            );
-          })}
-        </div>
+            ))}
+            {myTemplates.length === 0 && (
+              <div className="col-span-3 flex flex-col items-center justify-center h-48 text-center">
+                <p className="text-sm text-gray-500">暂无模板</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  你可以将当前 Prompt 组合保存为模板
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Fragment Grid */
+          <div className="grid grid-cols-3 gap-x-2 gap-y-3">
+            {fragments.map((fragment) => {
+              const isSelected = selectedIds.includes(fragment.id);
+              return (
+                <button
+                  key={fragment.id}
+                  onClick={() => handleFragmentClick(fragment)}
+                  className="flex flex-col items-center gap-1 group"
+                >
+                  <div
+                    className={cn(
+                      "w-16 h-16 rounded-xl flex items-center justify-center text-2xl transition-all border-2",
+                      getEmojiBg(activeTab as PromptFragmentGroup),
+                      isSelected
+                        ? "border-indigo-400 shadow-sm"
+                        : "border-transparent group-hover:border-gray-200"
+                    )}
+                  >
+                    {getEmojiForFragment(fragment)}
+                  </div>
+                  <span
+                    className={cn(
+                      "text-[12px] leading-tight text-center px-1 transition-colors",
+                      isSelected ? "text-indigo-600 font-medium" : "text-gray-600"
+                    )}
+                  >
+                    {fragment.name}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,12 +1,11 @@
 "use client";
 
-import { useRef, useCallback, useState, useEffect, forwardRef, useImperativeHandle } from "react";
+import { useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PromptTag } from "@/lib/prompt";
 
 export interface PromptEditorRef {
-  /** Insert a tag at the current cursor position and return the new raw content */
   insertTag: (tag: PromptTag) => string | null;
 }
 
@@ -18,22 +17,17 @@ interface PromptEditorProps {
   onRemoveTag?: (tagId: string) => void;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────
-
 const TAG_PLACEHOLDER_REGEX = /\{\{(fragment|template|product):([^}]+)\}\}/g;
 const TAG_ATTR_REGEX = /{{(fragment|template|product):([^}]+)}}/g;
 
-/** Encode a PromptTag into placeholder string: {{type:id|name}} */
 export function encodeTag(tag: PromptTag): string {
   return `{{${tag.type}:${tag.id}|${tag.name}}}`;
 }
 
-/** Encode just the id part (stored in editor content) */
 export function encodeTagId(tag: PromptTag): string {
   return `{{${tag.type}:${tag.id}}}`;
 }
 
-/** Decode a placeholder string back to { id, name } or null */
 function decodeTag(placeholder: string): { type: string; id: string; name: string } | null {
   const m = placeholder.match(/^\{\{(fragment|template|product):([^}|]+)\|([^}]+)\}\}$/);
   if (!m) {
@@ -44,13 +38,25 @@ function decodeTag(placeholder: string): { type: string; id: string; name: strin
   return { type: m[1], id: m[2], name: m[3] };
 }
 
-/** Get raw text content from contentEditable, preserving placeholders */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "\u0026amp;")
+    .replace(/</g, "\u0026lt;")
+    .replace(/>/g, "\u0026gt;")
+    .replace(/"/g, "\u0026quot;")
+    .replace(/'/g, "\u0026#39;");
+}
+
 function getRawContent(el: HTMLElement): string {
   let text = "";
   const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, null);
   let node;
   while ((node = walker.nextNode())) {
     if (node.nodeType === Node.TEXT_NODE) {
+      const parent = (node as Text).parentElement;
+      if (parent && parent.classList.contains("prompt-tag-hidden")) {
+        continue;
+      }
       text += node.textContent || "";
     } else if (node.nodeType === Node.ELEMENT_NODE) {
       const el = node as HTMLElement;
@@ -66,24 +72,38 @@ function getRawContent(el: HTMLElement): string {
   return text;
 }
 
-/** Replace tag placeholders with invisible marker spans */
 export function renderPromptContent(content: string): string {
-  return content.replace(
-    /\{\{(fragment|template|product):([^}|]+)\|([^}]+)\}\}/g,
-    (_, type, id, name) =>
-      `<span contenteditable="false" class="prompt-tag-hidden" data-tag="{{${type}:${id}|${name}}}" data-prompt="">\u200B</span>`
-  ).replace(
-    /\{\{(fragment|template|product):([^}]+)\}\}/g,
-    (_, type, id) =>
-      `<span contenteditable="false" class="prompt-tag-hidden" data-tag="{{${type}:${id}|${id}}}" data-prompt="">\u200B</span>`
-  );
+  const regex = /\{\{(fragment|template|product):([^}|]+)\|([^}]+)\}\}|\{\{(fragment|template|product):([^}]+)\}\}/g;
+  const parts: string[] = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = regex.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(escapeHtml(content.slice(lastIndex, match.index)));
+    }
+
+    const type = match[1] || match[4];
+    const id = match[2] || match[5];
+    const name = match[3] !== undefined ? match[3] : match[5];
+
+    parts.push(
+      `<span contenteditable="false" class="prompt-tag-hidden" data-tag="{{${type}:${escapeHtml(id)}|${escapeHtml(name)}}}">\u200B</span>`
+    );
+
+    lastIndex = regex.lastIndex;
+  }
+
+  if (lastIndex < content.length) {
+    parts.push(escapeHtml(content.slice(lastIndex)));
+  }
+
+  return parts.join("");
 }
 
-/** Extract all tags from raw content */
 export function extractTags(content: string): PromptTag[] {
   const tags: PromptTag[] = [];
   const seen = new Set<string>();
-  // Match full format: {{type:id|name}}
   content.replace(/\{\{(fragment|template|product):([^}|]+)\|([^}]+)\}\}/g, (_, type, id, name) => {
     const key = `${type}:${id}`;
     if (!seen.has(key)) {
@@ -92,9 +112,7 @@ export function extractTags(content: string): PromptTag[] {
     }
     return "";
   });
-  // Match short format: {{type:id}}
   content.replace(/\{\{(fragment|template|product):([^}]+)\}\}/g, (match, type, id) => {
-    // Skip if already matched by full format
     if (match.includes("|")) return "";
     const key = `${type}:${id}`;
     if (!seen.has(key)) {
@@ -106,7 +124,6 @@ export function extractTags(content: string): PromptTag[] {
   return tags;
 }
 
-/** Remove tag by id from content */
 export function removeTag(content: string, tagId: string): string {
   return content.replace(
     new RegExp(`\\{\\{(fragment|template|product):${escapeRegExp(tagId)}\\|[^}]+\\}\\}`, "g"),
@@ -121,8 +138,6 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// ─── Component ────────────────────────────────────────────────────
-
 const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(function PromptEditor(
   { value, onChange, disabled, tags = [], onRemoveTag },
   ref
@@ -130,7 +145,6 @@ const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(function Pro
   const editorRef = useRef<HTMLDivElement>(null);
   const isInternalChange = useRef(false);
 
-  // Sync external value → editor (only when not from internal edits)
   useEffect(() => {
     const el = editorRef.current;
     if (!el || isInternalChange.current) return;
@@ -169,7 +183,6 @@ const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(function Pro
     [disabled]
   );
 
-  // Expose insertTag via ref
   useImperativeHandle(ref, () => ({
     insertTag(tag: PromptTag) {
       const el = editorRef.current;
@@ -188,7 +201,6 @@ const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(function Pro
 
   return (
     <div className="relative">
-      {/* Tag list displayed above editor */}
       {tags.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-1.5">
           {tags.map((tag) => (
@@ -239,7 +251,6 @@ const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(function Pro
         data-placeholder="自由输入背景描述，或从模板库中选择"
       />
 
-      {/* CSS for hidden tag markers */}
       <style jsx>{`
         .prompt-tag-hidden {
           display: inline;
@@ -261,10 +272,6 @@ const PromptEditor = forwardRef<PromptEditorRef, PromptEditorProps>(function Pro
 
 export default PromptEditor;
 
-/**
- * Insert a tag at current cursor position in a contentEditable element.
- * Returns the new content string.
- */
 export function insertTagIntoEditor(
   el: HTMLElement,
   tag: PromptTag
@@ -273,7 +280,6 @@ export function insertTagIntoEditor(
   let range: Range;
 
   if (!sel || sel.rangeCount === 0) {
-    // No selection — place at end of editor
     range = document.createRange();
     if (el.lastChild) {
       range.setStartAfter(el.lastChild);
@@ -285,7 +291,6 @@ export function insertTagIntoEditor(
     sel?.addRange(range);
   } else {
     range = sel.getRangeAt(0);
-    // Ensure range is within our editor
     if (!el.contains(range.commonAncestorContainer)) {
       range = document.createRange();
       if (el.lastChild) {
@@ -299,13 +304,12 @@ export function insertTagIntoEditor(
     }
   }
 
-  const tagHtml = `<span contenteditable="false" class="prompt-tag-hidden" data-tag="{{${tag.type}:${tag.id}|${tag.name}}}" data-prompt="">\u200B</span>`;
+  const tagHtml = `<span contenteditable="false" class="prompt-tag-hidden" data-tag="{{${tag.type}:${escapeHtml(tag.id)}|${escapeHtml(tag.name)}}}">\u200B</span>`;
 
   const frag = range.createContextualFragment(tagHtml);
   range.deleteContents();
   range.insertNode(frag);
 
-  // Move cursor after the tag
   const lastNode = frag.lastChild;
   if (lastNode && sel) {
     const newRange = document.createRange();
@@ -315,7 +319,6 @@ export function insertTagIntoEditor(
     sel.addRange(newRange);
   }
 
-  // Normalize: remove adjacent zero-width spaces that may have accumulated
   const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
   const toRemove: Text[] = [];
   let node: Node | null;
@@ -323,14 +326,19 @@ export function insertTagIntoEditor(
     const text = node.textContent || "";
     if (text.includes("\u200B")) {
       const txt = node as Text;
-      // If this text node is only zero-width spaces
+      const parent = txt.parentElement;
+      if (parent && parent.classList.contains("prompt-tag-hidden")) {
+        if (txt.textContent!.length > 1) {
+          txt.textContent = "\u200B";
+        }
+        continue;
+      }
       if (txt.textContent!.replace(/\u200B/g, "").length === 0) {
-        // Check if adjacent to another tag
         const prev = txt.previousSibling;
         const next = txt.nextSibling;
         if (
-          (prev && (prev as HTMLElement).classList?.contains("inline-prompt-tag")) ||
-          (next && (next as HTMLElement).classList?.contains("inline-prompt-tag"))
+          (prev && (prev as HTMLElement).classList?.contains("prompt-tag-hidden")) ||
+          (next && (next as HTMLElement).classList?.contains("prompt-tag-hidden"))
         ) {
           if (txt.textContent!.length > 1) {
             txt.textContent = "\u200B";

@@ -7,43 +7,34 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model AiPromptCategory {
-  id        String   @id @default(cuid())
-  tenantId  String   @map("tenant_id")
-  userId    String   @map("user_id")
-  name      String
-  sortOrder Int      @default(0) @map("sort_order")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  groups AiPromptGroup[]
-
-  @@map("ai_prompt_categories")
-}
-
+// 我的模板（用户保存的 Prompt 组合）
 model AiPromptGroup {
-  id              String   @id @default(cuid())
-  tenantId        String   @map("tenant_id")
-  userId          String   @map("user_id")
-  categoryId      String   @map("category_id")
-  name            String
-  promptContent   String   @map("prompt_content")
-  negativePrompt  String?  @map("negative_prompt")
-  configJson      String   @map("config_json")
-  remark          String?
-  coverImageUrl   String?  @map("cover_image_url")
-  useCount        Int      @default(0) @map("use_count")
-  lastUsedAt      DateTime? @map("last_used_at")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id                String   @id @default(cuid())
+  tenantId          String   @map("tenant_id")
+  userId            String   @map("user_id")
+  name              String
+  // 用户输入的原始 prompt
+  promptContent     String   @map("prompt_content")
+  // 最终拼接后的 prompt
+  finalPrompt       String?  @map("final_prompt")
+  negativePrompt    String?  @map("negative_prompt")
+  // 选中的片段 ID 列表（JSON 数组字符串）
+  selectedFragmentIds String? @map("selected_fragment_ids")
+  configJson        String   @map("config_json")
+  remark            String?
+  coverImageUrl     String?  @map("cover_image_url")
+  useCount          Int      @default(0) @map("use_count")
+  lastUsedAt        DateTime? @map("last_used_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
-  category    AiPromptCategory        @relation(fields: [categoryId], references: [id])
   references  AiPromptGroupReference[]
   tasks       AiImageTask[]
 
   @@map("ai_prompt_groups")
 }
 
+// 我的模板关联的参考图
 model AiPromptGroupReference {
   id            String   @id @default(cuid())
   groupId       String   @map("group_id")
@@ -58,17 +49,32 @@ model AiPromptGroupReference {
   @@map("ai_prompt_group_references")
 }
 
+// 生成任务（生成历史）
 model AiImageTask {
   id                      String   @id @default(cuid())
   tenantId                String   @map("tenant_id")
   userId                  String   @map("user_id")
+  // 关联的模板 ID（如果是从模板生成的）
   promptGroupId           String?  @map("prompt_group_id")
+  // 选中的片段 ID 列表（JSON 数组字符串）
+  selectedFragmentIds     String?  @map("selected_fragment_ids")
+  // 最终用于生成的 prompt
   promptSnapshot          String   @map("prompt_snapshot")
+  // 用户输入的原始 prompt
+  userPrompt              String?  @map("user_prompt")
+  // 负向 prompt
+  negativePromptSnapshot  String?  @map("negative_prompt_snapshot")
+  // 生成配置快照
   configSnapshot          String   @map("config_snapshot")
+  // 参考图快照
   referenceImagesSnapshot String   @map("reference_images_snapshot")
   status                  String
   resultImageUrl          String?  @map("result_image_url")
   errorMessage            String?  @map("error_message")
+  // 原始 provider 响应（调试用）
+  rawResponse             String?  @map("raw_response")
+  // 使用的 provider 名称
+  provider                String?  @default("mock")
   createdAt               DateTime @default(now()) @map("created_at")
   updatedAt               DateTime @updatedAt @map("updated_at")
 

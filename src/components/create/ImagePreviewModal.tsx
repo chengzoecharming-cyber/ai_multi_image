@@ -1,31 +1,25 @@
 "use client";
 
-import { X, Copy, Download } from "lucide-react";
+import { X, Download, Heart, Trash2 } from "lucide-react";
+import type { ImageTask } from "@/lib/types";
 
 interface ImagePreviewModalProps {
   imageUrl: string;
+  task?: ImageTask | null;
   onClose: () => void;
   onDownload?: () => void;
+  onAddToLibrary?: () => void;
+  onDelete?: () => void;
 }
 
 export default function ImagePreviewModal({
   imageUrl,
+  task,
   onClose,
   onDownload,
+  onAddToLibrary,
+  onDelete,
 }: ImagePreviewModalProps) {
-  const handleCopy = async () => {
-    try {
-      const response = await fetch(imageUrl);
-      const blob = await response.blob();
-      await navigator.clipboard.write([
-        new ClipboardItem({ [blob.type]: blob }),
-      ]);
-    } catch {
-      // Fallback: copy URL text
-      await navigator.clipboard.writeText(imageUrl);
-    }
-  };
-
   return (
     <div
       className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/60"
@@ -50,21 +44,28 @@ export default function ImagePreviewModal({
           className="max-w-[80vw] max-h-[60vh] object-contain rounded-lg"
         />
 
-        {/* Action buttons frame */}
+        {/* Action buttons frame — light blue to light purple gradient */}
         <div className="mt-8 inline-flex items-center gap-[100px] px-10 py-6 rounded-full bg-gradient-to-r from-[#E8ECFE] to-[#F0E6FF]">
-          <button
-            onClick={handleCopy}
-            className="flex items-center gap-2 text-[13px] font-normal text-gray-700 hover:text-indigo-600 transition-colors"
-          >
-            <Copy className="w-4 h-4" />
-            复制图片
-          </button>
           <button
             onClick={onDownload}
             className="flex items-center gap-2 text-[13px] font-normal text-gray-700 hover:text-indigo-600 transition-colors"
           >
             <Download className="w-4 h-4" />
-            下载图片
+            下载
+          </button>
+          <button
+            onClick={onAddToLibrary}
+            className="flex items-center gap-2 text-[13px] font-normal text-gray-700 hover:text-indigo-600 transition-colors"
+          >
+            <Heart className="w-4 h-4" />
+            添加到素材库
+          </button>
+          <button
+            onClick={onDelete}
+            className="flex items-center gap-2 text-[13px] font-normal text-gray-700 hover:text-red-500 transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+            删除
           </button>
         </div>
       </div>

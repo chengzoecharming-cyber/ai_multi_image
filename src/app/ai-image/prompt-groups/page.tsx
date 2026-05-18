@@ -14,12 +14,10 @@ import {
   FolderOpen,
   ImageIcon,
   Clock,
-  Tag,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -37,42 +35,30 @@ import {
 } from "@/components/ui/table";
 import AppHeader from "@/components/common/AppHeader";
 import {
-  getCategories,
   getPromptGroups,
   createPromptGroup,
   updatePromptGroup,
   deletePromptGroup,
   duplicatePromptGroup,
-  createCategory,
-  updateCategory,
-  deleteCategory,
 } from "@/lib/api";
-import { PromptGroup, PromptCategory } from "@/lib/types";
+import { PromptGroup } from "@/lib/types";
 
 export default function PromptGroupsPage() {
   const router = useRouter();
-  const [categories, setCategories] = useState<PromptCategory[]>([]);
   const [groups, setGroups] = useState<PromptGroup[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   // Modal states
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<PromptGroup | null>(null);
-  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<PromptCategory | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<{ type: "group" | "category"; id: string } | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [catRes, groupRes] = await Promise.all([
-        getCategories(),
-        getPromptGroups(),
-      ]);
-      setCategories(catRes.data);
+      const groupRes = await getPromptGroups();
       setGroups(
         groupRes.data.map((g) => ({
           ...g,
@@ -94,14 +80,11 @@ export default function PromptGroupsPage() {
   }, [loadData]);
 
   const filteredGroups = groups.filter((g) => {
-    const matchesCategory = selectedCategoryId
-      ? g.categoryId === selectedCategoryId
-      : true;
     const matchesSearch = searchQuery
       ? g.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         g.promptContent.toLowerCase().includes(searchQuery.toLowerCase())
       : true;
-    return matchesCategory && matchesSearch;
+    return matchesSearch;
   });
 
   const handleSaveGroup = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -111,7 +94,6 @@ export default function PromptGroupsPage() {
     try {
       const payload = {
         name: editingGroup.name,
-        categoryId: editingGroup.categoryId,
         promptContent: editingGroup.promptContent,
         negativePrompt: editingGroup.negativePrompt,
         config: editingGroup.config || { ratio: "1:1", width: 1024, height: 1024, model: "default", quality: "standard" },
@@ -134,38 +116,13 @@ export default function PromptGroupsPage() {
     }
   };
 
-  const handleSaveCategory = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!editingCategory) return;
-
-    try {
-      if (editingCategory.id) {
-        await updateCategory(editingCategory.id, { name: editingCategory.name });
-        toast.success("更新成功");
-      } else {
-        await createCategory(editingCategory.name);
-        toast.success("创建成功");
-      }
-      setCategoryModalOpen(false);
-      setEditingCategory(null);
-      loadData();
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "操作失败");
-    }
-  };
-
   const handleDelete = async () => {
-    if (!deleteTarget) return;
+    if (!deleteTargetId) return;
     try {
-      if (deleteTarget.type === "group") {
-        await deletePromptGroup(deleteTarget.id);
-        toast.success("删除成功");
-      } else {
-        await deleteCategory(deleteTarget.id);
-        toast.success("删除成功");
-      }
+      await deletePromptGroup(deleteTargetId);
+      toast.success("删除成功");
       setDeleteConfirmOpen(false);
-      setDeleteTarget(null);
+      setDeleteTargetId(null);
       loadData();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "删除失败");
@@ -193,7 +150,6 @@ export default function PromptGroupsPage() {
         id: "",
         tenantId: "default",
         userId: "default",
-        categoryId: categories[0]?.id || "",
         name: "",
         promptContent: "",
         negativePrompt: "",
@@ -223,17 +179,6 @@ export default function PromptGroupsPage() {
           </div>
           <div className="flex gap-2">
             <Button
-              variant="outline"
-              onClick={() => {
-                setEditingCategory({ id: "", tenantId: "default", userId: "default", name: "", sortOrder: 0, createdAt: "", updatedAt: "" });
-                setCategoryModalOpen(true);
-              }}
-              className="border-gray-300"
-            >
-              <Tag className="w-4 h-4 mr-1.5" />
-              新建分类
-            </Button>
-            <Button
               onClick={() => openGroupModal()}
               className="bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white border-0"
             >
@@ -254,31 +199,6 @@ export default function PromptGroupsPage() {
               className="pl-8 h-9 text-sm bg-white border-gray-200"
             />
           </div>
-          <div className="flex gap-1.5">
-            <button
-              onClick={() => setSelectedCategoryId(null)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                selectedCategoryId === null
-                  ? "bg-indigo-50 text-indigo-600 border border-indigo-200"
-                  : "bg-white text-gray-500 border border-gray-200 hover:bg-gray-50"
-              }`}
-            >
-              全部
-            </button>
-            {categories.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategoryId(cat.id)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                  selectedCategoryId === cat.id
-                    ? "bg-indigo-50 text-indigo-600 border border-indigo-200"
-                    : "bg-white text-gray-500 border border-gray-200 hover:bg-gray-50"
-                }`}
-              >
-                {cat.name}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Table */}
@@ -287,7 +207,6 @@ export default function PromptGroupsPage() {
             <TableHeader>
               <TableRow className="bg-gray-50/50 hover:bg-gray-50/50">
                 <TableHead className="text-xs font-medium text-gray-600">名称</TableHead>
-                <TableHead className="text-xs font-medium text-gray-600">分类</TableHead>
                 <TableHead className="text-xs font-medium text-gray-600">参考图</TableHead>
                 <TableHead className="text-xs font-medium text-gray-600">尺寸</TableHead>
                 <TableHead className="text-xs font-medium text-gray-600">最近使用</TableHead>
@@ -297,13 +216,13 @@ export default function PromptGroupsPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-10 text-gray-400 text-sm">
+                  <TableCell colSpan={5} className="text-center py-10 text-gray-400 text-sm">
                     加载中...
                   </TableCell>
                 </TableRow>
               ) : filteredGroups.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-10 text-gray-400 text-sm">
+                  <TableCell colSpan={5} className="text-center py-10 text-gray-400 text-sm">
                     暂无提示词组，点击右上角新建
                   </TableCell>
                 </TableRow>
@@ -312,11 +231,6 @@ export default function PromptGroupsPage() {
                   <TableRow key={group.id} className="hover:bg-gray-50/50">
                     <TableCell className="text-sm text-gray-700 font-medium">
                       {group.name}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 border-gray-200 text-gray-500">
-                        {group.category?.name || "-"}
-                      </Badge>
                     </TableCell>
                     <TableCell className="text-sm text-gray-500">
                       <span className="flex items-center gap-1">
@@ -366,7 +280,7 @@ export default function PromptGroupsPage() {
                           size="sm"
                           variant="ghost"
                           onClick={() => {
-                            setDeleteTarget({ type: "group", id: group.id });
+                            setDeleteTargetId(group.id);
                             setDeleteConfirmOpen(true);
                           }}
                           className="h-7 px-2 text-xs text-gray-400 hover:text-red-500 hover:bg-red-50"
@@ -404,20 +318,6 @@ export default function PromptGroupsPage() {
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-600 mb-1 block">分类</label>
-                <select
-                  value={editingGroup.categoryId}
-                  onChange={(e) => setEditingGroup({ ...editingGroup, categoryId: e.target.value })}
-                  className="w-full h-8 text-sm rounded-md border border-gray-200 px-2"
-                >
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
                 <label className="text-xs text-gray-600 mb-1 block">Prompt</label>
                 <textarea
                   value={editingGroup.promptContent}
@@ -440,39 +340,6 @@ export default function PromptGroupsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Category Modal */}
-      <Dialog open={categoryModalOpen} onOpenChange={setCategoryModalOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-base">
-              {editingCategory?.id ? "编辑分类" : "新建分类"}
-            </DialogTitle>
-          </DialogHeader>
-          {editingCategory && (
-            <form onSubmit={handleSaveCategory} className="space-y-4 mt-2">
-              <div>
-                <label className="text-xs text-gray-600 mb-1 block">分类名称</label>
-                <Input
-                  value={editingCategory.name}
-                  onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
-                  placeholder="输入分类名称"
-                  className="h-8 text-sm"
-                  required
-                />
-              </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setCategoryModalOpen(false)} className="h-8 text-sm">
-                  取消
-                </Button>
-                <Button type="submit" className="h-8 text-sm bg-gradient-to-r from-indigo-500 to-violet-500 text-white border-0">
-                  {editingCategory.id ? "保存" : "创建"}
-                </Button>
-              </DialogFooter>
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
-
       {/* Delete Confirm */}
       <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <DialogContent className="max-w-sm">
@@ -480,7 +347,7 @@ export default function PromptGroupsPage() {
             <DialogTitle className="text-base">确认删除</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-gray-500 mt-2">
-            确定要删除这个{deleteTarget?.type === "group" ? "提示词组" : "分类"}吗？此操作不可撤销。
+            确定要删除这个提示词组吗？此操作不可撤销。
           </p>
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)} className="h-8 text-sm">

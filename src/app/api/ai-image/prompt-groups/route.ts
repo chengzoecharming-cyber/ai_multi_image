@@ -5,7 +5,6 @@ import { prisma } from "@/lib/db";
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const categoryId = searchParams.get("categoryId");
     const search = searchParams.get("search");
     const tenantId = searchParams.get("tenantId") || "default";
     const userId = searchParams.get("userId") || "default";
@@ -13,17 +12,14 @@ export async function GET(request: NextRequest) {
     const where: {
       tenantId: string;
       userId: string;
-      categoryId?: string;
       name?: { contains: string };
     } = { tenantId, userId };
 
-    if (categoryId) where.categoryId = categoryId;
     if (search) where.name = { contains: search };
 
     const groups = await prisma.aiPromptGroup.findMany({
       where,
       include: {
-        category: true,
         references: {
           orderBy: { sortOrder: "asc" },
         },
@@ -34,7 +30,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ data: groups });
   } catch (error) {
     console.error("Failed to fetch prompt groups:", error);
-    return NextResponse.json({ error: "获取提示词组失败" }, { status: 500 });
+    return NextResponse.json({ error: "获取模板列表失败" }, { status: 500 });
   }
 }
 
@@ -44,9 +40,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       name,
-      categoryId,
       promptContent,
+      finalPrompt,
       negativePrompt,
+      selectedFragmentIds,
       config,
       remark,
       coverImageUrl,
@@ -56,10 +53,7 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!name?.trim()) {
-      return NextResponse.json({ error: "提示词组名称不能为空" }, { status: 400 });
-    }
-    if (!categoryId) {
-      return NextResponse.json({ error: "请选择分类" }, { status: 400 });
+      return NextResponse.json({ error: "模板名称不能为空" }, { status: 400 });
     }
     if (!promptContent?.trim()) {
       return NextResponse.json({ error: "Prompt 内容不能为空" }, { status: 400 });
@@ -69,10 +63,11 @@ export async function POST(request: NextRequest) {
       data: {
         tenantId,
         userId,
-        categoryId,
         name: name.trim(),
         promptContent: promptContent.trim(),
+        finalPrompt: finalPrompt?.trim() || null,
         negativePrompt: negativePrompt?.trim() || null,
+        selectedFragmentIds: selectedFragmentIds?.length > 0 ? JSON.stringify(selectedFragmentIds) : null,
         configJson: JSON.stringify(config || { ratio: "1:1", width: 1024, height: 1024, model: "default", quality: "standard" }),
         remark: remark?.trim() || null,
         coverImageUrl: coverImageUrl || null,
@@ -86,7 +81,6 @@ export async function POST(request: NextRequest) {
         },
       },
       include: {
-        category: true,
         references: {
           orderBy: { sortOrder: "asc" },
         },
@@ -96,6 +90,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ data: group });
   } catch (error) {
     console.error("Failed to create prompt group:", error);
-    return NextResponse.json({ error: "创建提示词组失败" }, { status: 500 });
+    return NextResponse.json({ error: "创建模板失败" }, { status: 500 });
   }
 }

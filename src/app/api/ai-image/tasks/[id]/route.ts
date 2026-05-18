@@ -11,11 +11,7 @@ export async function GET(
     const task = await prisma.aiImageTask.findUnique({
       where: { id },
       include: {
-        promptGroup: {
-          include: {
-            category: true,
-          },
-        },
+        promptGroup: true,
       },
     });
 

@@ -1,25 +1,19 @@
 "use client";
 
 import { useRef } from "react";
-import { Upload, X, ImageIcon } from "lucide-react";
+import { Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface ReferenceImage {
-  imageUrl: string;
-  imageName?: string;
-  sortOrder: number;
-}
-
 interface ReferenceUploaderProps {
-  images: ReferenceImage[];
-  onAdd: (images: ReferenceImage[]) => void;
+  urls: string[];
+  onAdd: (urls: string[]) => void;
   onRemove: (index: number) => void;
   disabled?: boolean;
   maxCount?: number;
 }
 
 export default function ReferenceUploader({
-  images,
+  urls,
   onAdd,
   onRemove,
   disabled,
@@ -31,14 +25,14 @@ export default function ReferenceUploader({
     const files = e.target.files;
     if (!files || !files.length) return;
 
-    const remaining = maxCount - images.length;
+    const remaining = maxCount - urls.length;
     if (remaining <= 0) {
-      alert(`最多支持 ${maxCount} 张参考图`);
+      alert(`最多支持 ${maxCount} 张风格参考图`);
       return;
     }
 
     const toUpload = Array.from(files).slice(0, remaining);
-    const newImages: ReferenceImage[] = [];
+    const newUrls: string[] = [];
 
     for (const file of toUpload) {
       const formData = new FormData();
@@ -47,24 +41,20 @@ export default function ReferenceUploader({
         const res = await fetch("/api/upload", { method: "POST", body: formData });
         const data = await res.json();
         if (res.ok && data.data?.url) {
-          newImages.push({
-            imageUrl: data.data.url,
-            imageName: data.data.name,
-            sortOrder: images.length + newImages.length,
-          });
+          newUrls.push(data.data.url);
         }
       } catch (err) {
         console.error("Upload failed:", err);
       }
     }
 
-    if (newImages.length > 0) {
-      onAdd(newImages);
+    if (newUrls.length > 0) {
+      onAdd(newUrls);
     }
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const canAddMore = images.length < maxCount;
+  const canAddMore = urls.length < maxCount;
 
   return (
     <div>
@@ -77,16 +67,16 @@ export default function ReferenceUploader({
         onChange={handleFileChange}
       />
 
-      {images.length > 0 ? (
+      {urls.length > 0 ? (
         <div className="grid grid-cols-3 gap-2">
-          {images.map((img, index) => (
+          {urls.map((url, index) => (
             <div
               key={index}
               className="relative aspect-square rounded-xl overflow-hidden group bg-[#F5F6F8]"
             >
               <img
-                src={img.imageUrl}
-                alt={img.imageName || `参考图 ${index + 1}`}
+                src={url}
+                alt={`风格参考 ${index + 1}`}
                 className="w-full h-full object-cover"
               />
               <button
@@ -120,7 +110,7 @@ export default function ReferenceUploader({
             <span className="text-[13px] font-medium">上传图片</span>
           </div>
           <p className="text-[12px] text-gray-400 text-center max-w-[280px]">
-            上传要求：单纯背景图/画质清晰，避免出现商品文字、人脸等元素
+            支持上传背景、光影、色调等视觉风格参考图
           </p>
         </button>
       )}

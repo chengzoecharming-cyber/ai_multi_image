@@ -30,6 +30,13 @@ export default function HomePage() {
             <FolderOpen className="w-4 h-4" />
             提示词组管理
           </Link>
+          <Link
+            href="/ai-image/v2"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100"
+          >
+            <Sparkles className="w-4 h-4" />
+            V2 任务式
+          </Link>
         </nav>
       </header>
 

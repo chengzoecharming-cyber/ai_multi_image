@@ -13,11 +13,7 @@ export async function GET(request: NextRequest) {
     const tasks = await prisma.aiImageTask.findMany({
       where: { tenantId, userId },
       include: {
-        promptGroup: {
-          include: {
-            category: true,
-          },
-        },
+        promptGroup: true,
       },
       orderBy: { createdAt: "desc" },
       take: limit,

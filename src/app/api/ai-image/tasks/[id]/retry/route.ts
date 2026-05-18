@@ -28,25 +28,43 @@ export async function POST(
       },
     });
 
-    // 重新调用 Provider — generate multiple images
-    const provider = getImageProvider();
+    // Parse snapshot data
     const config = JSON.parse(task.configSnapshot);
-    const referenceImages = JSON.parse(task.referenceImagesSnapshot);
-    const outputCount = config?.outputCount || 4;
+
+    // Parse reference images snapshot (supports both legacy string[] and new object format)
+    let productImageUrl: string | null = null;
+    let styleReferenceUrls: string[] = [];
+    try {
+      const parsed = JSON.parse(task.referenceImagesSnapshot);
+      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+        productImageUrl = parsed.productImageUrl || null;
+        styleReferenceUrls = parsed.styleReferenceUrls || [];
+      } else if (Array.isArray(parsed)) {
+        // Legacy format: array of image URLs — treat first as product, rest as style
+        productImageUrl = parsed[0] || null;
+        styleReferenceUrls = parsed.slice(1);
+      }
+    } catch {
+      // If not valid JSON, leave defaults
+    }
+
+    // 重新调用 Provider — generate single image
+    const provider = getImageProvider();
     const imageUrls: string[] = [];
 
-    for (let i = 0; i < outputCount; i++) {
-      const result = await provider.generate({
-        prompt: task.promptSnapshot,
-        referenceImageUrls: referenceImages,
-        width: config?.width || 1024,
-        height: config?.height || 1024,
-        model: config?.model,
-        quality: config?.quality,
-      });
-      if (result.success && result.imageUrl) {
-        imageUrls.push(result.imageUrl);
-      }
+    const result = await provider.generate({
+      prompt: task.promptSnapshot,
+      negativePrompt: (task as any).negativePromptSnapshot || undefined,
+      productImageUrl,
+      styleReferenceUrls,
+      width: config?.width || 1024,
+      height: config?.height || 1024,
+      model: config?.model,
+      quality: config?.quality,
+    });
+
+    if (result.success && result.imageUrl) {
+      imageUrls.push(result.imageUrl);
     }
 
     if (imageUrls.length > 0) {
@@ -63,7 +81,7 @@ export async function POST(
         where: { id },
         data: {
           status: "failed",
-          errorMessage: "重新生成失败",
+          errorMessage: result.error || "重新生成失败",
         },
       });
       return NextResponse.json({ data: updatedTask });
