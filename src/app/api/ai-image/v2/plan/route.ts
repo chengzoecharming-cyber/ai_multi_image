@@ -294,18 +294,27 @@ function buildPlanSummaryPrompt(plan: CreativePlan): string {
 
 function buildImageGenerationPrompt(plan: CreativePlan): string {
   const analysis = plan.productAnalysis;
+  const overlay = plan.layoutOverlay;
 
   const parts = [
     `A high-quality e-commerce product visual for "${plan.productName}".`,
     ``,
-    `=== COMMERCIAL COPY (reserve clean space for overlay text) ===`,
+    `=== COMMERCIAL COPY (render as decorative e-commerce text blocks) ===`,
     `Headline: "${plan.headline}"`,
   ];
 
   if (plan.subtitle) parts.push(`Subtitle: "${plan.subtitle}"`);
   parts.push(`Selling Points: ${plan.sellingPoints.map((s) => `"${s}"`).join(", ")}`);
   parts.push(
-    `Important: Render the image WITHOUT readable text or typography. Create clean compositional zones where text overlay will be applied.`,
+    ``,
+    `TEXT RENDERING STRATEGY:`,
+    `- Render ALL text as stylized English words integrated into the image design`,
+    `- Text should look like authentic e-commerce commercial typography — bold, clean, and professionally typeset`,
+    `- Headline must appear as a large, prominent text element in the composition`,
+    `- Selling points must appear as visual badge blocks, tags, or callout cards with text inside`,
+    `- Text must be ENGLISH only, short words/phrases, visually confident and commercial`,
+    `- Do NOT generate garbled, unreadable, or nonsense text — render real English words that match the copy above`,
+    `- Text style should match the image's commercial aesthetic (bold sans-serif for modern, elegant serif for luxury, etc.)`,
     ``,
     `=== VISUAL DIRECTION ===`,
     `${plan.visualDirection}`,
@@ -317,6 +326,38 @@ function buildImageGenerationPrompt(plan: CreativePlan): string {
     `${plan.layoutDirection}`,
     ``,
   );
+
+  if (overlay) {
+    parts.push(
+      `=== LAYOUT OVERLAY INSTRUCTIONS ===`,
+      `Layout Type: ${overlay.layoutType}`,
+      `Visual Density: ${overlay.visualDensity}`,
+      `Color Theme:`,
+      `  Primary: ${overlay.colorTheme.primary}`,
+      `  Secondary: ${overlay.colorTheme.secondary}`,
+      `  Background: ${overlay.colorTheme.background}`,
+      `  Text: ${overlay.colorTheme.text}`,
+      `  Accent: ${overlay.colorTheme.accent}`,
+    );
+    if (overlay.textBlocks.length > 0) {
+      parts.push(
+        `Text Blocks to render ON the image:`,
+        ...overlay.textBlocks.map(
+          (tb) => `  [${tb.role}] "${tb.text}" → position: ${tb.position}, priority: ${tb.priority}`
+        ),
+      );
+    }
+    parts.push(
+      ``,
+      `DESIGN RULES:`,
+      `- Each text block must be rendered as an actual visual element ON the image, not just empty space`,
+      `- Use the color theme for text colors, background panels, accent bars, and badge fills`,
+      `- Create visual hierarchy: headline largest, subtitle medium, selling points as badge/tag size`,
+      `- Add subtle background panels, color blocks, or geometric shapes behind text for readability`,
+      `- Match the overall commercial photography style — text should feel like part of the design, not an afterthought`,
+      ``,
+    );
+  }
 
   if (analysis) {
     parts.push(
@@ -342,10 +383,13 @@ function buildImageGenerationPrompt(plan: CreativePlan): string {
     ...plan.riskWarnings.filter((w) => !(analysis?.structureRisks || []).includes(w)).map((w) => `- ${w}`),
     ``,
     `=== OUTPUT REQUIREMENTS ===`,
-    `- Photorealistic commercial product photography style`,
-    `- No readable text, numbers, logos, prices, or certification marks on the image`,
-    `- Clean text-safe zones in the areas specified by layout`,
+    `- Photorealistic commercial product photography style with STRONG e-commerce visual impact`,
+    `- ALL text must be rendered ON the image as integrated design elements (headline, badges, tags, callouts)`,
+    `- English text only, real words matching the provided copy, no garbled or nonsense characters`,
+    `- No fake logos, fake prices, fake numbers, or fake certification marks`,
+    `- No platform logos (Amazon, Temu, etc.)`,
     `- Professional studio quality with crisp edges and accurate product structure`,
+    `- Must look like a real e-commerce product listing image, not a plain product photo`,
   );
 
   return parts.join("\n");
@@ -359,83 +403,65 @@ You are an expert AI product image planning assistant for e-commerce. Your job i
 
 CRITICAL RULES:
 1. NEVER invent specifications, sizes, material grades, hardness ratings, torque ratings, load capacity, weight, dimensions, warranty details, lifespan, prices, or certifications NOT provided by the user.
-2. NEVER generate fake logos, fake prices, fake parameters, or gibberish text.
+2. NEVER generate fake logos, fake prices, fake parameters, or fake certification marks.
 3. ALL on-image text must be ENGLISH. Headlines and selling points should be impactful English commercial copy.
 4. PRESERVE the product structure: do NOT alter holes, slots, cutting edges, threads, spiral angles, or unique contours visible in the image.
 5. If the user writes in Chinese, translate their intent into appropriate English commercial copy. Do NOT translate word-for-word; instead, capture the commercial intent.
 6. The uploaded photo may contain hands, fingers, arms, table background, packaging, shadows, and unrelated objects. These are NOT part of the product. The product subject must be isolated.
 7. Do NOT treat hands, fingers, arms, table, background clutter, or packaging as product parts.
+8. ALL text (headline, subtitle, selling points) MUST be rendered as REAL, READABLE English text ON the generated image — this is an e-commerce visual, not a plain product photo.
+9. Text must be clearly legible, professionally typeset, and integrated into the overall design with appropriate background panels, color blocks, or geometric accents.
+10. Do NOT generate garbled, nonsense, or unreadable characters — every word must be a real English word.
 `;
 
   const copyRules = `
-## COPY GUIDELINES — Rich and Engaging Commercial Copy
-
-Your generated copy must feel like it was written by a professional e-commerce copywriter, NOT generic placeholder text.
+## COPY GUIDELINES
 
 ### Headline Rules
-- 3-6 impactful English words
-- MUST be specific to the product type and user intent
-- AVOID generic phrases like "PREMIUM QUALITY", "BEST CHOICE", "TOP QUALITY"
-- GOOD examples: "Engineered for Precision Cuts", "Built to Handle the Toughest Jobs", "Cut Faster, Work Smarter", "Professional Grade You Can Trust"
-- Use action verbs, power words, and sensory language
+- 3-6 impactful English words, specific to product type and user intent
+- AVOID generic phrases like "PREMIUM QUALITY", "BEST CHOICE"
 - Each of the 3 plans must have a DISTINCTLY different headline style
+- Headline MUST be rendered as large, visible text ON the generated image
 
 ### Subtitle Rules
-- STRONGLY RECOMMENDED — always provide a subtitle unless template forbids text
 - 6-15 words, creating context and emotional connection
-- Should expand on the headline and tell a mini-story
-- GOOD examples: "Professional-grade performance that stands up to daily industrial use", "Precision machining meets rugged durability in every cut", "Designed for craftsmen who demand consistent results"
+- STRONGLY RECOMMENDED
+- Must appear as readable text ON the generated image
 
 ### Selling Points Rules
-- 3-4 items, 2-5 words each
-- MUST be SPECIFIC and DISTINCT from each other
-- Include a MIX of: functional benefits, material/quality signals, emotional/trust benefits
-- AVOID repeating the same concept across points
-- GOOD examples: ["Ultra-Sharp Cutting Edge", "Heat-Treated Steel Core", "Lifetime Reliability Promise", "Rapid Chip Evacuation"]
-- Each plan's selling points must cover DIFFERENT angles of the product
+- 3-4 items, 2-5 words each, SPECIFIC and DISTINCT
+- Include a MIX of: functional, material/quality, emotional/trust benefits
+- Each selling point MUST be rendered as a visual badge/tag/block ON the generated image
 
 ### Copy Diversity Requirement
 The 3 plans must have fundamentally DIFFERENT copy personalities:
-- Plan 1: Bold, direct, action-oriented (power words, short punchy phrases)
-- Plan 2: Sophisticated, trust-building, premium feel (elegant language, quality emphasis)
-- Plan 3: Problem-solving, feature-focused, technical credibility (specific benefits, functional language)
+- Plan 1: Bold, direct, action-oriented
+- Plan 2: Sophisticated, trust-building, premium feel
+- Plan 3: Problem-solving, feature-focused, technical credibility
+
+### On-Image Text Rules (CRITICAL)
+- ALL copy (headline, subtitle, selling points) must be rendered as REAL English text ON the image
+- Text must be clearly readable, professionally typeset, and integrated into the design
+- Use bold sans-serif for modern/energetic styles, elegant serif for premium styles
+- Add background panels, color blocks, or geometric shapes behind text for visual impact
+- Do NOT leave text areas blank — every text block must be a visible design element
+- Do NOT generate garbled, nonsense, or unreadable characters
 `;
 
   const visualRules = `
-## VISUAL GUIDELINES — Rich and Detailed Visual Direction
-
-Your visual descriptions must be detailed enough that a professional photographer or 3D artist could execute them without ambiguity.
+## VISUAL GUIDELINES
 
 ### visualDirection Requirements
-Write 2-4 sentences covering ALL of:
-- Photography style (e.g., commercial studio, macro, environmental, cinematic)
-- Lighting setup (key light direction, fill light, rim/accent light, shadow quality)
-- Depth of field and focus treatment
-- Material rendering approach (metallic reflections, surface texture, finish quality)
-- Atmosphere and mood (energetic, calm, industrial, premium, rugged)
-- Camera angle and perspective
-
-GOOD example: "Dramatic commercial photography with a low 3/4 camera angle looking slightly upward. Strong key light from upper-left creates crisp highlights on cutting edges with deep shadows defining surface contours. A cool blue rim light separates the product from the dark background. Shallow depth of field with razor-sharp focus on the working tip. Metallic surfaces show realistic brushed steel reflections and micro-texture."
+Write 2-4 sentences covering: photography style, lighting setup, depth of field, material rendering, atmosphere/mood, camera angle.
 
 ### colorDirection Requirements
-Write 2-3 sentences covering:
-- Primary color palette and its psychological effect
-- Accent colors and where they appear
-- Background treatment (solid, gradient, textured)
-- Color transitions or contrasts
-- How the palette supports the commercial message
-
-GOOD example: "Deep charcoal background (#1a1a2e) fading to near-black at edges, creating an immersive premium stage. Electric orange (#ff6b35) accents appear as subtle glows behind the product and in text highlights, conveying energy and urgency. Cool silver and steel tones on the product create a striking warm-cool contrast that draws the eye directly to the merchandise."
+Write 2-3 sentences covering: primary palette, accent colors, background treatment, color transitions.
 
 ### layoutDirection Requirements
-Write 2-3 sentences covering:
-- Product placement and scale within frame
-- Text zone positions and hierarchy
-- Negative space distribution
-- Visual flow (where the eye travels first, second, third)
-- Balance between product dominance and information areas
-
-GOOD example: "Product dominates the right 60% of frame at a dynamic 15-degree tilt, creating visual tension. Large headline sits in the upper-left quadrant with generous white space above. Three selling points stack vertically along the left edge, each with a subtle icon-shaped negative space. The eye flows from headline → product → selling points in a Z-pattern. Bottom 15% kept clean for platform compatibility."
+Write 2-3 sentences covering: product placement/scale, text zone positions, negative space, visual flow.
+- MUST describe where headline text appears (e.g., "large headline arcs above the product")
+- MUST describe where selling point badges/tags appear (e.g., "three selling point badges stack vertically on the left")
+- MUST include text background treatment (e.g., "text sits on bold color blocks" or "headline on a clean gradient panel")
 `;
 
   const singleFormat = `
@@ -466,11 +492,11 @@ Each CreativePlan must have these exact fields:
 - colorDirection: string (detailed palette, 2-3 sentences. See VISUAL GUIDELINES)
 - layoutOverlay: object with:
   - layoutType: string (one of: top_headline_right_points, left_headline_bottom_points, center_product_surrounding_points, comparison_split, detail_magnifier, promo_banner, clean_spec_card)
-  - headline: string
-  - subtitle: string (optional)
-  - sellingPoints: string[]
+  - headline: string (must be rendered as large visible text ON the image)
+  - subtitle: string (optional, must be rendered as visible text ON the image)
+  - sellingPoints: string[] (each must be rendered as a visual badge/tag/block ON the image)
   - textLanguage: always "English"
-  - textBlocks: array of { id, text, role, position, priority }
+  - textBlocks: array of { id, text, role, position, priority } — EACH textBlock must be rendered as an actual visual text element ON the image, not empty space
   - colorTheme: { primary, secondary, background, text, accent }
   - visualDensity: string (one of: clean, balanced, high_information)
 - textLanguage: always "English"

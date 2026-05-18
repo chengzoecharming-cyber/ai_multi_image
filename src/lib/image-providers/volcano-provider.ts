@@ -97,6 +97,8 @@ export class VolcanoProvider implements ImageProvider {
       body.size = size;
 
       console.log("[Volcano] request model:", model, "size:", size);
+      console.log("[Volcano] prompt length:", params.prompt.length);
+      console.log("[Volcano] prompt preview:", params.prompt.substring(0, 400));
 
       const response = await fetch(VOLCANO_API_URL, {
         method: "POST",

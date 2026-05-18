@@ -124,6 +124,59 @@ export interface ImageSetPlan {
 
 export type Step = "input" | "generating" | "plans" | "preview";
 
+// ============================================================
+// V2 Session (UI-only)
+// ============================================================
+
+export type V2SessionStatus =
+  | "draft"
+  | "planning"
+  | "needs_review"
+  | "generating"
+  | "done"
+  | "failed";
+
+export interface V2GeneratedImage {
+  id: string;
+  planId?: string;
+  taskId?: string;
+  imageUrl: string;
+  createdAt: number;
+}
+
+export interface V2Session {
+  id: string;
+  title?: string;
+  createdAt: number;
+  updatedAt: number;
+
+  mode: GenerationMode;
+  step: Step;
+  status?: V2SessionStatus;
+  lastError?: string | null;
+
+  productImageUrl: string | null;
+  productReferenceImageUrl: string | null;
+  goal: string;
+
+  selectedTemplateId?: string | null;
+
+  singlePlans: CreativePlan[];
+  expandedSingleId: string | null;
+  editingSingleId: string | null;
+
+  setPlans: ImageSetPlan[];
+  expandedSetId: string | null;
+  expandedSubIds: string[];
+  editingSubId: string | null;
+
+  previewPlanId: string | null;
+  copiedId: string | null;
+
+  generatingImage: boolean;
+  generatedImages: V2GeneratedImage[];
+}
+
 export const IMAGE_TYPE_LABELS: Record<string, string> = {
   ecommerce_hero: "主图",
   feature_showcase: "功能卖点",

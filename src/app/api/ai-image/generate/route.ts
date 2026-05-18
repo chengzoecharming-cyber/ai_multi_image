@@ -51,6 +51,14 @@ export async function POST(request: NextRequest) {
       });
       finalPrompt = builderResult.positivePrompt;
       finalNegativePrompt = builderResult.negativePrompt;
+    } else if (promptContent && (!config?.selectedFragmentIds || config.selectedFragmentIds.length === 0)) {
+      // Direct prompt path (e.g., v2 plan with rich imageGenerationPrompt)
+      // Use the promptContent directly without legacy fragment augmentation,
+      // so the full e-commerce visual direction is preserved.
+      finalPrompt = promptContent;
+      finalNegativePrompt = negativePrompt || "";
+      console.log("[Generate] Direct prompt path used. Prompt length:", finalPrompt.length);
+      console.log("[Generate] Direct prompt preview:", finalPrompt.substring(0, 300));
     } else {
       // Legacy fragment-based generation
       const selectedFragmentIds: string[] = config?.selectedFragmentIds || [];
