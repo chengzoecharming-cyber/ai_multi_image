@@ -44,7 +44,7 @@ export interface TemplatePromptSection {
 
 /** Product reference preservation instruction */
 const PRODUCT_REFERENCE_INSTRUCTION =
-  "Use the product reference image as the primary source. Preserve the original product shape, proportions, geometry, structure, holes, grooves, edges, threads, cutting edges, mounting points and key mechanical details.";
+  "Use the product reference image as the primary source. Preserve the original product shape, proportions, geometry, structure, holes, grooves, edges, threads, cutting edges, mounting points and key mechanical details. Text, labels, badges, and e-commerce typography are allowed as explicit design elements when requested.";
 
 /** Style reference instruction */
 const STYLE_REFERENCE_INSTRUCTION =
@@ -58,7 +58,7 @@ const COMBINED_REFERENCE_INSTRUCTION =
 
 /** Fallback when no specific references */
 const REFERENCE_PRESERVATION =
-  "Use the reference image as the primary source. Preserve the original product shape, proportions, geometry, holes, grooves, edges, threads, cutting edges, mounting points and key mechanical details. Do not redesign the product. Do not add or remove any parts. Only improve the background, lighting, material appearance and commercial presentation.";
+  "Use the reference image as the primary source. Preserve the original product shape, proportions, geometry, holes, grooves, edges, threads, cutting edges, mounting points and key mechanical details. Do not redesign the product. Do not add or remove any parts. Improve the background, lighting, material appearance, commercial presentation, and e-commerce visual elements such as text, labels, and badges when explicitly requested.";
 
 /**
  * Resolve variable values by applying defaults for missing values.

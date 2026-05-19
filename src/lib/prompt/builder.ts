@@ -22,11 +22,11 @@ import { getFragmentById, getFragmentsByIds } from "./fragments";
 
 /** Default base instruction — user-description-first, avoid conflicts with background/style fragments */
 const BASE_INSTRUCTION =
-  "Use the reference image as the ground truth for the product. Do not invent or add objects, parts, labels, text, logos, or any scene elements the user did not request. Only change what the user explicitly describes (including selected tags/fragments).";
+  "Use the reference image as the ground truth for the product. Do not invent or add objects, parts, logos, or any scene elements the user did not request. Text, labels, and typography are allowed when explicitly requested by the user for e-commerce visual design. Only change what the user explicitly describes (including selected tags/fragments).";
 
 /** Product reference preservation — highest priority, preserves structure */
 const PRODUCT_REFERENCE_INSTRUCTION =
-  "Use the product reference image as the primary source. Preserve the original product shape, proportions, geometry, structure, holes, grooves, edges, threads, cutting edges, mounting points and key mechanical details.";
+  "Use the product reference image as the primary source. Preserve the original product shape, proportions, geometry, structure, holes, grooves, edges, threads, cutting edges, mounting points and key mechanical details. Text, labels, badges, and e-commerce typography are allowed as explicit design elements when requested.";
 
 /** Style reference instruction — only for visual atmosphere */
 const STYLE_REFERENCE_INSTRUCTION =
@@ -40,7 +40,7 @@ const COMBINED_REFERENCE_INSTRUCTION =
 
 /** Fallback reference preservation when only legacy info is available */
 const REFERENCE_PRESERVATION =
-  "Use the reference image as the primary source. Preserve the original product shape, proportions, geometry, holes, grooves, edges, threads, cutting edges, mounting points and key mechanical details. Do not redesign the product. Do not add or remove any parts. Only improve the background, lighting, material appearance and commercial presentation.";
+  "Use the reference image as the primary source. Preserve the original product shape, proportions, geometry, holes, grooves, edges, threads, cutting edges, mounting points and key mechanical details. Do not redesign the product. Do not add or remove any parts. Improve the background, lighting, material appearance, commercial presentation, and e-commerce visual elements such as text, labels, and badges when explicitly requested.";
 
 /** Precision lock for mechanical parts (conservative mode) */
 const PRECISION_LOCK_INSTRUCTION =

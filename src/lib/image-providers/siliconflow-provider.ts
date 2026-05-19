@@ -102,6 +102,7 @@ export class SiliconFlowProvider implements ImageProvider {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(body),
+        signal: params.signal,
       });
 
       if (!response.ok) {

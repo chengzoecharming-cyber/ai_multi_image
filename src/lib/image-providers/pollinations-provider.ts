@@ -82,7 +82,7 @@ export class PollinationsProvider implements ImageProvider {
       // Pollinations 返回的就是图片二进制，我们只需要验证它可访问
       // 但为了性能，直接返回构造好的 URL，让前端/浏览器自己去加载
       // 这里做一个 HEAD 请求验证 URL 是否有效
-      const checkRes = await fetch(imageUrl, { method: "HEAD" });
+      const checkRes = await fetch(imageUrl, { method: "HEAD", signal: params.signal });
       if (!checkRes.ok) {
         return {
           success: false,

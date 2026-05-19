@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
 
     let finalPrompt: string;
     let finalNegativePrompt: string;
+    let isDirectPromptPath = false;
     const generationModeId: string = config?.generationModeId || "conservative_enhancement";
     const strictSize: boolean = config?.strictSize !== false;
 
@@ -55,6 +56,7 @@ export async function POST(request: NextRequest) {
       // Direct prompt path (e.g., v2 plan with rich imageGenerationPrompt)
       // Use the promptContent directly without legacy fragment augmentation,
       // so the full e-commerce visual direction is preserved.
+      isDirectPromptPath = true;
       finalPrompt = promptContent;
       finalNegativePrompt = negativePrompt || "";
       console.log("[Generate] Direct prompt path used. Prompt length:", finalPrompt.length);
@@ -93,8 +95,9 @@ export async function POST(request: NextRequest) {
           ? deriveStableSeed([productImageUrl, finalPrompt, finalNegativePrompt || "", width, height, model])
           : undefined;
 
-    const editStrength =
-      !!productImageUrl
+    const editStrength = isDirectPromptPath
+      ? 0.75 // v2 rich prompts need high freedom for text + composition changes
+      : !!productImageUrl
         ? generationModeId === "conservative_enhancement"
           ? 0.35
           : generationModeId === "commercial_showcase"
@@ -157,19 +160,39 @@ export async function POST(request: NextRequest) {
       data: { status: "processing" },
     });
 
-    const result = await provider.generate({
-      prompt: finalPrompt,
-      negativePrompt: finalNegativePrompt,
-      productImageUrl: productImageUrl || null,
-      styleReferenceUrls: styleReferenceUrls || [],
-      width,
-      height,
-      strictSize,
-      seed,
-      editStrength,
-      model: config?.model,
-      quality: config?.quality,
-    });
+    // 90s timeout for image generation (Seedream 1920x1920 needs ~50-70s)
+    const GENERATE_TIMEOUT_MS = 90000;
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => abortController.abort(), GENERATE_TIMEOUT_MS);
+
+    let result;
+    try {
+      result = await provider.generate({
+        prompt: finalPrompt,
+        negativePrompt: finalNegativePrompt,
+        productImageUrl: productImageUrl || null,
+        styleReferenceUrls: styleReferenceUrls || [],
+        width,
+        height,
+        strictSize,
+        seed,
+        editStrength,
+        model: config?.model,
+        quality: config?.quality,
+        signal: abortController.signal,
+      });
+      clearTimeout(timeoutId);
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err instanceof Error && err.name === "AbortError") {
+        await prisma.aiImageTask.update({
+          where: { id: task.id },
+          data: { status: "failed", errorMessage: "生成超时（60秒），请重试" },
+        });
+        return NextResponse.json({ error: "生成超时（90秒），请重试" }, { status: 504 });
+      }
+      throw err;
+    }
 
     if (result.success && result.imageUrl) {
       const updatedTask = await prisma.aiImageTask.update({

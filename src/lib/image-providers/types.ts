@@ -24,6 +24,8 @@ export interface GenerateImageParams {
   editStrength?: number;
   model?: string;
   quality?: string;
+  /** AbortSignal to cancel in-flight requests */
+  signal?: AbortSignal;
 }
 
 export interface GenerateImageResult {

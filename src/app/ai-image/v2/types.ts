@@ -22,20 +22,110 @@ export interface ProductAnalysis {
 }
 
 // ============================================================
+// CopyBlock
+// ============================================================
+
+export type CopyBlockRole =
+  | "headline"
+  | "subheadline"
+  | "core_claim"
+  | "feature_point"
+  | "technical_point"
+  | "comparison_label"
+  | "application_label"
+  | "bottom_info";
+
+export interface CopyBlock {
+  id: string;
+  title: string;
+  subtitle?: string;
+  body?: string;
+  role: CopyBlockRole;
+  iconHint?: string;
+  priority: number;
+}
+
+// ============================================================
 // LayoutOverlay
 // ============================================================
 
 export type LayoutType =
-  | "top_headline_right_points"
-  | "left_headline_bottom_points"
-  | "center_product_surrounding_points"
-  | "comparison_split"
-  | "detail_magnifier"
-  | "promo_banner"
-  | "clean_spec_card";
+  | "hero_left_text_right_product"
+  | "hero_right_product_left_features"
+  | "top_headline_bottom_feature_bar"
+  | "comparison_two_columns"
+  | "technical_callout_with_insets"
+  | "exploded_layer_explanation"
+  | "four_panel_application_grid"
+  | "large_headline_with_bottom_info_bar"
+  | "diagonal_product_with_side_features"
+  | "premium_center_product_minimal_text";
 
-export type TextBlockRole = "headline" | "subtitle" | "selling_point" | "label" | "badge";
-export type TextBlockPosition = "top-left" | "top-right" | "right" | "left" | "bottom" | "center";
+export type LayoutRegionRole =
+  | "hero_product"
+  | "headline_area"
+  | "subheadline_area"
+  | "feature_stack"
+  | "bottom_info_bar"
+  | "comparison_left"
+  | "comparison_right"
+  | "detail_inset"
+  | "application_grid"
+  | "badge_area";
+
+export type LayoutRegionPosition =
+  | "top"
+  | "left"
+  | "right"
+  | "bottom"
+  | "center"
+  | "top-left"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-right";
+
+export interface LayoutRegion {
+  id: string;
+  role: LayoutRegionRole;
+  position: LayoutRegionPosition;
+  size: "small" | "medium" | "large";
+  priority: number;
+}
+
+export type IconType =
+  | "shield"
+  | "wind"
+  | "temperature"
+  | "speed"
+  | "target"
+  | "gear"
+  | "leaf"
+  | "spark"
+  | "tool"
+  | "check"
+  | "cross"
+  | "clock"
+  | "chart";
+
+export interface IconHint {
+  blockId: string;
+  iconType: IconType;
+  meaning: string;
+}
+
+export type TextBlockRole =
+  | "headline"
+  | "subtitle"
+  | "selling_point"
+  | "label"
+  | "badge"
+  | "feature_title"
+  | "feature_description"
+  | "spec_label"
+  | "spec_value"
+  | "section_header"
+  | "callout";
+export type TextBlockPosition = "top-left" | "top-right" | "right" | "left" | "bottom" | "top" | "center";
 
 export interface TextBlock {
   id: string;
@@ -54,6 +144,8 @@ export interface ColorTheme {
 }
 
 export type VisualDensity = "clean" | "balanced" | "high_information";
+export type VisualComplexity = "simple" | "medium" | "complex";
+export type InformationDensity = "low" | "medium" | "high";
 
 export interface LayoutOverlay {
   layoutType: LayoutType;
@@ -64,15 +156,32 @@ export interface LayoutOverlay {
   textBlocks: TextBlock[];
   colorTheme: ColorTheme;
   visualDensity: VisualDensity;
+  regions?: LayoutRegion[];
+  hasIconSystem?: boolean;
+  hasBottomInfoBar?: boolean;
+  hasDetailInsets?: boolean;
+  hasComparisonPanels?: boolean;
+  hasApplicationGrid?: boolean;
+  iconHints?: IconHint[];
 }
 
 // ============================================================
 // CreativePlan
 // ============================================================
 
+export type PlanArchetype =
+  | "hero_feature"
+  | "technical_breakdown"
+  | "comparison_story"
+  | "application_scene"
+  | "multi_panel_info"
+  | "premium_showcase"
+  | "promo_sales";
+
 export interface CreativePlan {
   id: string;
   planName: string;
+  planArchetype: PlanArchetype;
   templateId: string;
   imageType: string;
 
@@ -82,6 +191,7 @@ export interface CreativePlan {
   headline: string;
   subtitle?: string;
   sellingPoints: string[];
+  copyBlocks: CopyBlock[];
 
   copySource: CopySource;
   copyNotes?: string[];
@@ -89,6 +199,8 @@ export interface CreativePlan {
   layoutDirection: string;
   visualDirection: string;
   colorDirection: string;
+  visualComplexity: VisualComplexity;
+  informationDensity: InformationDensity;
 
   layoutOverlay?: LayoutOverlay;
 
@@ -104,12 +216,20 @@ export interface CreativePlan {
 // ImageSetPlan
 // ============================================================
 
+export interface ImageRole {
+  index: number;
+  role: string;
+  purpose: string;
+}
+
 export interface ImageSetPlan {
   id: string;
   setName: string;
   templateId: string;
 
   productAnalysis: ProductAnalysis;
+  storyline: string;
+  imageRoles: ImageRole[];
   overallDirection: string;
   platform?: string;
   imageCount: number;
@@ -209,11 +329,28 @@ export const SUB_PLAN_META = [
 // ============================================================
 
 export const LAYOUT_TYPE_LABELS: Record<LayoutType, string> = {
-  top_headline_right_points: "顶部标题 + 右侧卖点",
-  left_headline_bottom_points: "左侧标题 + 底部卖点",
-  center_product_surrounding_points: "居中产品 + 环绕卖点",
-  comparison_split: "左右对比",
-  detail_magnifier: "细节放大",
-  promo_banner: "促销横幅",
-  clean_spec_card: "简洁规格卡",
+  hero_left_text_right_product: "左侧文案 + 右侧产品",
+  hero_right_product_left_features: "右侧产品 + 左侧卖点",
+  top_headline_bottom_feature_bar: "顶部标题 + 底部卖点条",
+  comparison_two_columns: "左右双栏对比",
+  technical_callout_with_insets: "技术标注 + 局部放大",
+  exploded_layer_explanation: "分层结构说明",
+  four_panel_application_grid: "四宫格应用场景",
+  large_headline_with_bottom_info_bar: "大标题 + 底部信息栏",
+  diagonal_product_with_side_features: "对角线产品 + 侧边卖点",
+  premium_center_product_minimal_text: "居中产品 + 极简文字",
+};
+
+// ============================================================
+// Archetype Labels
+// ============================================================
+
+export const ARCHETYPE_LABELS: Record<PlanArchetype, string> = {
+  hero_feature: "单品卖点",
+  technical_breakdown: "技术解析",
+  comparison_story: "优势对比",
+  application_scene: "应用场景",
+  multi_panel_info: "多模块信息",
+  premium_showcase: "高级质感",
+  promo_sales: "强销售",
 };
