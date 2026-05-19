@@ -80,6 +80,7 @@ export class VolcanoProvider implements ImageProvider {
       const body: Record<string, unknown> = {
         model,
         prompt: params.prompt,
+        watermark: false,
       };
 
       if (params.productImageUrl || (params.styleReferenceUrls && params.styleReferenceUrls.length > 0)) {
