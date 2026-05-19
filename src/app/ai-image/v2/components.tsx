@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import {
   Check, AlertTriangle, Eye, Layout, Palette, Type,
   ChevronDown, Copy, CheckCheck, Wand2, Pencil, Save,
@@ -688,6 +688,7 @@ export function PromptPreviewPanel({
   isGeneratingImage: boolean;
   generatedImageUrl: string | null;
 }) {
+  const [imgPromptCollapsed, setImgPromptCollapsed] = useState(false);
   return (
     <div className="w-[460px] border-l border-gray-200 bg-white overflow-y-auto p-5 space-y-4 shrink-0">
       <div className="flex items-center justify-between">
@@ -716,25 +717,25 @@ export function PromptPreviewPanel({
         <span className="text-xs text-gray-500 truncate">{plan.headline}</span>
       </div>
 
-      {plan.planSummaryPrompt && (
-        <div className="space-y-2">
-          <h4 className="text-xs font-semibold text-gray-500 flex items-center gap-1">
-            <BookOpen className="w-3 h-3" />方案摘要 Prompt
-          </h4>
-          <div className="bg-gray-900 rounded-xl p-4 overflow-x-auto">
-            <pre className="text-xs text-gray-100 whitespace-pre-wrap font-mono leading-relaxed">{plan.planSummaryPrompt}</pre>
-          </div>
-        </div>
-      )}
-
       {plan.imageGenerationPrompt && (
         <div className="space-y-2">
-          <h4 className="text-xs font-semibold text-gray-500 flex items-center gap-1">
-            <Sparkles className="w-3 h-3" />制图 Prompt (imageGenerationPrompt)
-          </h4>
-          <div className="bg-gray-900 rounded-xl p-4 overflow-x-auto">
-            <pre className="text-xs text-gray-100 whitespace-pre-wrap font-mono leading-relaxed">{plan.imageGenerationPrompt}</pre>
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-semibold text-gray-500 flex items-center gap-1">
+              <Sparkles className="w-3 h-3" />制图 Prompt (imageGenerationPrompt)
+            </h4>
+            <button
+              onClick={() => setImgPromptCollapsed((v) => !v)}
+              className="p-1 rounded hover:bg-gray-100 text-gray-400 transition-transform"
+              title={imgPromptCollapsed ? "展开" : "折叠"}
+            >
+              <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", imgPromptCollapsed && "-rotate-90")} />
+            </button>
           </div>
+          {!imgPromptCollapsed && (
+            <div className="bg-gray-900 rounded-xl p-4 overflow-x-auto">
+              <pre className="text-xs text-gray-100 whitespace-pre-wrap font-mono leading-relaxed">{plan.imageGenerationPrompt}</pre>
+            </div>
+          )}
         </div>
       )}
 
