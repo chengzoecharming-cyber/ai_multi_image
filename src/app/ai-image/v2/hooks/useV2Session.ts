@@ -40,6 +40,7 @@ function createEmptySession(seed?: Partial<V2Session>): V2Session {
 
     productImageUrl: seed?.productImageUrl ?? null,
     productReferenceImageUrl: seed?.productReferenceImageUrl ?? null,
+    referenceImageUrls: seed?.referenceImageUrls ?? [],
     goal: seed?.goal ?? "",
 
     outputWidth: Number.isFinite(seed?.outputWidth) ? Number(seed?.outputWidth) : 1920,
@@ -103,6 +104,7 @@ export function useV2Session() {
 
   const productFileInputRef = useRef<HTMLInputElement>(null);
   const detailHeroFileInputRef = useRef<HTMLInputElement>(null);
+  const referenceFileInputRef = useRef<HTMLInputElement>(null);
   const generateControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -317,6 +319,49 @@ export function useV2Session() {
     [activeSession, updateActiveSession]
   );
 
+  const handleUploadReferenceImage = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!activeSession) return;
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if ((activeSession.referenceImageUrls?.length || 0) >= 3) {
+        toast.error("参考图最多3张");
+        if (referenceFileInputRef.current) referenceFileInputRef.current.value = "";
+        return;
+      }
+      const formData = new FormData();
+      formData.append("file", file);
+      try {
+        const res = await fetch("/api/upload", { method: "POST", body: formData });
+        const data = await res.json();
+        if (res.ok && data.data?.url) {
+          updateActiveSession((s) => ({
+            ...s,
+            referenceImageUrls: [...(s.referenceImageUrls || []), data.data.url],
+            lastError: null,
+          }));
+          toast.success("参考图上传成功");
+        } else {
+          toast.error(data.error || "上传失败");
+        }
+      } catch {
+        toast.error("上传失败，请重试");
+      }
+      if (referenceFileInputRef.current) referenceFileInputRef.current.value = "";
+    },
+    [activeSession, updateActiveSession]
+  );
+
+  const handleRemoveReferenceImage = useCallback(
+    (index: number) => {
+      updateActiveSession((s) => ({
+        ...s,
+        referenceImageUrls: (s.referenceImageUrls || []).filter((_, i) => i !== index),
+      }));
+    },
+    [updateActiveSession]
+  );
+
   const handleGeneratePlan = useCallback(async () => {
     if (!activeSession) return;
     if (!activeSession.productImageUrl) {
@@ -451,7 +496,10 @@ export function useV2Session() {
       const timeoutId = setTimeout(() => controller.abort(), 90000);
 
       try {
-        const styleRefs = activeSession.productReferenceImageUrl ? [activeSession.productReferenceImageUrl] : [];
+        const styleRefs = [
+          ...(activeSession.productReferenceImageUrl ? [activeSession.productReferenceImageUrl] : []),
+          ...(activeSession.referenceImageUrls || []),
+        ];
         const res = await fetch("/api/ai-image/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -663,10 +711,13 @@ export function useV2Session() {
 
     productFileInputRef,
     detailHeroFileInputRef,
+    referenceFileInputRef,
     selectedTemplate,
 
     handleUploadProductImage,
     handleUploadDetailHero,
+    handleUploadReferenceImage,
+    handleRemoveReferenceImage,
     handleGenerate: handleGeneratePlan,
     handleCancelGenerate,
     handleUpdateSinglePlan,

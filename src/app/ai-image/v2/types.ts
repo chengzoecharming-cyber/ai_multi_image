@@ -2,6 +2,7 @@ import {
   Zap, Gem, BarChart3, ImageIcon, Eye, Layout,
   Microscope, Mountain, Sparkles, ShoppingBag,
 } from "lucide-react";
+import type { VisualStyleId } from "./plan-taxonomy";
 
 export type GenerationMode = "single";
 
@@ -202,6 +203,8 @@ export interface CreativePlan {
   colorDirection: string;
   visualComplexity: VisualComplexity;
   informationDensity: InformationDensity;
+  visualStyleId?: VisualStyleId;
+  visualStyleLabel?: string;
 
   layoutOverlay?: LayoutOverlay;
 
@@ -308,6 +311,8 @@ export interface V2Session {
   productImageUrl: string | null;
   // optional: used as a style reference for product tab generations
   productReferenceImageUrl: string | null;
+  // user-uploaded style reference images (up to 3)
+  referenceImageUrls: string[];
   goal: string;
 
   outputWidth: number;

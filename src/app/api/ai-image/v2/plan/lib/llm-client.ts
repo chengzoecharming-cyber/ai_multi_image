@@ -55,7 +55,7 @@ export async function tryCallLLM(
         },
       ],
       response_format: { type: "json_object" },
-      temperature: 1.0,
+      temperature: templatePrompt ? 0.65 : 0.9,
       max_tokens: 8192,
       thinking: { type: "disabled" },
     }),

@@ -1,7 +1,7 @@
 "use client";
 
 import { RefObject } from "react";
-import { ImageIcon, Upload, Sparkles, Aperture, Focus, Layers, Box } from "lucide-react";
+import { ImageIcon, Upload, Sparkles, Aperture, Focus, Layers, Box, FileText, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -71,7 +71,10 @@ export function DetailLeftPanel({
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs font-medium text-gray-700">商品描述（组内统一）</Label>
+          <Label className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
+            <FileText className="w-3 h-3 text-gray-400" />
+            商品描述（组内统一）
+          </Label>
           <Textarea
             value={productDescription}
             onChange={(e) => onUpdateSession((s) => ({ ...s, goal: e.target.value, lastError: null }))}
@@ -82,7 +85,10 @@ export function DetailLeftPanel({
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs font-medium text-gray-700">选择生成素材图类型</Label>
+          <Label className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
+            <LayoutGrid className="w-3 h-3 text-gray-400" />
+            选择生成素材图类型
+          </Label>
           <div className="grid grid-cols-4 gap-2">
             {(Object.keys(V2_DETAIL_TYPE_LABELS) as V2DetailType[]).map((t) => {
               const checked = selectedTypes.includes(t);

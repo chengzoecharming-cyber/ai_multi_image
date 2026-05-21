@@ -104,7 +104,12 @@ export function SessionsSidebar({
       <div className="p-3 flex items-center justify-between gap-2 border-b border-gray-100">
         <div className="flex items-center gap-2 min-w-0">
           <LayoutGrid className="w-4 h-4 text-indigo-600 shrink-0" />
-          {!isCollapsed && <span className="text-sm font-semibold text-gray-800 truncate">记录</span>}
+          {!isCollapsed && (
+            <div className="flex items-center gap-1">
+              <span className="text-sm font-semibold text-gray-800 truncate">记录</span>
+              <span className="text-[10px] text-gray-400">{list.length}</span>
+            </div>
+          )}
         </div>
         <button
           onClick={onCreateSession}
@@ -116,13 +121,6 @@ export function SessionsSidebar({
       </div>
 
       <div className="p-2 space-y-1">
-        {!isCollapsed && (
-          <div className="px-2.5 py-2 text-xs font-medium text-gray-500 flex items-center justify-between">
-            <span>生成记录</span>
-            <span className="text-[10px] text-gray-400">{list.length}</span>
-          </div>
-        )}
-
         {list.map((s) => {
           const status = deriveSessionStatus(s);
           const isActive = s.id === activeSessionId;
@@ -202,7 +200,7 @@ export function SessionsSidebar({
               </button>
 
               {!isCollapsed && (
-                <div className="absolute right-2 top-2">
+                <div className="absolute right-2 bottom-2">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -215,7 +213,7 @@ export function SessionsSidebar({
                   </button>
 
                   {openMenuId === s.id && (
-                    <div className="absolute right-0 top-7 bg-white border border-gray-200 rounded-lg shadow-lg p-1 z-20 w-32">
+                    <div className="absolute right-0 bottom-7 bg-white border border-gray-200 rounded-lg shadow-lg p-1 z-20 w-32">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();

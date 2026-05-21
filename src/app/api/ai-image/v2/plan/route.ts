@@ -8,78 +8,7 @@ import { detectTemplateArchetype } from "./lib/system-prompt";
 import { normalizeCreativePlan } from "./lib/normalize";
 import { analyzeProductImage } from "./lib/mock-analysis";
 import { generateSinglePlans } from "./lib/mock-plans";
-
-function extractTemplateVisualIdentity(templatePrompt: string): string {
-  const lines = templatePrompt.split("\n");
-  const result: string[] = [];
-  let inMandatory = false;
-  let inAvoid = false;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    if (trimmed.includes("MANDATORY")) {
-      inMandatory = true;
-      inAvoid = false;
-    }
-
-    if (trimmed === "AVOID:") {
-      inMandatory = false;
-      inAvoid = true;
-    }
-
-    if (inMandatory || inAvoid) {
-      if (trimmed.startsWith("Copy strategy")) {
-        inMandatory = false;
-        continue;
-      }
-      if (trimmed.startsWith("${")) {
-        break;
-      }
-      if (trimmed) {
-        result.push(line);
-      }
-    }
-  }
-
-  return result.join("\n").trim();
-}
-
-function extractKeyPhrases(templatePrompt: string): string[] {
-  // Extract unique, specific visual keywords from the template to test
-  // whether the LLM-generated prompt already contains template content.
-  const phrases: string[] = [];
-  const lines = templatePrompt.split("\n");
-  for (const line of lines) {
-    const trimmed = line.trim();
-    // Pick lines that contain specific visual directives
-    if (
-      trimmed.startsWith("-") &&
-      (trimmed.includes("Background:") ||
-        trimmed.includes("Lighting:") ||
-        trimmed.includes("Depth of field:") ||
-        trimmed.includes("Product treatment:") ||
-        trimmed.includes("Color palette:") ||
-        trimmed.includes("Text:"))
-    ) {
-      // Extract the first 4-6 words after the dash as a key phrase
-      const content = trimmed.replace(/^-\s*/, "");
-      const words = content.split(/\s+/).slice(0, 6).join(" ");
-      if (words.length > 10) phrases.push(words);
-    }
-  }
-  return phrases.slice(0, 3); // Check top 3 specific directives
-}
-
-function promptAlreadyContainsTemplate(
-  imageGenPrompt: string,
-  templatePrompt: string
-): boolean {
-  const keyPhrases = extractKeyPhrases(templatePrompt);
-  if (keyPhrases.length === 0) return false;
-  const promptLower = imageGenPrompt.toLowerCase();
-  return keyPhrases.every((p) => promptLower.includes(p.toLowerCase()));
-}
+import { applyTemplateRuleToPlan } from "./lib/template-rules";
 
 interface PlanRequest {
   mode: "single";
@@ -140,32 +69,14 @@ export async function POST(request: NextRequest) {
         if (base64Image) {
           const result = await callLLM(base64Image, userGoal, "single", templatePrompt, body.selectedTemplateId);
 
-          const plans = (result as CreativePlan[]).map((p) => {
-            const plan = normalizeCreativePlan(p);
-            // Inject template visual identity into imageGenerationPrompt
-            // ONLY if the LLM didn't already embed template content.
-            // normalize.ts now preserves LLM-generated prompts, so we must avoid
-            // double-injecting and destroying the LLM's carefully crafted prompt.
-            if (selectedTemplate && plan.imageGenerationPrompt && templatePrompt) {
-              const alreadyHasTemplate = promptAlreadyContainsTemplate(
-                plan.imageGenerationPrompt,
-                templatePrompt
-              );
-              if (alreadyHasTemplate) {
-                console.log("[Plan] LLM prompt already contains template content — skipping injection for plan:", plan.planName);
-              } else {
-                const templateIdentity = extractTemplateVisualIdentity(templatePrompt);
-                if (templateIdentity) {
-                  plan.imageGenerationPrompt = `=== MANDATORY VISUAL IDENTITY (OVERRIDE ALL GENERIC INSTRUCTIONS) ===\n${templateIdentity}\n=== END MANDATORY VISUAL IDENTITY ===\n\n${plan.imageGenerationPrompt}`;
-                  console.log("[Plan] injected template visual identity into imageGenerationPrompt for plan:", plan.planName);
-                }
-              }
-            }
-            // CRITICAL: finalPrompt must always match imageGenerationPrompt because
-            // the frontend generate API sends finalPrompt to the image generator.
-            plan.finalPrompt = plan.imageGenerationPrompt;
-            return plan;
-          });
+          let plans = (result as CreativePlan[]).map((p) => normalizeCreativePlan(p));
+          if (selectedTemplate && templatePrompt) {
+            plans = plans.map((plan, index) => applyTemplateRuleToPlan(plan, selectedTemplate.id, index, templatePrompt));
+          } else {
+            plans.forEach((plan) => {
+              plan.finalPrompt = plan.imageGenerationPrompt;
+            });
+          }
           return NextResponse.json({ data: plans, mode: "single" });
         }
       } catch (e) {
@@ -184,15 +95,11 @@ export async function POST(request: NextRequest) {
       : undefined;
     const plans = generateSinglePlans(analysis, userGoal, forcedArchetype);
 
-    // Inject template visual identity into mock plans too
     if (selectedTemplate && templatePrompt) {
-      const templateIdentity = extractTemplateVisualIdentity(templatePrompt);
-      for (const plan of plans) {
-        if (templateIdentity && plan.imageGenerationPrompt) {
-          plan.imageGenerationPrompt = `=== MANDATORY VISUAL IDENTITY (OVERRIDE ALL GENERIC INSTRUCTIONS) ===\n${templateIdentity}\n=== END MANDATORY VISUAL IDENTITY ===\n\n${plan.imageGenerationPrompt}`;
-        }
-        plan.finalPrompt = plan.imageGenerationPrompt;
-      }
+      return NextResponse.json({
+        data: plans.map((plan, index) => applyTemplateRuleToPlan(plan, selectedTemplate.id, index, templatePrompt)),
+        mode: "single",
+      });
     }
 
     return NextResponse.json({ data: plans, mode: "single" });

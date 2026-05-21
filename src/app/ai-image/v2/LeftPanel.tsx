@@ -2,8 +2,9 @@
 
 import { RefObject, useState } from "react";
 import {
-  ImageIcon, X, Upload, Lightbulb, RotateCcw,
-  Sparkles, ChevronRight, BookOpen, Square, SlidersHorizontal,
+  ImageIcon, X, Upload, Lightbulb,
+  Sparkles, BookOpen, Square, SlidersHorizontal,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -12,14 +13,16 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import type { Step, V2Session } from "./types";
-import { StepBadge } from "./components";
 import type { PlanTemplate } from "@/lib/plan-templates/types";
 
 export function LeftPanel({
   activeSession,
   selectedTemplate,
   fileInputRef,
+  referenceFileInputRef,
   onUpload,
+  onUploadReference,
+  onRemoveReference,
   onUpdateSession,
   onGenerate,
   onReset,
@@ -29,7 +32,10 @@ export function LeftPanel({
   activeSession: V2Session | undefined;
   selectedTemplate: PlanTemplate | null;
   fileInputRef: RefObject<HTMLInputElement | null>;
+  referenceFileInputRef?: RefObject<HTMLInputElement | null>;
   onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onUploadReference?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onRemoveReference?: (index: number) => void;
   onUpdateSession: (updater: (s: V2Session) => V2Session) => void;
   onGenerate: () => void;
   onReset: () => void;
@@ -40,6 +46,7 @@ export function LeftPanel({
 
   const step: Step = activeSession.step;
   const productImageUrl = activeSession.productImageUrl;
+  const referenceImageUrls = activeSession.referenceImageUrls || [];
   const goal = activeSession.goal;
   const outputWidth = activeSession.outputWidth;
   const outputHeight = activeSession.outputHeight;
@@ -55,28 +62,6 @@ export function LeftPanel({
     <div className="w-[320px] h-full flex flex-col border-r border-gray-200 bg-white overflow-hidden shrink-0">
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {/* Stepper */}
-        <div className="flex items-center gap-1.5">
-          <StepBadge n={1} active={step === "input" || step === "generating"} done={step === "plans" || step === "preview"} />
-          <span className="text-xs font-medium text-gray-700">输入任务</span>
-          <ChevronRight className="w-3 h-3 text-gray-300" />
-          <StepBadge n={2} active={step === "plans"} done={step === "preview"} />
-          <span className="text-xs font-medium text-gray-700">选方案</span>
-          <ChevronRight className="w-3 h-3 text-gray-300" />
-          <StepBadge n={3} active={step === "preview"} done={false} />
-          <span className="text-xs font-medium text-gray-700">生图</span>
-          <div className="flex-1" />
-          {(step === "plans" || step === "preview") && (
-            <button
-              onClick={onReset}
-              className="inline-flex items-center justify-center w-6 h-6 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-              title="重新开始"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-
         {/* Template Selection */}
         <div className="space-y-2">
           <Label className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
@@ -262,10 +247,50 @@ export function LeftPanel({
             说明：Seedream 对像素有下限，过小会提示尺寸不支持；文字将由前端自动叠加，不需要你手动排版。
           </p>
         </div>
+
+        {/* Reference Images — up to 3, optional */}
+        <div className="space-y-2">
+          <Label className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
+            <ImageIcon className="w-3 h-3 text-gray-400" />
+            参考图
+            <span className="text-gray-400 font-normal">（可选，最多3张）</span>
+          </Label>
+          <input
+            ref={referenceFileInputRef}
+            type="file"
+            accept="image/jpeg,image/jpg,image/png,image/webp"
+            className="hidden"
+            onChange={onUploadReference}
+          />
+          <div className="flex flex-wrap gap-2">
+            {referenceImageUrls.map((url, i) => (
+              <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200 bg-[#F5F6F8] group shrink-0">
+                <img src={url} alt={`参考图 ${i + 1}`} className="w-full h-full object-cover" />
+                <button
+                  onClick={() => onRemoveReference?.(i)}
+                  className="absolute top-0.5 right-0.5 p-0.5 rounded bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="删除"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+            {referenceImageUrls.length < 3 && (
+              <button
+                onClick={() => referenceFileInputRef?.current?.click()}
+                className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors flex items-center justify-center text-gray-400 shrink-0"
+                title="添加参考图"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-gray-400">支持 jpg、png、webp，用于风格参考</p>
+        </div>
       </div>
 
       {/* Sticky bottom action area */}
-      <div className="shrink-0 px-4 pb-3 pt-0">
+      <div className="shrink-0 px-4 pb-3 pt-3 bg-white">
         {step === "generating" ? (
           <Button
             onClick={onCancelGenerate}

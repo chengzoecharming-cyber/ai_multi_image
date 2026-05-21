@@ -38,10 +38,13 @@ function V2WorkbenchPageInner() {
 
     productFileInputRef,
     detailHeroFileInputRef,
+    referenceFileInputRef,
     selectedTemplate,
 
     handleUploadProductImage,
     handleUploadDetailHero,
+    handleUploadReferenceImage,
+    handleRemoveReferenceImage,
     handleGenerate,
     handleCancelGenerate,
     handleUpdateSinglePlan,
@@ -62,7 +65,7 @@ function V2WorkbenchPageInner() {
 
   if (!activeSession) {
     return (
-      <div className="flex flex-col min-h-screen bg-[#F6F8FC] items-center justify-center">
+      <div className="flex flex-col h-screen bg-white overflow-hidden items-center justify-center">
         <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -71,24 +74,8 @@ function V2WorkbenchPageInner() {
   const step = activeSession.step;
   const tab = workspaceTab;
 
-  const singlePlans = activeSession.singlePlans;
-  const expandedSingleId = activeSession.expandedSingleId;
-  const editingSingleId = activeSession.editingSingleId;
-
-  const copiedId = activeSession.copiedId;
-  const generatingImage = activeSession.generatingImage;
-  const generatedImageUrl = activeSession.generatedImages?.[0]?.imageUrl || null;
-
-  const allPlans = [
-    ...singlePlans,
-  ];
-  const previewPlan =
-    activeSession.previewPlanId
-      ? allPlans.find((p) => p.id === activeSession.previewPlanId) || null
-      : null;
-
   return (
-    <div className="flex flex-col min-h-screen bg-[#F6F8FC]">
+    <div className="flex flex-col h-screen bg-white overflow-hidden">
       <V2Header
         onOpenTemplateLibrary={() => setTemplateLibraryOpen(true)}
         onOpenImageGallery={() => setImageGalleryOpen(true)}
@@ -111,7 +98,10 @@ function V2WorkbenchPageInner() {
             activeSession={activeSession}
             selectedTemplate={selectedTemplate}
             fileInputRef={productFileInputRef}
+            referenceFileInputRef={referenceFileInputRef}
             onUpload={handleUploadProductImage}
+            onUploadReference={handleUploadReferenceImage}
+            onRemoveReference={handleRemoveReferenceImage}
             onUpdateSession={updateActiveSession}
             onGenerate={handleGenerate}
             onCancelGenerate={handleCancelGenerate}
@@ -130,7 +120,7 @@ function V2WorkbenchPageInner() {
         )}
 
         {/* Right Panel — inline because it has many callbacks */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex overflow-hidden bg-gray-100">
           {tab === "product" && step === "input" && (
             <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-10">
               <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
@@ -169,19 +159,29 @@ function V2WorkbenchPageInner() {
           {tab === "product" && (step === "plans" || step === "preview") && (
             <RightPanel
               activeSession={activeSession}
-              onToggleSingle={(id) => updateActiveSession((s) => ({
-                ...s,
-                expandedSingleId: s.expandedSingleId === id ? null : id,
-                previewPlanId: id,
-              }))}
-              onEditSingle={(id) => updateActiveSession((s) => ({ ...s, editingSingleId: s.editingSingleId === id ? null : id }))}
-              onUpdateSingle={handleUpdateSinglePlan}
+              onSelectPlan={(planId) => updateActiveSession((s) => ({ ...s, expandedSingleId: planId }))}
               onOpenPreview={handleOpenPlanPreview}
-              onClosePreview={() => updateActiveSession((s) => ({ ...s, previewPlanId: null, step: "plans" }))}
+              onUpdateSingle={handleUpdateSinglePlan}
               onSave={handleOpenSaveTemplate}
-              onGenerateImage={handleGenerateImage}
-              onGenerateDetails={(_plan) => createNewSession({ workspaceTab: "detail", goal: activeSession.goal, step: "input" })}
-              copiedId={copiedId}
+              onGenerateImage={(plan) => {
+                handleOpenPlanPreview(plan);
+                handleGenerateImage(plan);
+              }}
+              onGenerateDetails={(_plan, imageUrl) =>
+                createNewSession({
+                  workspaceTab: "detail",
+                  goal: activeSession.goal,
+                  step: "input",
+                  detail: {
+                    heroImageUrl: imageUrl,
+                    selectedTypes: [],
+                    generating: false,
+                    results: [],
+                    lastError: null,
+                  },
+                })
+              }
+              onClosePreview={() => updateActiveSession((s) => ({ ...s, previewPlanId: null, step: "plans" }))}
             />
           )}
 
@@ -228,7 +228,7 @@ export default function V2WorkbenchPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex flex-col min-h-screen bg-[#F6F8FC] items-center justify-center">
+        <div className="flex flex-col h-screen bg-white overflow-hidden items-center justify-center">
           <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
         </div>
       }

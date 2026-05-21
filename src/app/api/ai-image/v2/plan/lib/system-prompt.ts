@@ -1,3 +1,5 @@
+import { getTemplateRulePrompt } from "./template-rules";
+
 // ── Template → Archetype mapping ────────────────────────────────
 const TEMPLATE_ARCHETYPE_MAP: Record<string, string> = {
   "tpl-white-bg-hero": "hero_feature",
@@ -32,6 +34,7 @@ export function detectTemplateArchetype(templateId?: string): string | undefined
 
 export function buildSystemPrompt(mode: "single" | "set", templatePrompt?: string, templateId?: string): string {
   const forcedArchetype = detectTemplateArchetype(templateId);
+  const structuredTemplateRules = getTemplateRulePrompt(templateId);
   const isComparison = forcedArchetype === "comparison_story";
 
   const core = `
@@ -58,9 +61,9 @@ Core rules:
     ? `
 Plan quality requirements (TEMPLATE MODE):
 - Each plan must feel like a real e-commerce visual concept, not a simple product photo.
-${isComparison ? `- All 3 plans share the SAME visual identity defined by the template: background type, lighting style, color mood, product scale, and overall atmosphere. The comparison format is MANDATORY.
-- Plans may vary in: headline text, selling points, product angle, crop/composition, and detail focus. But they must NOT vary in overall visual style.` : `- The 3 plans should REFERENCE the template's visual style (background type, lighting mood, color palette) but are FREE to use DIFFERENT layouts, compositions, and even different archetypes.
-- Plans must be VISUALLY DISTINCT from each other: different layout types, different information density, different product angles, different text placement. Do NOT generate 3 variations of the same layout with swapped colors or text.`}
+- All 3 plans share the template's PURPOSE, structure constraints, copy safety rules, and product-accuracy rules.
+- The 3 plans must use DIFFERENT visual styles within that template purpose: different background family, lighting mood, color rhythm, camera/crop, composition, text placement, and information density where the template allows.
+- Do NOT create three near-duplicates. A selected template is a controlled brief, not a command to make all plans look the same.
 - Do not use the same "product on one side + three bullet points" layout for every plan.
 - Avoid fake CTA buttons, fake price tags, discount badges, fake shipping labels, or platform marks.
 - visualDirection must be SPECIFIC and DETAILED: describe exact lighting angles, color temperatures, surface reflections, background textures, and atmospheric effects. Never output generic phrases like "professional studio lighting" or "clean background."
@@ -233,17 +236,22 @@ Do not default to white background + navy + red CTA for every plan.
 `;
 
   const archetypeRules = templatePrompt && forcedArchetype
-    ? isComparison
-      ? `
-Archetype and layout strategy (TEMPLATE MODE — MANDATORY FOR COMPARISON):
+    ? `
+Archetype and layout strategy (TEMPLATE MODE — CONTROLLED DIVERSITY):
 
 The selected template REQUIRES the following planArchetype for ALL 3 plans:
 planArchetype: "${forcedArchetype}"
 
-Do NOT use any other archetype. Do NOT switch archetypes between plans.
-All 3 plans MUST use "${forcedArchetype}".
+Use this archetype as the template's purpose anchor. Keep the plan compatible with "${forcedArchetype}" even when the visual style changes.
 
-Layout requirements for comparison_story — MANDATORY VISUAL ELEMENTS:
+Use the structured style and layout variants below to create enough difference between plans:
+- Plan 1: closest to the canonical template layout.
+- Plan 2: different visual style, composition, and text placement while preserving the same template purpose.
+- Plan 3: different visual style, product angle/crop, and visual rhythm while preserving the same template purpose.
+
+${structuredTemplateRules}
+
+${isComparison ? `Layout requirements for comparison_story — MANDATORY VISUAL ELEMENTS:
 - STRICT 50/50 vertical split-screen layout. Left half = inferior/ordinary. Right half = superior/featured.
 - Center divider: large bold "VS" text on a vertical dividing line. The VS must be immediately visible and centered vertically.
 - Left side ("ORDINARY" / "STANDARD"):
@@ -269,56 +277,7 @@ Layout requirements for comparison_story — MANDATORY VISUAL ELEMENTS:
 - layoutType: comparison_two_columns
 - visualComplexity: complex. informationDensity: high.
 - CRITICAL: If the template prompt specifies different comparison labels (e.g., "ORDINARY" / "OUR END MILL"), USE THE TEMPLATE'S EXACT LABELS.
-`
-      : `
-Archetype and layout strategy (TEMPLATE MODE — FLEXIBLE):
-
-The selected template suggests the following visual style: "${forcedArchetype}".
-
-The 3 plans should REFERENCE this style (background type, lighting mood, color palette) but are FREE to use DIFFERENT planArchetype values and DIFFERENT layout types.
-
-Plan 1: Should closely follow the template's suggested archetype (${forcedArchetype}) and its typical layout.
-Plan 2: May use a DIFFERENT archetype that complements the template style. For example, a "premium_showcase" or "hero_feature" variation.
-Plan 3: May use a THIRD different archetype, or a creative hybrid layout.
-
-${forcedArchetype === "technical_breakdown" ? `
-Suggested layouts for technical_breakdown style:
-- Product body + 1-3 detail insets or exploded layers
-- Callout lines pointing to real structures (edges, holes, threads, coatings)
-- layoutType: technical_callout_with_insets, exploded_layer_explanation
-- visualComplexity: complex. informationDensity: high.` : ""}
-${forcedArchetype === "premium_showcase" ? `
-Suggested layouts for premium_showcase style:
-- Minimal text, generous negative space
-- Deep dark background or refined gradient
-- Material, edge highlight, reflection are the stars
-- layoutType: premium_center_product_minimal_text
-- visualComplexity: medium. informationDensity: low.` : ""}
-${forcedArchetype === "hero_feature" ? `
-Suggested layouts for hero_feature style:
-- Product hero shot occupying 45%-60% of frame
-- Strong lighting, strong edge highlights
-- layoutType: hero_left_text_right_product, hero_right_product_left_features, diagonal_product_with_side_features
-- visualComplexity: medium. informationDensity: medium.` : ""}
-${forcedArchetype === "promo_sales" ? `
-Suggested layouts for promo_sales style:
-- Large bold headline, high contrast color blocks
-- High information density
-- NO fake price, NO fake discount, NO platform logo
-- layoutType: top_headline_bottom_feature_bar, large_headline_with_bottom_info_bar
-- visualComplexity: complex. informationDensity: medium or high.` : ""}
-${forcedArchetype === "application_scene" ? `
-Suggested layouts for application_scene style:
-- Product in a credible industrial context (CNC, machining, assembly, inspection)
-- Product is the hero; scene is atmospheric background
-- layoutType: four_panel_application_grid
-- visualComplexity: medium. informationDensity: medium.` : ""}
-${forcedArchetype === "multi_panel_info" ? `
-Suggested layouts for multi_panel_info style:
-- Multi-block layout: 4-panel grid, 3-column features, bottom info bar
-- Shows compatibility, materials, usage scenarios, or feature set
-- layoutType: four_panel_application_grid, large_headline_with_bottom_info_bar
-- visualComplexity: complex. informationDensity: high.` : ""}
+` : ""}
 
 IMPORTANT: All 3 plans must be VISUALLY DISTINCT. Do NOT generate 3 variations of the same layout.
 `
@@ -544,12 +503,11 @@ ImageSetPlan:
     ? `
 Generate exactly 3 CreativePlan objects.
 
-IMPORTANT: Template instructions are provided below. ${isComparison ? `ALL 3 plans MUST follow the template's visual style and mood.
-They should feel like 3 variations of the SAME template style — different headlines, different selling points, different product angles or compositions, but the SAME overall visual identity (background type, lighting style, color palette, product scale).` : `Plan 1 should closely follow the template's suggested archetype and layout.
-Plan 2 and Plan 3 may use DIFFERENT archetypes and DIFFERENT layouts that complement the template's visual mood.
-All 3 plans must be VISUALLY DISTINCT from each other.`}
+IMPORTANT: Template instructions are provided below. ALL 3 plans MUST follow the selected template's purpose, structure constraints, and safety rules.
+They should feel like 3 clearly different方案 from the same brief: different visual style, background/lighting family, composition, product angle, crop choices, information density, text placement, and copy rhythm.
 
-${isComparison ? `MANDATORY: ALL plans must use planArchetype = "${forcedArchetype}". No exceptions.` : `FREE ARCHETYPE SELECTION: Plans may use different planArchetype values. The template's suggested archetype is "${forcedArchetype}" but this is a SUGGESTION, not a mandate.`}
+MANDATORY: Keep all plans compatible with planArchetype = "${forcedArchetype}".
+MANDATORY: Use a different structured visual style + layout variant for each plan when variants are provided.
 
 Each plan MUST contain:
 ${isComparison || forcedArchetype === "premium_showcase" || forcedArchetype === "technical_breakdown" ? `
@@ -652,7 +610,7 @@ Return strict JSON only:
 `;
 
   const templateSection = templatePrompt
-    ? `\n════════════════════════════════════════════════════════════════\nTEMPLATE INSTRUCTIONS — HIGHEST PRIORITY — OVERRIDES ALL DEFAULTS ABOVE\n════════════════════════════════════════════════════════════════\n\n${templatePrompt}\n\n════════════════════════════════════════════════════════════════\nEND TEMPLATE INSTRUCTIONS\n════════════════════════════════════════════════════════════════\n`
+    ? `\n════════════════════════════════════════════════════════════════\nTEMPLATE INSTRUCTIONS — HIGHEST PRIORITY — OVERRIDES ALL DEFAULTS ABOVE\n════════════════════════════════════════════════════════════════\n\n${structuredTemplateRules ? `${structuredTemplateRules}\n\n` : ""}${templatePrompt}\n\n════════════════════════════════════════════════════════════════\nEND TEMPLATE INSTRUCTIONS\n════════════════════════════════════════════════════════════════\n`
     : "";
 
   const result = [

@@ -18,6 +18,17 @@ function inferLayoutTypeFromDirection(layoutDirection: string, imageType: string
   const ld = layoutDirection.toLowerCase();
   const it = imageType.toLowerCase();
 
+  if (ld.includes("hero_left_text_right_product")) return "hero_left_text_right_product";
+  if (ld.includes("hero_right_product_left_features")) return "hero_right_product_left_features";
+  if (ld.includes("top_headline_bottom_feature_bar")) return "top_headline_bottom_feature_bar";
+  if (ld.includes("comparison_two_columns")) return "comparison_two_columns";
+  if (ld.includes("technical_callout_with_insets")) return "technical_callout_with_insets";
+  if (ld.includes("exploded_layer_explanation")) return "exploded_layer_explanation";
+  if (ld.includes("four_panel_application_grid")) return "four_panel_application_grid";
+  if (ld.includes("large_headline_with_bottom_info_bar")) return "large_headline_with_bottom_info_bar";
+  if (ld.includes("diagonal_product_with_side_features")) return "diagonal_product_with_side_features";
+  if (ld.includes("premium_center_product_minimal_text")) return "premium_center_product_minimal_text";
+
   if (it.includes("comparison") || ld.includes("comparison") || ld.includes("vs") || ld.includes("ordinary")) {
     return "comparison_two_columns";
   }
@@ -51,7 +62,7 @@ function inferLayoutTypeFromDirection(layoutDirection: string, imageType: string
   return "hero_right_product_left_features";
 }
 
-function buildRegions(layoutType: LayoutType, hasBottomInfoBar: boolean, hasDetailInsets: boolean, hasComparisonPanels: boolean, hasApplicationGrid: boolean): LayoutRegion[] {
+function buildRegions(layoutType: LayoutType, hasBottomInfoBar: boolean, hasDetailInsets: boolean): LayoutRegion[] {
   const regions: LayoutRegion[] = [];
   let priority = 1;
 
@@ -350,7 +361,7 @@ export function buildLayoutOverlay(
   const hasApplicationGrid = layoutType === "four_panel_application_grid";
   const hasIconSystem = !!(copyBlocks && copyBlocks.length > 0);
 
-  const regions = buildRegions(layoutType, hasBottomInfoBar, hasDetailInsets, hasComparisonPanels, hasApplicationGrid);
+  const regions = buildRegions(layoutType, hasBottomInfoBar, hasDetailInsets);
   const textBlocks = buildTextBlocks(headline, subtitle, sellingPoints, layoutType);
   const colorTheme = chooseColorTheme(layoutType, layoutDirection);
   const visualDensity = chooseVisualDensity(layoutType);
