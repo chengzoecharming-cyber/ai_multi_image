@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Save, LayoutGrid, ImageIcon } from "lucide-react";
+import { X, Save, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -41,25 +41,15 @@ export default function SaveAsTemplateDialog({
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState("");
   const [category, setCategory] = useState<PlanTemplateCategory>(defaultCategory);
-  const [saveHeadline, setSaveHeadline] = useState(false);
-  const [saveSellingPoints, setSaveSellingPoints] = useState(false);
-  const [saveLayout, setSaveLayout] = useState(false);
-  const [saveVisual, setSaveVisual] = useState(false);
-  const [saveColor, setSaveColor] = useState(false);
-  const [saveLayoutOverlay, setSaveLayoutOverlay] = useState(false);
+  // Rule-template (A): store structure & style rules, not specific copy content.
 
   useEffect(() => {
     if (open) {
       setName(defaultName);
       setDescription("");
       setTags("");
-      setCategory(defaultCategory);
-      setSaveHeadline(false);
-      setSaveSellingPoints(false);
-      setSaveLayout(false);
-      setSaveVisual(false);
-      setSaveColor(false);
-      setSaveLayoutOverlay(false);
+      // Image set templates are deprecated in the product; force single_image for user templates.
+      setCategory("single_image");
     }
   }, [open, defaultName, defaultCategory]);
 
@@ -73,85 +63,30 @@ export default function SaveAsTemplateDialog({
   const handleSave = () => {
     if (!isValid) return;
 
-    const variables: PlanTemplate["variables"] = [
-      { key: "product_name", label: "产品名称", type: "text", required: true },
-      { key: "product_analysis", label: "产品分析", type: "textarea" },
-    ];
+    // Keep variables empty; template prompt contains fixed rules & structure.
+    const variables: PlanTemplate["variables"] = [];
 
-    if (saveHeadline && defaultHeadline) {
-      variables.push({
-        key: "headline",
-        label: "主标题 Headline",
-        type: "text",
-        required: true,
-        defaultValue: defaultHeadline,
-      });
-    } else {
-      variables.push({ key: "headline", label: "主标题 Headline", type: "text", required: true });
-    }
+    const identity: string[] = [];
+    if (defaultLayoutDirection) identity.push(`- Layout direction: ${defaultLayoutDirection}`);
+    if (defaultVisualDirection) identity.push(`- Visual direction: ${defaultVisualDirection}`);
+    if (defaultColorDirection) identity.push(`- Color direction: ${defaultColorDirection}`);
+    if (defaultLayoutOverlay) identity.push(`- Layout overlay (JSON guide): ${JSON.stringify(defaultLayoutOverlay)}`);
 
-    if (saveSellingPoints && defaultSellingPoints.length > 0) {
-      variables.push({
-        key: "selling_points",
-        label: "卖点 Selling Points",
-        type: "string_list",
-        defaultValue: defaultSellingPoints,
-      });
-    } else {
-      variables.push({ key: "selling_points", label: "卖点 Selling Points", type: "string_list" });
-    }
-
-    if (saveLayout && defaultLayoutDirection) {
-      variables.push({
-        key: "layout_direction",
-        label: "版式方向",
-        type: "textarea",
-        defaultValue: defaultLayoutDirection,
-      });
-    } else {
-      variables.push({ key: "layout_direction", label: "版式方向", type: "textarea" });
-    }
-
-    if (saveVisual && defaultVisualDirection) {
-      variables.push({
-        key: "visual_direction",
-        label: "视觉方向",
-        type: "textarea",
-        defaultValue: defaultVisualDirection,
-      });
-    } else {
-      variables.push({ key: "visual_direction", label: "视觉方向", type: "textarea" });
-    }
-
-    if (saveColor && defaultColorDirection) {
-      variables.push({
-        key: "color_direction",
-        label: "色彩方向",
-        type: "textarea",
-        defaultValue: defaultColorDirection,
-      });
-    } else {
-      variables.push({ key: "color_direction", label: "色彩方向", type: "textarea" });
-    }
-
-    if (saveLayoutOverlay && defaultLayoutOverlay) {
-      variables.push({
-        key: "layout_overlay",
-        label: "版式覆盖 LayoutOverlay",
-        type: "textarea",
-        defaultValue: JSON.stringify(defaultLayoutOverlay),
-      });
-    } else {
-      variables.push({ key: "layout_overlay", label: "版式覆盖 LayoutOverlay", type: "textarea" });
-    }
-
-    variables.push(
-      { key: "scene_direction", label: "场景方向", type: "textarea" },
-      { key: "compatible_tools", label: "适配工具", type: "textarea" },
-      { key: "detail_focus", label: "细节聚焦", type: "textarea" },
-      { key: "comparison_direction", label: "对比方向", type: "textarea" },
-      { key: "user_goal", label: "用户需求", type: "textarea" }
-    );
+    const templatePrompt = [
+      `You are an expert industrial e-commerce image planning assistant.`,
+      ``,
+      `MANDATORY (follow exactly):`,
+      ...identity,
+      ``,
+      `Copy strategy:`,
+      `- Generate NEW English copy for each product based on the reference image + user goal.`,
+      `- Keep copy concise, professional, product-specific.`,
+      `- Never invent specs, certifications, prices, logos, or brands.`,
+      ``,
+      `AVOID:`,
+      `- Any product shape change; reference image is the sole authority for structure.`,
+      `- Fake UI badges, discount labels, shipping labels, platform branding.`,
+    ].join("\n");
 
     const template: PlanTemplate = {
       id: `user-tpl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -163,7 +98,7 @@ export default function SaveAsTemplateDialog({
       applicablePlatforms: ["通用"],
       applicableProducts: ["工业品"],
       variables,
-      templatePrompt: `You are an expert industrial e-commerce image planning assistant.\n\n## Core Task\nCreate a product image plan based on the user-provided product reference image and goal.\n\n## Absolute Rules\n- Product reference image is the sole basis for product structure\n- Do not alter product outline, proportions, holes, teeth, cutting edges, threads, slots, edges, or irregular contours\n- Do not add or remove product parts\n- Do not generate fake logos, fake prices, fake parameters, fake sizes, fake certifications\n- Do not generate specific technical data not provided by the user\n\n## Variables\n- Product Name: {{product_name}}\n- Product Analysis: {{product_analysis}}\n- Headline: {{headline}}\n- Selling Points: {{selling_points}}\n- Layout Direction: {{layout_direction}}\n- Visual Direction: {{visual_direction}}\n- Color Direction: {{color_direction}}\n- Scene Direction: {{scene_direction}}\n- Compatible Tools: {{compatible_tools}}\n- Detail Focus: {{detail_focus}}\n- Comparison Direction: {{comparison_direction}}\n- User Goal: {{user_goal}}\n\nGenerate a CreativePlan or ImageSetPlan accordingly.`,
+      templatePrompt,
       defaultRiskRules: [
         "Do not generate fake logos, fake prices, fake parameters, fake sizes, fake certifications",
         "Do not generate specific technical data not provided by the user",
@@ -262,97 +197,6 @@ export default function SaveAsTemplateDialog({
                 <ImageIcon className="w-3.5 h-3.5" />
                 单图模板
               </button>
-              <button
-                onClick={() => setCategory("image_set")}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all",
-                  category === "image_set"
-                    ? "bg-white text-indigo-600 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
-                )}
-              >
-                <LayoutGrid className="w-3.5 h-3.5" />
-                组图模板
-              </button>
-            </div>
-          </div>
-
-          {/* 保存默认值选项 */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-gray-700">保存当前值为默认值</Label>
-            <div className="space-y-2 bg-gray-50 rounded-xl border border-gray-100 p-3">
-              {defaultHeadline && (
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={saveHeadline}
-                    onChange={(e) => setSaveHeadline(e.target.checked)}
-                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span className="text-sm text-gray-700">保存当前 headline 为默认值</span>
-                  <code className="text-[11px] px-1.5 py-0.5 rounded bg-white border border-gray-200 text-gray-500 truncate max-w-[180px]">
-                    {defaultHeadline}
-                  </code>
-                </label>
-              )}
-              {defaultSellingPoints.length > 0 && (
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={saveSellingPoints}
-                    onChange={(e) => setSaveSellingPoints(e.target.checked)}
-                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span className="text-sm text-gray-700">保存当前 sellingPoints 为默认值</span>
-                </label>
-              )}
-              {defaultLayoutDirection && (
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={saveLayout}
-                    onChange={(e) => setSaveLayout(e.target.checked)}
-                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span className="text-sm text-gray-700">保存当前 layoutDirection 为默认值</span>
-                </label>
-              )}
-              {defaultVisualDirection && (
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={saveVisual}
-                    onChange={(e) => setSaveVisual(e.target.checked)}
-                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span className="text-sm text-gray-700">保存当前 visualDirection 为默认值</span>
-                </label>
-              )}
-              {defaultColorDirection && (
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={saveColor}
-                    onChange={(e) => setSaveColor(e.target.checked)}
-                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span className="text-sm text-gray-700">保存当前 colorDirection 为默认值</span>
-                </label>
-              )}
-              {defaultLayoutOverlay && (
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={saveLayoutOverlay}
-                    onChange={(e) => setSaveLayoutOverlay(e.target.checked)}
-                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span className="text-sm text-gray-700">保存当前 layoutOverlay 为默认值</span>
-                  <Badge variant="outline" className="text-[10px] h-4 px-1 font-normal ml-auto">
-                    {defaultLayoutOverlay.layoutType}
-                  </Badge>
-                </label>
-              )}
             </div>
           </div>
         </div>

@@ -56,85 +56,45 @@ Before finalizing, ensure:
 - No platform logo, fake logo, or watermark appears
 `;
 
-const COMMON_EXECUTION_FLOW = `
-## Execution Flow
-
-S1 Product Analysis
-- Analyze the reference image to identify product type, visible structure, material guess, and critical features
-
-S2 Structure Lock
-- Lock product geometry; mark all structure risks based on visible contours, holes, edges, threads, teeth, slots
-
-S3 Layout Planning
-- Determine composition based on template type and user goal
-- Assign zones for product, headline, selling points, and optional detail areas
-
-S4 Copy Processing
-- Determine copySource (user_exact / ai_rewritten / ai_suggested)
-- Generate or preserve headline, subtitle, and sellingPoints per copy rules
-
-S5 Visual Enhancement
-- Apply lighting, color, background, and style per visual rules
-- Ensure product remains the visual center
-
-S6 Quality Check
-- Run the quality checklist before outputting final prompt
-`;
-
 export const SYSTEM_TEMPLATES: PlanTemplate[] = [
-  // ───────────────────────────────────────────────
-  // 1. 白底主图重构方案
-  // ───────────────────────────────────────────────
   {
     id: "tpl-white-bg-hero",
-    name: "白底主图重构方案",
+    name: "白底主图",
     description:
-      "适合 Amazon / Temu / Ozon 等平台主图。商品居中、白底、无文字、无 logo、无促销元素，产品轮廓清楚，结构准确。",
+      "Amazon / Temu 平台主图。整体白色/浅灰背景，产品占画面主体，文案精简干净，不花哨。",
     scope: "system",
     category: "single_image",
-    tags: ["主图", "白底", "无文字", "Amazon", "Temu", "Ozon"],
+    tags: ["主图", "白底", "Amazon", "干净"],
     applicablePlatforms: ["Amazon", "Temu", "Ozon", "通用"],
     applicableProducts: ["工业品", "五金", "工具", "紧固件", "切削工具"],
     variables: [
-      { key: "product_name", label: "产品名称", type: "text", required: true, placeholder: "例如：Drill Bit" },
-      { key: "product_analysis", label: "产品分析", type: "textarea", placeholder: "产品类型、可见结构、材质预估" },
+      { key: "product_name", label: "产品名称", type: "text", required: true },
     ],
     templatePrompt: `
-You are an expert industrial e-commerce image planning assistant.
+## Template Style: White Background Hero (Amazon/Temu Main Image) — MANDATORY
 
-## Core Task
-Create a clean white-background e-commerce main image for {{product_name}}.
-The product must be centered, with clear silhouette and accurate geometry.
-No text, no logo, no watermark, no extra objects, no promotional elements.
+This is NOT a generic product showcase. This is a PLATFORM MAIN IMAGE designed for Amazon/Temu thumbnail visibility and trust.
 
-## Absolute Rules
-- Product reference image is the sole basis for product structure
-- Do not alter product outline, proportions, holes, teeth, cutting edges, threads, slots, edges, or irregular contours
-- Do not add or remove product parts
-- Do not generate fake logos, fake prices, fake parameters, fake sizes, fake certifications
-- Do not generate specific technical data not provided by the user
-- Image must contain ZERO on-image text
+MANDATORY visual identity (all 3 plans must share this):
+- Background: PURE WHITE (#FFFFFF) or very light neutral gray (#F5F5F5 to #F8F8F8). NO gradients. NO textures. NO environment hints. NO colored cast. The background must read as "nothing there" — clean, clinical, empty space.
+- Product treatment: product MUST be shown in FULL — no cropping of edges, tips, or handles. Product occupies 70-85% of frame, centered or slightly offset. The product is the ONLY visual element besides text.
+- Lighting: soft diffused overhead studio light at approximately 60° elevation. FILL light from the front-right at low intensity to eliminate harsh shadows. NO dramatic side light. NO rim light. NO colored gels. Shadows must be soft, natural, and fall directly beneath or slightly behind the product.
+- Depth of field: DEEP. The entire product must be tack-sharp from front to back. NO shallow DOF, NO selective focus, NO bokeh.
+- Reflection: subtle ground reflection directly beneath the product at 15-25% opacity. NO mirror reflection. NO floating shadow.
+- Color palette: product's natural metal/material colors only. NO accent colors. NO color blocks. NO gradient overlays.
+- Text: MINIMAL but clear. Exactly 1 headline (2-5 words, ALL CAPS, bold sans-serif, placed in upper or lower third). PLUS 2-3 very short feature labels (single words or 2-word phrases, small font, arranged in a clean horizontal row or vertical stack beside the product). NO subheadline. NO body paragraphs. NO bullet points with long text.
+- Layout: single-product centered composition. NO side panels. NO bottom bars. NO multi-column grids. NO decorative frames.
 
-${COMMON_EXECUTION_FLOW}
+Copy strategy for this template: MINIMAL. Headline + 2-3 short labels ONLY. Do NOT generate subheadline, core_claim, feature_points with body text, or comparison_labels.
 
-## Copy Rules
-- This template produces a NO-TEXT image
-- headline, subtitle, and sellingPoints should be empty or marked as "N/A"
-- If user provided text, note it for other templates but do NOT place it on this image
-
-## Visual Rules
-- Pure white background (#FFFFFF)
-- Product centered, occupying 60–70% of frame
-- Soft natural drop shadow beneath product
-- Even studio lighting, no harsh shadows
-- Crisp edges, high-resolution surface detail visible
-- Clean silhouette, no color cast on background
-- Slight reflection or grounding shadow acceptable
-
-## Layout
-- Product centered horizontally and vertically
-- Generous negative space on all four sides
-- No text zones, no badge zones, no info panels
+AVOID:
+- Any background that is not pure white or very light gray
+- Colored rim lights, particles, lens flares, or dramatic effects
+- Cropping the product edges
+- Dark panels, colored blocks, or gradient backgrounds
+- Text that crowds or overlaps the product
+- Multiple products or product variations in one frame
+- Shadows that are too dark or cast in unnatural directions
 
 ${COMMON_QUALITY_CHECKS}
 `.trim(),
@@ -142,120 +102,90 @@ ${COMMON_QUALITY_CHECKS}
     enabled: true,
   },
 
-  // ───────────────────────────────────────────────
-  // 2. Temu 单品卖点图方案
-  // ───────────────────────────────────────────────
   {
-    id: "tpl-temu-single-sales",
-    name: "Temu 单品卖点图方案",
+    id: "tpl-temu-promo",
+    name: "Temu 高对比促销图",
     description:
-      "适合单个商品的强视觉卖点图。商品主体放大，有英文标题和 2–4 个卖点，适合 Temu 移动端浏览，有强销售感但不生成假价格和假 logo。",
+      "高能量促销风格。深色背景 + 亮色块/渐变，大标题，强视觉冲击力。",
     scope: "system",
     category: "single_image",
-    tags: ["Temu", "单品", "卖点图", "移动端", "强销售感"],
-    applicablePlatforms: ["Temu", "拼多多跨境", "移动端电商"],
+    tags: ["Temu", "促销", "高对比"],
+    applicablePlatforms: ["Temu", "拼多多跨境", "速卖通"],
     applicableProducts: ["工业品", "五金", "工具", "紧固件", "切削工具"],
     variables: [
-      { key: "headline", label: "主标题 Headline", type: "text", required: true, placeholder: "例如：HEAVY DUTY DRILL BIT" },
-      { key: "selling_points", label: "卖点 Selling Points", type: "string_list", required: true, placeholder: "例如：PROVEN DURABILITY" },
-      { key: "visual_direction", label: "视觉方向", type: "textarea", placeholder: "例如：Bold commercial photography with strong contrast" },
-      { key: "color_direction", label: "色彩方向", type: "textarea", placeholder: "例如：Dark charcoal background with bright orange accents" },
+      { key: "headline", label: "主标题 Headline", type: "text", required: true },
+      { key: "selling_points", label: "卖点 Selling Points", type: "string_list", required: true },
     ],
     templatePrompt: `
-You are an expert industrial e-commerce image planning assistant specialized in high-conversion Temu-style product images.
+## Template Style: Temu High-Contrast Promo — MANDATORY
 
-## Core Task
-Create a high-conversion single-product feature image for {{product_name}} based on the product reference image and user goal.
-The image must work well on mobile screens and convey strong sales appeal.
+This is NOT a general product photo. This is a HIGH-ENERGY SALES PROMO image designed to grab attention in a crowded feed.
 
-## Absolute Rules
-- Product reference image is the sole basis for product structure
-- Do not alter product outline, proportions, holes, teeth, cutting edges, threads, slots, edges, or irregular contours
-- Do not add or remove product parts
-- Do not generate fake logos, fake prices, fake parameters, fake sizes, fake certifications
-- Do not generate specific technical data not provided by the user
-- All on-image text must follow the copy rules below
-- Do NOT imitate platform logos (Temu, Amazon, etc.)
+MANDATORY visual identity (all 3 plans must share this):
+- Background: deep matte black (#0A0A0A to #1A1A1A) with BOLD geometric color blocks. Accent colors MUST be high-saturation: electric blue (#007BFF), vivid orange (#FF6B00), hot red (#FF2D55), or acid green (#39FF14). Color blocks must be hard-edged rectangles, diagonal slices, or angular shapes — NO soft gradients, NO rounded blobs.
+- Product treatment: product shown in FULL, floating or grounded with a crisp shadow. Product occupies 55-65% of frame. Product must be brightly lit and sharply focused, standing out against the dark background.
+- Lighting: dramatic key light from upper-left at 45° with strong specular highlights. Hard shadows on the right side. A subtle colored rim light (matching the accent block color) tracing the product's right edge at 20-30% intensity.
+- Depth of field: MODERATE. Product fully sharp. Background color blocks may have slight softness but must remain readable shapes.
+- Text: BOLD and AGGRESSIVE. Headline must be OVERSIZED (6-12 words, ALL CAPS, heavy weight, occupying top 20-25% of frame). Subheadline in smaller weight below headline. 3-4 feature badges or blocks with short punchy text. Bottom info bar with 2-3 icons/labels. This is HIGH text density.
+- Layout: asymmetric. Large headline top-left or top-center. Product center-right or center. Color blocks behind or beside product. Feature badges arranged in a dynamic staggered grid.
 
-${COMMON_EXECUTION_FLOW}
+Copy strategy for this template: RICH and BOLD. Headline + subheadline + core_claim + 3-4 feature_points + 3 bottom_info items. Text must feel urgent and sales-driven.
 
-${COMMON_COPY_RULES}
-
-## Visual Rules
-- Product dominates the frame at 60–75% scale
-- Bold, high-contrast commercial photography style
-- Crisp product edges with professional studio lighting
-- Mobile-first composition: key info within thumb-reachable zones
-- Product is the absolute visual center
-- Strong e-commerce sales tension without looking cheap
-- Dynamic angle or perspective to add energy
-- Optional subtle glow or highlight treatment around product
-
-## Layout
-- Large headline area (top or upper-left)
-- 2–4 selling point badges or blocks arranged for mobile readability
-- Product centered or slightly offset for visual dynamism
-- Clean background with subtle gradient or solid color
-- Avoid cluttered corners; keep breathing room
+AVOID:
+- Soft gradients or pastel colors (kills the promo energy)
+- Minimal text or generous negative space (this is not premium, this is promo)
+- Fake prices, fake discounts, fake countdown timers, platform logos
+- Even studio lighting or flat lighting
+- Symmetrical, centered, balanced layouts (promo needs asymmetry and tension)
+- Product cropping or extreme close-ups
 
 ${COMMON_QUALITY_CHECKS}
 `.trim(),
-    defaultRiskRules: COMMON_RISK_RULES,
+    defaultRiskRules: [
+      ...COMMON_RISK_RULES,
+      "Do NOT generate fake prices, fake discounts, fake countdown timers",
+    ],
     enabled: true,
   },
 
-  // ───────────────────────────────────────────────
-  // 3. 功能卖点说明图方案
-  // ───────────────────────────────────────────────
   {
     id: "tpl-feature-explanation",
-    name: "功能卖点说明图方案",
+    name: "功能卖点说明图",
     description:
-      "适合详情页卖点说明图。商品主体清楚，有标题区和卖点块，可展示材质、结构、耐用、精度等优势，不生成虚假参数。",
+      "详情页卖点说明。产品+卖点信息，背景偏浅冷色调，排版干净可读。",
     scope: "system",
     category: "single_image",
-    tags: ["详情页", "功能卖点", "说明图", "材质", "结构"],
+    tags: ["详情页", "功能卖点", "说明图"],
     applicablePlatforms: ["Amazon", "Temu", "Ozon", "独立站", "通用"],
     applicableProducts: ["工业品", "五金", "工具", "紧固件", "切削工具"],
     variables: [
-      { key: "headline", label: "主标题 Headline", type: "text", required: true, placeholder: "例如：BUILT TO LAST" },
-      { key: "selling_points", label: "卖点 Selling Points", type: "string_list", required: true, placeholder: "例如：DURABLE CONSTRUCTION" },
-      { key: "layout_direction", label: "版式方向", type: "textarea", placeholder: "例如：Product on left 45%, feature callouts on right" },
-      { key: "visual_direction", label: "视觉方向", type: "textarea", placeholder: "例如：Clean technical illustration style" },
+      { key: "headline", label: "主标题 Headline", type: "text", required: true },
+      { key: "selling_points", label: "卖点 Selling Points", type: "string_list", required: true },
     ],
     templatePrompt: `
-You are an expert industrial e-commerce image planning assistant.
+## Template Style: Feature Explanation (Info Panel Layout) — MANDATORY
 
-## Core Task
-Create a feature-explanation product image for {{product_name}}.
-The image should clearly communicate product advantages (material, structure, durability, precision) without fabricating technical data.
+This is NOT a general product showcase. This is a FEATURE EXPLANATION image where the primary job is to communicate product benefits through structured information panels.
 
-## Absolute Rules
-- Product reference image is the sole basis for product structure
-- Do not alter product outline, proportions, holes, teeth, cutting edges, threads, slots, edges, or irregular contours
-- Do not add or remove product parts
-- Do not generate fake logos, fake prices, fake parameters, fake sizes, fake certifications
-- Do not generate specific technical data not provided by the user
-- All on-image text must follow the copy rules below
+MANDATORY visual identity (all 3 plans must share this):
+- Background: cool light gray (#E8ECF0 to #F0F2F5) with subtle blue undertone. NO gradients. NO textures. The background must feel like a clean whiteboard or tech document.
+- Product treatment: product shown at a 3/4 angle or profile view, occupying 40-50% of frame, positioned LEFT or CENTER. Product must be fully visible with crisp edges. NO cropping.
+- Lighting: professional even studio light from upper-front at 50°. Soft fill from below to reduce under-shadow. Slight ground reflection. NO dramatic shadows. NO rim light.
+- Depth of field: DEEP. Entire product sharp.
+- Information panels: RIGHT side or BOTTOM must contain 3-4 structured feature blocks. Each block has a small icon hint + bold title (2-4 words, ALL CAPS) + short body text (8-15 words). Blocks separated by thin hairline dividers or subtle background tints (#FFFFFF panels on #E8ECF0 background).
+- Color palette: cool neutrals + ONE accent color (tech blue #0066CC, teal #008080, or steel blue #4682B4) used sparingly for icon hints and headline only. NO warm colors. NO high-saturation accents.
+- Text: MEDIUM density. Headline + subheadline + 3-4 feature_points (with body text) + 3 bottom_info items. Text arranged in clean vertical stacks or grids. NO comparison_labels. NO application_labels.
+- Layout: product on left/center, info panels on right/bottom. Clean vertical alignment. No overlapping text on product.
 
-${COMMON_EXECUTION_FLOW}
+Copy strategy for this template: MEDIUM-RICH. Headline + subheadline + 3-4 feature_points (each with title AND body explaining the benefit) + 3 bottom_info items. Feature body text must explain WHY the feature matters, not just restate the title.
 
-${COMMON_COPY_RULES}
-
-## Visual Rules
-- Clean, professional technical illustration style overlaid on product photo
-- Product body must remain clearly visible and accurate
-- Subtle highlight circles or lines pointing to key functional areas
-- Crisp, readable typography
-- Professional studio lighting with even exposure
-- Background should not distract from product and feature callouts
-
-## Layout
-- Clear title zone (top-center or top-left)
-- Selling point blocks arranged logically around or beside product
-- Optional subtle connector lines from callout text to corresponding product areas
-- Product occupies 40–55% of frame; info areas balanced with negative space
-- No cluttered data tables or fake specification boxes
+AVOID:
+- Dark backgrounds or heavy panels
+- Fake data tables, specification boxes, or measurement annotations
+- Warm colors, orange, red, or yellow accents
+- Asymmetrical or diagonal layouts
+- Product cropped or shown in extreme close-up
+- Cluttered text that overlaps the product
 
 ${COMMON_QUALITY_CHECKS}
 `.trim(),
@@ -263,504 +193,475 @@ ${COMMON_QUALITY_CHECKS}
     enabled: true,
   },
 
-  // ───────────────────────────────────────────────
-  // 4. 局部放大说明图方案
-  // ───────────────────────────────────────────────
   {
-    id: "tpl-detail-magnifier",
-    name: "局部放大说明图方案",
+    id: "tpl-macro-detail",
+    name: "局部放大细节图",
     description:
-      "适合突出刀刃、孔位、螺纹、槽口、连接头、边缘等细节。主产品 + 1–2 个局部放大区域，放大区域必须来自真实结构，不得杜撰局部细节。",
+      "微距特写风格，突出刀刃、螺纹、表面质感。深背景，戏剧性侧光，质感强烈。",
     scope: "system",
     category: "single_image",
-    tags: ["局部放大", "细节图", "刀刃", "螺纹", "槽口"],
+    tags: ["局部放大", "微距", "细节图", "质感"],
     applicablePlatforms: ["Amazon", "Temu", "Ozon", "独立站", "通用"],
     applicableProducts: ["切削工具", "紧固件", "精密零件", "五金件"],
     variables: [
-      { key: "headline", label: "主标题 Headline", type: "text", required: true, placeholder: "例如：PRECISION CRAFTED" },
-      { key: "detail_focus", label: "细节聚焦 Detail Focus", type: "textarea", required: true, placeholder: "例如：Cutting edge geometry and surface finish" },
-      { key: "selling_points", label: "卖点 Selling Points", type: "string_list", placeholder: "例如：SHARP EDGES, SMOOTH FINISH" },
+      { key: "headline", label: "主标题 Headline", type: "text", required: true },
+      { key: "detail_focus", label: "细节聚焦", type: "textarea", required: true },
     ],
     templatePrompt: `
-You are an expert industrial e-commerce image planning assistant specialized in detail-magnifier product images.
+## Template Style: Macro Detail / Texture Close-Up — MANDATORY
 
-## Core Task
-Create a detail-magnifier image for {{product_name}} that highlights critical structural details (cutting edges, holes, threads, slots, joints, edges).
-The magnified areas must correspond to real structures visible in the reference image.
+This is NOT a general product showcase. This is a MACRO DETAIL image where the primary subject is SURFACE TEXTURE, MATERIAL FINISH, and PRECISION GEOMETRY.
 
-## Absolute Rules
-- Product reference image is the sole basis for product structure
-- Do not alter product outline, proportions, holes, teeth, cutting edges, threads, slots, edges, or irregular contours
-- Do not add or remove product parts
-- Magnified detail areas must come from ACTUAL visible structures; do NOT invent details
-- Do not generate fake labels, fake measurements, or garbled text on magnified areas
-- Do not generate fake logos, fake prices, fake parameters, fake sizes, fake certifications
-- All on-image text must follow the copy rules below
+MANDATORY visual identity (all 3 plans must share this):
+- Background: pure black or extremely dark matte (RGB 5-15, no gradients, no textures, no environment hints).
+- Lighting: single hard light source from camera-left at approximately 45° elevation. Warm white (3200K-4000K) key light. NO fill light — let shadows fall to pure black. Strong specular highlights on metal edges. This is chiaroscuro lighting, not studio even lighting.
+- Depth of field: SHALLOW. The focal plane is razor-thin. Background and non-focal areas must fall into soft blur (bokeh).
+- Product treatment: The main product body should be partially cropped by the frame edges — do NOT show the full product. Show 40-60% of the product, cropped dramatically. This is a DETAIL shot, not a product shot.
+- Detail insets: 1-2 circular or rectangular magnified callouts (15-20% each) showing actual surface texture: tool marks, grain structure, cutting edge geometry, thread profile, or surface finish. These must look like optical micro-photography, not digital illustrations.
+- Color palette: monochromatic metal tones only — silver, steel gray, gunmetal, brass. ONE single warm accent allowed (copper or amber) for the highlight edge only. NO blue, NO green, NO red.
+- Text: ABSOLUTELY MINIMAL. Exactly 1 headline (2-4 words, ALL CAPS, thin weight, placed in negative space). NO subheadline. NO body text. NO bullet points. NO feature labels. The image must communicate through texture and light, not words.
+- Layout: product dominates 70-80% of frame, cropped. Inset(s) float in the remaining space with thin hairline borders. No decorative frames, no shadow boxes, no gradients behind insets.
 
-${COMMON_EXECUTION_FLOW}
+Copy strategy for this template: MINIMAL — headline only. Do NOT generate feature_points, technical_points, or comparison_labels. The headline is the ONLY text element.
 
-${COMMON_COPY_RULES}
+AVOID:
+- Showing the complete product (this kills the macro feel)
+- Even studio lighting (this kills the dramatic mood)
+- Multiple colors or color blocks
+- Text-heavy layouts
+- Fake measurement callouts or dimension lines
+- Decorative elements, particles, or lens flares
 
-## Visual Rules
-- Macro-photography style with razor-sharp focus on critical surfaces
-- Shallow depth of field to isolate detail areas
-- Visible material grain, finish quality, and surface topography
-- Dramatic side or rim lighting to emphasize edges and texture
-- 1–2 magnified inset circles or zoom panels showing real structural detail
-- Inset zoom must be accurate to actual proportions; no exaggerated or invented features
-
-## Layout
-- Main product shown at moderate scale with key detail area indicated
-- Magnified inset(s) placed at top-right or adjacent to main product
-- Minimal text labels pointing to specific real features only
-- Dark gradient vignette optional to focus attention
-- No fake measurement lines, dimension callouts, or technical annotations
+{{detail_focus}}
 
 ${COMMON_QUALITY_CHECKS}
 `.trim(),
     defaultRiskRules: [
       ...COMMON_RISK_RULES,
       "Magnified detail areas must correspond to real visible structures; do not invent details",
-      "Do not generate fake measurement lines or dimension callouts",
     ],
     enabled: true,
   },
 
-  // ───────────────────────────────────────────────
-  // 5. 优势对比图方案
-  // ───────────────────────────────────────────────
   {
     id: "tpl-advantage-comparison",
-    name: "优势对比图方案",
+    name: "优势对比图",
     description:
-      "适合表达与普通产品相比的优势。可以有对比区域，表达强度、耐用、精度、材质等差异，不生成假版本、假参数、假数字。",
+      "展示产品优势。左侧产品主体，右侧抽象化的普通版本对比物，不引用真实竞品。",
     scope: "system",
     category: "single_image",
-    tags: ["优势对比", "对比图", "强度", "耐用", "精度"],
+    tags: ["优势对比", "对比图", "产品优势"],
     applicablePlatforms: ["Amazon", "Temu", "Ozon", "独立站", "通用"],
     applicableProducts: ["工业品", "五金", "工具", "紧固件", "切削工具"],
     variables: [
-      { key: "headline", label: "主标题 Headline", type: "text", required: true, placeholder: "例如：WHY CHOOSE US" },
-      { key: "selling_points", label: "卖点 Selling Points", type: "string_list", required: true, placeholder: "例如：SUPERIOR DESIGN" },
-      { key: "comparison_direction", label: "对比方向", type: "textarea", placeholder: "例如：Featured product vibrant on left vs generic alternative muted on right" },
+      { key: "headline", label: "主标题 Headline", type: "text", required: true },
+      { key: "selling_points", label: "卖点 Selling Points", type: "string_list", required: true },
     ],
     templatePrompt: `
-You are an expert industrial e-commerce image planning assistant.
+## Template Style: Advantage Comparison (Split-Screen Before vs After / Ordinary vs Premium) — MANDATORY
 
-## Core Task
-Create an advantage-comparison image for {{product_name}} that visually communicates why this product is superior.
-Comparison may express strength, durability, precision, or material quality differences.
-No fake versions, fake parameters, or fake numbers may be generated.
+This is NOT a general product showcase. This is a SPLIT-SCREEN COMPARISON image that visually proves product superiority through dramatic side-by-side contrast. The image must instantly read as "THIS vs THAT" even at thumbnail size.
 
-## Absolute Rules
-- Product reference image is the sole basis for product structure
-- Do not alter product outline, proportions, holes, teeth, cutting edges, threads, slots, edges, or irregular contours
-- Do not add or remove product parts
-- Do NOT generate fake performance data, test scores, comparison numbers, or statistics
-- Do NOT reference specific competitor brands or products
-- Do NOT invent warranty periods, lifespan claims, or durability statistics
-- Do not generate fake logos, fake prices, fake parameters, fake sizes, fake certifications
-- All on-image text must follow the copy rules below
-- Visual comparison only — no fabricated charts, graphs, or data tables
+CRITICAL: BOTH SIDES MUST SHOW THE SAME PRODUCT TYPE. The left side is the SAME product but rendered to look inferior through visual treatment only (desaturation, dimmer light, cooler color). The right side is the SAME product in its best form (full color, bright light, warm tones). They must NOT be two different products.
 
-${COMMON_EXECUTION_FLOW}
+MANDATORY visual identity (all 3 plans must share this):
+- Layout: STRICT 50/50 vertical split-screen. Left half and right half must be visually equal in width. A bold vertical dividing line or VS element runs down the exact center.
+- Background: unified deep dark background (#151515 to #1E1E1E) across the entire image. NO separate backgrounds for each side. The darkness unifies the two halves into one cohesive image.
 
-${COMMON_COPY_RULES}
+LEFT SIDE ("ORDINARY" / "STANDARD" / "BEFORE") — must feel inferior:
+- The SAME product as the right side, shown as a GENERIC, LOWER-QUALITY version. NOT a real competitor brand. NOT a different product type.
+- Must have the SAME overall shape, structure, proportions, and visible features as the right side product.
+- Visual treatment: DESATURATED to 20-30% saturation. Dimmer lighting. Cool blue-gray color cast (#5A6A7A). Slightly softer focus.
+- Product scale: 30-40% of the left half.
+- Large RED "X" mark or red cross indicator placed prominently beside or over the product (NOT covering the product itself). The red X signals "problem / inferior".
+- Label above the product: "ORDINARY" or "STANDARD" in ALL CAPS, cool gray color (#8A9AAF), medium weight.
+- Short negative descriptor text beneath the product label (e.g., "Chip Welding / Poor Finish") in smaller muted red-gray text.
 
-## Visual Rules
-- Side-by-side or implied comparison layout
-- Featured product prominently displayed with vibrant color, sharp focus, and subtle highlight/glow
-- Generic alternative represented abstractly (smaller, desaturated, less defined) — no real competitor imagery
-- Strong visual hierarchy: left side dominant, right side subdued
-- Subtle diagonal dividing line or gradient transition acceptable
-- Clean, professional studio lighting on featured product
-- No cluttered text or data tables
+CENTER DIVIDER ("VS") — must be immediately visible:
+- Large bold "VS" text centered vertically on the dividing line. White (#FFFFFF) or bright silver (#E0E0E0), heavy weight, substantial size (must be readable at thumbnail scale).
+- The VS can sit inside a subtle circular badge or diamond shape with dark translucent background, or directly on a thin vertical divider line.
+- The VS must be the visual anchor that makes the comparison unmistakable.
 
-## Layout
-- Headline centered at top
-- Featured product on left at larger scale with full color and warm highlights
-- Abstract/generic alternative on right at smaller scale with desaturated treatment
-- 2–3 advantage points as bold vertical bars or clean text blocks between the two sides
-- No specific numerical comparisons, no fake test result icons
+RIGHT SIDE ("OUR" / "UPGRADED" / "PREMIUM") — must feel superior:
+- The EXACT SAME featured product from the user's reference image, in FULL COLOR, tack-sharp focus, bright warm key light (3200K-4000K) from upper-left.
+- Must preserve ALL visible features from the reference image: every hole, groove, thread, edge, tooth, and contour must match exactly.
+- Visual treatment: FULL saturation. Bright, vivid, premium. Warm white or amber highlights on edges. A subtle warm glow or soft halo around the product.
+- Product scale: 35-45% of the right half — slightly larger than the left side to subconsciously signal superiority.
+- Large GREEN CHECKMARK or green tick indicator placed prominently beside the product. The green check signals "solution / superior".
+- Label above the product: "OUR END MILL" or "UPGRADED" in ALL CAPS, warm accent color (#FFB347 or #4ADE80), bold weight.
+- Short positive descriptor text beneath the product label (e.g., "Smooth Finish / No Chip Welding") in smaller warm white text.
+
+BOTTOM FEATURE BAR (mandatory — spans full width below both panels):
+- A horizontal dark panel or bar at the bottom 15-20% of the image.
+- 3 feature advantage cards evenly spaced across the bar.
+- Each card: small icon + bold title (2-4 words, ALL CAPS) + optional 1-line description.
+- Card style: dark translucent background with colored left-border accent (green #22C55E for positive features).
+- Example features: "ANTI-STICK COATING", "STABLE CUTTING", "LONGER TOOL LIFE".
+
+Color palette:
+- Left side: desaturated blue-gray (#5A6A7A), muted, dim.
+- Right side: full product colors + warm amber highlights (#FFB347) + bright green accents (#22C55E).
+- Center: white/silver VS divider.
+- Bottom bar: dark charcoal (#1A1A1A) with green left-border accents.
+- Overall: unified dark background makes both sides feel like one image, not two separate images pasted together.
+
+Text density: MEDIUM-HIGH.
+- Headline (top center or top-left, spanning both halves): bold ALL CAPS, 4-8 words.
+- Subheadline (beneath headline): 6-12 words.
+- Left label + descriptor + red X.
+- Right label + descriptor + green check.
+- VS center divider.
+- Bottom bar with 3 feature cards.
+
+Copy strategy for this template: MEDIUM. Headline + subheadline + 2 comparison_labels ("ORDINARY" / "OUR PRODUCT") + 3-4 feature_points + 3 bottom_info items. Comparison labels must NOT reference real brands.
+
+AVOID:
+- Real competitor brand names, logos, or identifiable products
+- Fake performance data, test scores, statistics, or numbers
+- Equal lighting, equal saturation, or equal size on both sides (the right side MUST be visually dominant)
+- Separate backgrounds for left and right (must be unified dark background)
+- Missing VS divider (without it, the image is not a comparison)
+- Missing red X / green check visual indicators
+- Missing bottom feature bar
+- Overlapping or crowded layouts where text covers the product
+- Two completely different products (both sides must be the same product category)
 
 ${COMMON_QUALITY_CHECKS}
 `.trim(),
     defaultRiskRules: [
       ...COMMON_RISK_RULES,
-      "Do NOT generate fake performance data, test scores, comparison numbers, or statistics",
       "Do NOT reference specific competitor brands or products",
-      "Do NOT invent warranty periods, lifespan claims, or durability statistics",
-      "Visual comparison only — no fabricated charts, graphs, or data tables",
+      "Do NOT generate fake performance data, test scores, comparison numbers, or statistics",
+      "The abstract alternative on the right must be generic and unbranded",
     ],
     enabled: true,
   },
 
-  // ───────────────────────────────────────────────
-  // 6. 适配工具图方案
-  // ───────────────────────────────────────────────
   {
-    id: "tpl-compatible-tools",
-    name: "适配工具图方案",
+    id: "tpl-lifestyle-scene",
+    name: "应用场景 Lifestyle 图",
     description:
-      "适合展示适配工具、设备、使用方式。商品主体准确，可以有适配工具或设备面板，不编造兼容范围，不生成误导性图标。",
+      "产品置于真实工作环境中。车间、机加工台、装配现场等。暖色调，背景虚化，产品清晰。",
     scope: "system",
     category: "single_image",
-    tags: ["适配工具", "设备", "使用方式", "兼容性"],
+    tags: ["应用场景", "lifestyle", "环境氛围", "车间"],
     applicablePlatforms: ["Amazon", "Temu", "Ozon", "独立站", "通用"],
-    applicableProducts: ["切削工具", "紧固件", "配件", "连接件"],
+    applicableProducts: ["切削工具", "紧固件", "工具", "五金件"],
     variables: [
-      { key: "headline", label: "主标题 Headline", type: "text", required: true, placeholder: "例如：UNIVERSAL FIT" },
-      { key: "compatible_tools", label: "适配工具 Compatible Tools", type: "textarea", placeholder: "例如：Standard drill chucks, rotary tools" },
-      { key: "selling_points", label: "卖点 Selling Points", type: "string_list", placeholder: "例如：WIDE COMPATIBILITY" },
+      { key: "headline", label: "主标题 Headline", type: "text", required: true },
+      { key: "scene_direction", label: "场景方向", type: "textarea", required: true },
     ],
     templatePrompt: `
-You are an expert industrial e-commerce image planning assistant.
+## Template Style: Lifestyle / Usage Scene — MANDATORY
 
-## Core Task
-Create a compatible-tools / usage-context image for {{product_name}}.
-Show the product with relevant tools, equipment, or interfaces it works with.
-Do NOT invent compatibility ranges or generate misleading icons.
+This is NOT a studio product shot. This is a LIFESTYLE image where the product lives in a believable industrial environment.
 
-## Absolute Rules
-- Product reference image is the sole basis for product structure
-- Do not alter product outline, proportions, holes, teeth, cutting edges, threads, slots, edges, or irregular contours
-- Do not add or remove product parts
-- Do NOT invent specific tool models, brands, or compatibility lists not provided by user
-- Do NOT generate misleading compatibility icons, certification badges, or compatibility charts
-- Do not generate fake logos, fake prices, fake parameters, fake sizes, fake certifications
-- All on-image text must follow the copy rules below
+MANDATORY visual identity (all 3 plans must share this):
+- Background: authentic industrial environment — CNC machine bed, workshop bench with scattered tools, metal shavings, vise, or assembly station. The environment must look REAL, not staged. Visible workshop details: worn surfaces, oil stains, tool marks, clamps, rulers.
+- Background treatment: SHALLOW DEPTH OF FIELD. Background must be heavily blurred (bokeh at f/1.8-f/2.8 level). Product in tack-sharp focus. The blur transition must be natural — closer elements slightly sharper, distant elements fully soft.
+- Color palette: warm amber (#D4A574), workshop brown (#8B6914), steel gray (#708090), oxidized metal (#B87333). NO cool blue tones. NO neon accents. NO pure black backgrounds.
+- Product treatment: product shown in FULL, 35-45% of frame, positioned slightly off-center (rule of thirds). Product must be the brightest and sharpest element in the frame. A subtle warm rim light on the product's top edge to separate it from the background.
+- Lighting: warm ambient workshop light (tungsten/LED mix, ~3000K-3500K) from the environment + a dedicated crisp key light on the product from upper-left. The product must catch more light than the surroundings. NO flat even lighting.
+- Depth of field: SHALLOW. Product sharp. Background heavily blurred. Foreground may have slight blur if something is very close to camera.
+- Atmosphere: slight dust particles or metal shavings visible in the light beam (subtle, not overwhelming). The scene must feel like someone just paused work.
+- Text: MINIMAL. Headline + 2-3 short application_labels (describing the scenario) + 3 bottom_info items. NO dense feature panels. NO comparison_labels.
+- Layout: product is the hero. Environment frames it. Text elements placed in negative space (upper corners or bottom edge), never over the busy background.
 
-${COMMON_EXECUTION_FLOW}
+Copy strategy for this template: MINIMAL-MEDIUM. Headline + 2-3 application_labels (title + short body describing the use scenario) + 3 bottom_info items. Application labels must describe WHERE and HOW the product is used, not just what it is.
 
-${COMMON_COPY_RULES}
-
-## Visual Rules
-- Product remains accurate and clearly visible
-- Compatible tools or equipment panels shown as contextual supporting elements
-- Tools should be generic/industry-standard in appearance; no branded equipment
-- Clean, professional studio or controlled-environment lighting
-- Context should enhance understanding without overwhelming the product
-- Subtle depth-of-field to keep product in sharp focus while tools are slightly softer
-
-## Layout
-- Product positioned to show connection point or interface clearly
-- Compatible tool or device panel placed adjacent or behind product
-- Headline and 1–2 selling points in clean text zones
-- No cluttered compatibility tables or fake model lists
-- Connection interface must be accurate to real geometry
+AVOID:
+- Clean studio backgrounds or pure colors
+- Even lighting across the entire frame
+- Product cropped or shown in extreme close-up
+- Exaggerated scenarios (product doing impossible things)
+- Environment that is brighter or sharper than the product
+- Text-heavy layouts or dense info panels
+- Cool blue/gray color cast on the product
 
 ${COMMON_QUALITY_CHECKS}
 `.trim(),
     defaultRiskRules: [
       ...COMMON_RISK_RULES,
-      "Do NOT invent specific tool models, brands, or compatibility lists not provided by user",
-      "Do NOT generate misleading compatibility icons or certification badges",
+      "Environment must NOT distract from product; product must be brightest and sharpest element",
     ],
     enabled: true,
   },
 
-  // ───────────────────────────────────────────────
-  // 7. 规格信息图方案
-  // ───────────────────────────────────────────────
   {
-    id: "tpl-spec-info",
-    name: "规格信息图方案",
+    id: "tpl-bundle-showcase",
+    name: "促销套装组合图",
     description:
-      "适合做信息感、规格感较强的详情页图。允许信息区和规格区，但不生成真实尺寸数字、技术参数、测量线和假标注。",
+      "展示产品组合/套装。多个产品或不同角度排列，鲜艳背景，大标题。",
     scope: "system",
     category: "single_image",
-    tags: ["规格信息", "详情页", "信息图", "参数"],
+    tags: ["套装", "组合", "促销", "多产品"],
+    applicablePlatforms: ["Temu", "拼多多跨境", "速卖通"],
+    applicableProducts: ["工业品", "五金", "工具", "紧固件"],
+    variables: [
+      { key: "headline", label: "主标题 Headline", type: "text", required: true },
+      { key: "selling_points", label: "卖点 Selling Points", type: "string_list", required: true },
+    ],
+    templatePrompt: `
+## Template Style: Product Bundle / Multi-Item Showcase — MANDATORY
+
+This is NOT a single-product image. This is a BUNDLE SHOWCASE showing multiple related items or variants in one compelling composition.
+
+MANDATORY visual identity (all 3 plans must share this):
+- Background: bold flat color blocks or a clean subtle gradient. Primary background color: deep navy (#1A2744) or charcoal (#2D2D2D). Accent block colors: bright complementary tones (electric blue #007BFF, vivid orange #FF6B00, or magenta #FF2D55) used as geometric shapes behind or between products.
+- Product treatment: 3-5 related items arranged in a deliberate composition. Options:
+  A) One hero product (45-50%) center + 2-3 smaller variants (12-18%) arranged around it in a triangular or arc formation.
+  B) All items equal size (20-25% each) in a clean horizontal row or staggered grid.
+  All products must be fully visible, sharp, and evenly lit. NO cropping of smaller items.
+- Lighting: clean commercial studio light from upper-front at 45°. Even illumination across ALL products — no product should be in shadow while another is brightly lit. Soft fill from below. Subtle individual shadows beneath each product.
+- Depth of field: DEEP. All products tack-sharp from front to back.
+- Color palette: product natural colors + background block colors + ONE accent for headline. NO clashing colors between products and background.
+- Text: MEDIUM density. Headline + subheadline + 3-4 feature_points (title only, no body text for bundles) + 3 bottom_info items. Feature text should emphasize VALUE and COMPLETENESS ("COMPLETE SET", "FULL RANGE", "ALL SIZES").
+- Layout: products arranged in a dynamic but orderly composition. Color blocks behind products create visual separation. Headline top-center or top-left. Feature badges or labels beneath the product arrangement.
+
+Copy strategy for this template: MEDIUM. Headline + subheadline + 3-4 feature_points (title + 1-line body) + 3 bottom_info items. Copy must emphasize abundance, variety, and value.
+
+AVOID:
+- Single product only (defeats the purpose of a bundle image)
+- Products of wildly different sizes without scale indication
+- Fake prices, fake discounts, fake bundle values
+- Uneven lighting where some products are dark
+- Overlapping products that hide each other
+- Cluttered data tables or specification boxes
+- Soft pastel backgrounds (bundle needs bold presence)
+
+${COMMON_QUALITY_CHECKS}
+`.trim(),
+    defaultRiskRules: [
+      ...COMMON_RISK_RULES,
+      "Do NOT generate fake prices, fake discounts, or fake bundle values",
+    ],
+    enabled: true,
+  },
+
+  {
+    id: "tpl-spec-technical",
+    name: "规格参数技术图",
+    description:
+      "技术文档风格。冷色调背景，网格/坐标感，产品+规格面板。不生成真实数字，但保留规格框架感。",
+    scope: "system",
+    category: "single_image",
+    tags: ["规格参数", "技术图", "冷色调", "文档风"],
     applicablePlatforms: ["Amazon", "Temu", "Ozon", "独立站", "通用"],
     applicableProducts: ["工业品", "五金", "工具", "紧固件", "切削工具"],
     variables: [
-      { key: "headline", label: "主标题 Headline", type: "text", required: true, placeholder: "例如：PRODUCT SPECIFICATIONS" },
-      { key: "selling_points", label: "卖点 Selling Points", type: "string_list", placeholder: "例如：PREMIUM QUALITY" },
-      { key: "layout_direction", label: "版式方向", type: "textarea", placeholder: "例如：Product on left, info panels on right with placeholder fields" },
+      { key: "headline", label: "主标题 Headline", type: "text", required: true },
     ],
     templatePrompt: `
-You are an expert industrial e-commerce image planning assistant.
+## Template Style: Technical Spec / Documentation Style — MANDATORY
 
-## Core Task
-Create a specification-style information image for {{product_name}}.
-The image should feel informative and technical, but must NOT generate real size numbers, technical parameters, measurement lines, or fake annotations.
+This is NOT a sales promo or lifestyle shot. This is a TECHNICAL DOCUMENTATION image that presents the product with engineering precision and structured information.
 
-## Absolute Rules
-- Product reference image is the sole basis for product structure
-- Do not alter product outline, proportions, holes, teeth, cutting edges, threads, slots, edges, or irregular contours
-- Do not add or remove product parts
-- Do NOT generate real size dimensions, measurement lines, or technical annotations
-- Do NOT generate specific technical parameters (torque, hardness, load, RPM, etc.) unless explicitly provided by user
-- Do not generate fake logos, fake prices, fake parameters, fake sizes, fake certifications
-- All on-image text must follow the copy rules below
-- Specification fields should be presented as placeholder-style labels or generic category headers only
+MANDATORY visual identity (all 3 plans must share this):
+- Background: cool slate blue-gray (#4A5568 to #5A6A7A) with a faint technical grid at 5-8% opacity. Grid lines: white or light gray (#E2E8F0), 0.5px weight, 40-50px spacing. The grid must feel like blueprint paper or CAD background.
+- Product treatment: product shown at a TECHNICAL ANGLE — isometric (30°), profile side view, or top-down technical view. Product occupies 40-50% of frame, positioned LEFT or CENTER. Full product visible, NO cropping.
+- Lighting: FLAT, EVEN, TECHNICAL. Diffused overhead light at 80° elevation with strong fill from all sides. NO dramatic shadows. NO rim light. NO specular highlights. The lighting must feel like a 3D CAD render or technical illustration — clean, clinical, shadowless.
+- Depth of field: INFINITE. Entire product perfectly sharp. NO bokeh. NO selective focus.
+- Technical panels: RIGHT side must contain 3-4 structured info blocks with placeholder labels. Format: thin rectangular panels with hairline borders (#FFFFFF at 40% opacity). Each panel has a label ("MATERIAL", "TYPE", "APPLICATION" etc.) and a placeholder value (dashes, blank lines, or "—"). NO real numbers. NO fake data.
+- Annotation style: thin dashed or solid lines (#FFFFFF, 1px) pointing from panels to corresponding product features. Arrowheads: simple triangles.
+- Color palette: cool slate background + product natural colors + white/light gray for text and lines + ONE subtle accent (tech blue #00BCD4 or electric blue #2196F3) for emphasis lines only.
+- Text: MEDIUM density. Headline + subheadline + 3-4 technical_points (title + body describing structure) + 3 bottom_info items. Text must feel technical and precise.
+- Layout: product left/center, technical panels right. Clean horizontal alignment. Grid background visible in all empty areas.
 
-${COMMON_EXECUTION_FLOW}
+Copy strategy for this template: MEDIUM. Headline + subheadline + 3-4 technical_points (each with title AND body explaining the structure/detail) + 3 bottom_info items. Technical body text must describe physical characteristics, not benefits.
 
-${COMMON_COPY_RULES}
-
-## Visual Rules
-- Clean, technical, information-dense aesthetic without looking cluttered
-- Product shown clearly with optional dimension reference lines (stylistic only, no real numbers)
-- Info panels with placeholder-style labels (e.g., "Size:", "Material:", "Application:") — values left blank or generic
-- Professional studio lighting, crisp edges
-- Background: neutral gray or subtle gradient suggesting technical documentation
-
-## Layout
-- Product on one side (left or center-left)
-- Info/specification zones on the other side as clean panels or rows
-- Headline at top
-- 1–2 selling points as trust badges
-- No real measurement callouts, no fake data tables with numbers
-- Specification fields must be clearly placeholder-style if no real data provided
+AVOID:
+- Real measurement numbers, dimensions, or specific technical data
+- Fake data tables with invented specifications
+- Warm colors, orange, or red accents
+- Dramatic lighting, shadows, or rim light
+- Lifestyle backgrounds or workshop environments
+- Product cropping or artistic angles
+- Cluttered or overlapping text panels
 
 ${COMMON_QUALITY_CHECKS}
 `.trim(),
     defaultRiskRules: [
       ...COMMON_RISK_RULES,
       "Do NOT generate real size dimensions, measurement lines, or technical annotations",
-      "Do NOT generate specific technical parameters unless explicitly provided by user",
-      "Specification fields should be placeholder-style labels or generic category headers only",
+      "Specification fields must be placeholder-style labels only",
     ],
     enabled: true,
   },
 
-  // ───────────────────────────────────────────────
-  // 8. 应用场景图方案
-  // ───────────────────────────────────────────────
   {
-    id: "tpl-usage-scene",
-    name: "应用场景图方案",
+    id: "tpl-premium-luxury",
+    name: "高端质感展示图",
     description:
-      "适合机加工、装配安装、维修维护、仓储供货、质检检测等应用场景。场景不能喧宾夺主，商品主体清楚，结构不变，场景应服务于产品用途。",
+      "深色背景下的高端质感展示。强调材质、反射、边缘光。适合表达精密、高端、耐用的产品形象。",
     scope: "system",
     category: "single_image",
-    tags: ["应用场景", "机加工", "装配", "维修", "仓储"],
+    tags: ["高端", "奢华", "深色背景", "质感"],
     applicablePlatforms: ["Amazon", "Temu", "Ozon", "独立站", "通用"],
-    applicableProducts: ["切削工具", "紧固件", "工具", "五金件"],
-    variables: [
-      { key: "headline", label: "主标题 Headline", type: "text", required: true, placeholder: "例如：REAL PERFORMANCE" },
-      { key: "scene_direction", label: "场景方向", type: "textarea", required: true, placeholder: "例如：Machine shop workbench with metal workpieces" },
-      { key: "selling_points", label: "卖点 Selling Points", type: "string_list", placeholder: "例如：WORKSITE READY" },
-    ],
-    templatePrompt: `
-You are an expert industrial e-commerce image planning assistant.
-
-## Core Task
-Create a usage-scene / lifestyle image for {{product_name}}.
-Show the product in a realistic working environment (machining, assembly, maintenance, warehousing, quality inspection).
-The scene must serve the product's purpose without overwhelming or distracting from it.
-
-## Absolute Rules
-- Product reference image is the sole basis for product structure
-- Do not alter product outline, proportions, holes, teeth, cutting edges, threads, slots, edges, or irregular contours
-- Do not add or remove product parts
-- Do NOT invent usage scenarios beyond what is reasonable for this product type
-- Do NOT show the product performing impossible or exaggerated tasks
-- Environment should suggest context but NOT distract from the product
-- Do not generate fake logos, fake prices, fake parameters, fake sizes, fake certifications
-- All on-image text must follow the copy rules below
-
-${COMMON_EXECUTION_FLOW}
-
-${COMMON_COPY_RULES}
-
-## Visual Rules
-- Natural environmental photography with authentic industrial or workshop setting
-- Warm ambient lighting suggesting real working conditions
-- Shallow depth of field: product in sharp focus, background softly blurred
-- Realistic shadows and reflections on surrounding surfaces
-- Scene elements (workbench, materials, tools) should be generic and unbranded
-- Product shown in natural working position, not floating or disconnected from context
-
-## Layout
-- Product positioned slightly off-center in natural working orientation
-- Relevant environment context softly blurred in background
-- Headline top-left or top-center with generous spacing
-- Selling points as clean vertical list or badges on right edge
-- Scene must not cover more than 40% of visual weight; product remains dominant
-
-${COMMON_QUALITY_CHECKS}
-`.trim(),
-    defaultRiskRules: [
-      ...COMMON_RISK_RULES,
-      "Do NOT invent usage scenarios beyond what is reasonable for this product type",
-      "Do NOT show the product performing impossible or exaggerated tasks",
-      "Environment should suggest context but NOT distract from the product",
-    ],
-    enabled: true,
-  },
-
-  // ───────────────────────────────────────────────
-  // 9. 促销销售图方案
-  // ───────────────────────────────────────────────
-  {
-    id: "tpl-promo-sales",
-    name: "促销销售图方案",
-    description:
-      "适合 Temu / 跨境电商强销售感图片。大标题区、卖点块、产品组合或产品主体突出、强电商销售感，不生成假价格、假折扣、假活动信息。",
-    scope: "system",
-    category: "single_image",
-    tags: ["促销", "销售图", "Temu", "跨境电商", "强销售感"],
-    applicablePlatforms: ["Temu", "拼多多跨境", "速卖通", "移动端电商"],
     applicableProducts: ["工业品", "五金", "工具", "紧固件", "切削工具"],
     variables: [
-      { key: "headline", label: "主标题 Headline", type: "text", required: true, placeholder: "例如：HOT SALE — PREMIUM QUALITY" },
-      { key: "selling_points", label: "卖点 Selling Points", type: "string_list", required: true, placeholder: "例如：LIMITED STOCK, FACTORY DIRECT" },
-      { key: "visual_direction", label: "视觉方向", type: "textarea", placeholder: "例如：High-energy commercial photography with bold colors" },
-      { key: "color_direction", label: "色彩方向", type: "textarea", placeholder: "例如：Vibrant orange and red accents on dark background" },
+      { key: "headline", label: "主标题 Headline", type: "text", required: true },
     ],
     templatePrompt: `
-You are an expert industrial e-commerce image planning assistant specialized in high-energy promotional product images.
+## Template Style: Premium Luxury Showcase — MANDATORY
 
-## Core Task
-Create a promotional sales image for {{product_name}} with strong e-commerce sales appeal.
-Suitable for Temu and cross-border e-commerce platforms.
-Must feel urgent and compelling WITHOUT generating fake prices, fake discounts, or fake campaign info.
+This is NOT a general product photo. This is a PREMIUM LUXURY image where the product's material, finish, and weight are the entire story.
 
-## Absolute Rules
-- Product reference image is the sole basis for product structure
-- Do not alter product outline, proportions, holes, teeth, cutting edges, threads, slots, edges, or irregular contours
-- Do not add or remove product parts
-- Do NOT generate fake prices, fake discounts, fake countdown timers, or fake campaign banners
-- Do NOT generate fake "original price / sale price" comparisons
-- Do NOT generate fake "limited time" or "flash sale" claims with specific numbers
-- Do not generate fake logos, fake parameters, fake sizes, fake certifications
-- All on-image text must follow the copy rules below
-- Do NOT imitate platform logos (Temu, Amazon, etc.)
+MANDATORY visual identity (all 3 plans must share this):
+- Background: deep matte black (#0A0A0A to #111111). NO gradients. NO textures. NO environment. The background must feel like infinite void — pure, absolute darkness.
+- Product treatment: product shown in FULL, 60-70% of frame, centered or slightly below center. Generous negative space above and around. The product must feel like a sculpture in a gallery — isolated, honored, studied.
+- Lighting: DRAMATIC RIM LIGHT is the PRIMARY light source. A single sharp light from behind the product at 10-20° above horizon, tracing every edge with a bright white or warm white highlight (#FFF8E7 or #FFFFFF). Key light from upper-front at low intensity just enough to reveal surface texture. NO fill light. Shadows fall to pure black.
+- Reflections: a SATIN-SMOOTH ground reflection directly beneath the product, fading vertically over 15-20% of frame height. Reflection must be softer than the product (gaussian blur ~3-5px). NO mirror reflection. NO double image.
+- Depth of field: DEEP. Entire product sharp. Background remains pure black regardless.
+- Color palette: product's natural metal tones + champagne gold (#F7E7CE) or silver (#C0C0C0) accent for rim light only. NO other colors. NO blue. NO green. NO red. The palette must feel like a luxury watch ad.
+- Text: ABSOLUTELY MINIMAL. Exactly 1 headline (2-4 words, elegant serif or thin sans-serif, all caps or title case, small size, placed in upper third with generous spacing). NO subheadline. NO body text. NO feature labels. NO bottom info bar. The product speaks; words are almost unnecessary.
+- Layout: center-product, maximum negative space. The product is the ONLY element. Text, if present, floats in the vast darkness.
 
-${COMMON_EXECUTION_FLOW}
+Copy strategy for this template: MINIMAL — headline ONLY. Do NOT generate subheadline, feature_points, technical_points, or bottom_info items. The headline is the ONLY text element.
 
-${COMMON_COPY_RULES}
+AVOID:
+- Any background that is not near-pure black
+- Multiple colors, color blocks, or gradients
+- Text-heavy layouts, bullet points, or feature panels
+- Even studio lighting or flat lighting
+- Product cropping or extreme close-ups
+- Decorative elements, particles, or lens flares
+- Cluttered compositions with multiple products
 
-## Visual Rules
-- High-energy commercial photography with bold, saturated colors
-- Large, commanding headline area
-- Product or product combination prominently featured
-- Strong sales tension through color, composition, and typography — not through fake pricing
-- Dynamic diagonal or off-center composition for energy
-- Optional subtle burst, star, or highlight effects (non-literal, decorative only)
-- Mobile-optimized: key message readable on small screens
+${COMMON_QUALITY_CHECKS}
+`.trim(),
+    defaultRiskRules: COMMON_RISK_RULES,
+    enabled: true,
+  },
 
-## Layout
-- Large headline zone (top or upper area)
-- 2–4 selling point blocks arranged for maximum visual impact
-- Product centered or dominant with optional secondary product angle
-- Clean background with bold color blocks or gradient
-- No fake price tags, no fake discount percentages, no fake countdown numbers
-- CTA-style text allowed only as generic phrases (e.g., "SHOP NOW" — not tied to fake offers)
+  {
+    id: "tpl-dimension-annotation",
+    name: "尺寸标注展示图",
+    description:
+      "展示产品尺寸和结构标注。带测量示意线和标注框，但不生成真实数字。",
+    scope: "system",
+    category: "single_image",
+    tags: ["尺寸标注", "测量", "结构", "几何"],
+    applicablePlatforms: ["Amazon", "Temu", "Ozon", "独立站", "通用"],
+    applicableProducts: ["工业品", "五金", "工具", "紧固件", "切削工具"],
+    variables: [
+      { key: "headline", label: "主标题 Headline", type: "text", required: true },
+    ],
+    templatePrompt: `
+## Template Style: Dimension Annotation / Structural Overview — MANDATORY
+
+This is NOT a general product showcase. This is a DIMENSION ANNOTATION image that reveals the product's geometry and structure through precise visual measurement guides.
+
+MANDATORY visual identity (all 3 plans must share this):
+- Background: clean neutral white (#FFFFFF) or very light warm gray (#F5F5F0). NO gradients. NO textures. The background must feel like an engineering drawing sheet.
+- Product treatment: product shown at an angle that REVEALS KEY DIMENSIONS — side profile view, top-down view, or isometric (30°) view. Product occupies 50-60% of frame, positioned CENTER or slightly left. FULL product visible, NO cropping.
+- Lighting: even diffused studio light at 60° elevation with soft fill. Crisp edges with slight ground shadow. NO dramatic shadows. NO rim light. The lighting must reveal all edges clearly for annotation.
+- Depth of field: DEEP. Entire product perfectly sharp. NO selective focus.
+- Annotation style: THIN measurement lines (#333333 or #666666, 1px weight) with simple arrowheads pointing to real product features: edges, holes, slots, threads, tips, lengths, diameters. Lines must be straight and precise, not freehand.
+- Dimension values: ALL values must be PLACEHOLDERS — blank spaces, dashes ("—"), or generic labels ("LENGTH", "DIAMETER", "HEIGHT"). NO real numbers. NO fake measurements. NO invented dimensions.
+- Dimension panels: small rectangular boxes (#F0F0F0 fill, #CCCCCC border, 1px) next to each measurement line containing the placeholder label.
+- Color palette: neutral white/gray background + product natural colors + dark gray (#333333) for annotation lines and text + ONE subtle accent (blue #2196F3 or red #F44336) for dimension leader lines only.
+- Text: MINIMAL-MEDIUM. Headline + 3-4 short feature labels (describing what is being annotated: "OVERALL LENGTH", "THREAD SIZE", etc.) + 3 bottom_info items. NO body paragraphs. NO comparison_labels.
+- Layout: product center-left with annotation lines radiating outward. Dimension labels placed in clean empty space. Lines must not cross each other.
+
+Copy strategy for this template: MINIMAL-MEDIUM. Headline + 3-4 short labels describing the annotated dimensions + 3 bottom_info items. Labels should name the dimension type, not state a value.
+
+AVOID:
+- Real measurement numbers or specific dimensions
+- Cluttered tables, data grids, or specification panels
+- Dark backgrounds or heavy panels
+- Lifestyle environments or workshop backgrounds
+- Dramatic lighting or colored gels
+- Product cropping (must show full product for annotation)
+- Overlapping or crossing annotation lines
+- Fake certifications or specification claims
 
 ${COMMON_QUALITY_CHECKS}
 `.trim(),
     defaultRiskRules: [
       ...COMMON_RISK_RULES,
-      "Do NOT generate fake prices, fake discounts, fake countdown timers, or fake campaign banners",
-      "Do NOT generate fake 'original price / sale price' comparisons",
-      "Do NOT generate fake 'limited time' or 'flash sale' claims with specific numbers",
+      "Do NOT generate real size dimensions or specific numerical measurements",
+      "Dimension values must be placeholder-style only (blank, dashes, or generic labels)",
+      "Annotation lines must point to real visible structures only",
     ],
     enabled: true,
   },
 
-  // ───────────────────────────────────────────────
-  // 10. 五张详情组图策划方案
-  // ───────────────────────────────────────────────
   {
     id: "tpl-image-set-5",
     name: "五张详情组图策划方案",
     description:
-      "一次生成一套五张商品详情图的策划方案。默认五张：主图、功能卖点图、局部细节图、应用场景图、优势对比图/规格信息图。全组图风格统一，每张图职责明确，可逐张生成。",
+      "一次生成一套五张详情图。每张有独立视觉风格，全组保持产品一致性。",
     scope: "system",
     category: "image_set",
     tags: ["组图", "详情页", "五张图", "整套方案"],
     applicablePlatforms: ["Amazon", "Temu", "Ozon", "独立站", "通用"],
     applicableProducts: ["工业品", "五金", "工具", "紧固件", "切削工具"],
     variables: [
-      { key: "overall_goal", label: "整体目标", type: "textarea", required: true, placeholder: "例如：一套专业钻头详情页组图，强调精度和耐用性" },
-      { key: "headline", label: "默认主标题 Headline", type: "text", placeholder: "例如：PREMIUM DRILL BIT SET" },
-      { key: "selling_points", label: "默认卖点 Selling Points", type: "string_list", placeholder: "例如：PROVEN DURABILITY, PRECISION ENGINEERED" },
-      { key: "scene_direction", label: "场景方向", type: "textarea", placeholder: "例如：Machine shop workbench environment" },
+      { key: "overall_goal", label: "整体目标", type: "textarea", required: true },
     ],
     templatePrompt: `
-You are an expert industrial e-commerce image planning assistant.
+## Template Style: 5-Image Detail Page Suite — MANDATORY
 
-## Core Task
-Create a cohesive 5-image product detail-page visual suite for {{product_name}}.
-The set must have a unified style while each image has a distinct role.
-This template generates an ImageSetPlan containing 5 CreativePlans.
-Each CreativePlan can be generated individually — do NOT generate all images at once.
+This is NOT 5 random product images. This is a COHERENT DETAIL PAGE STORY that guides the buyer from identification to purchase decision through a deliberate visual narrative.
 
-## Default 5-Image Structure
-1. Hero Image / 主图 — Clean product showcase, minimal text
-2. Feature Explanation / 功能卖点图 — Highlight key advantages with callouts
-3. Detail Magnifier / 局部细节图 — Zoom into critical structural details
-4. Usage Scene / 应用场景图 — Product in realistic working environment
-5. Advantage Comparison OR Spec Info / 优势对比图 or 规格信息图 — Visual comparison or placeholder spec layout
+MANDATORY structure for all 5 images (each image follows its own visual identity, but all must maintain consistent product appearance):
 
-## Absolute Rules
-- Product reference image is the sole basis for product structure across ALL 5 images
-- Do not alter product outline, proportions, holes, teeth, cutting edges, threads, slots, edges, or irregular contours in ANY image
-- Do not add or remove product parts in ANY image
-- All 5 images must maintain consistent product proportions and structure
-- Do not vary material appearance across images in the same set
-- Text style and typography must be consistent across the set
-- Do not generate fake logos, fake prices, fake parameters, fake sizes, fake certifications
-- All on-image text must follow the copy rules below
+IMAGE 1 — HERO / MAIN IMAGE:
+- Background: pure white (#FFFFFF) or very light gray (#F8F8F8). NO gradients. NO textures.
+- Product: FULL product visible, 75-85% of frame, centered. Deep DOF, fully sharp.
+- Lighting: soft diffused studio light, even illumination.
+- Text: MINIMAL. Headline only (2-4 words, ALL CAPS). NO other text.
+- Archetype: hero_feature. Layout: premium_center_product_minimal_text.
 
-${COMMON_EXECUTION_FLOW}
+IMAGE 2 — FEATURE EXPLANATION:
+- Background: cool light gray (#E8ECF0) with subtle blue undertone.
+- Product: 40-50% of frame, positioned left or center, 3/4 angle.
+- Lighting: professional even studio light.
+- Text: MEDIUM. Headline + 3-4 feature_points (title + body) arranged in clean panels on the right.
+- Archetype: multi_panel_info. Layout: hero_right_product_left_features.
 
-${COMMON_COPY_RULES}
+IMAGE 3 — DETAIL / MACRO:
+- Background: pure black (#0A0A0A). NO gradients. NO environment.
+- Product: 40-60% of frame, DRAMATICALLY CROPPED — show only a key detail (edge, thread, tip, surface). This is a CLOSE-UP, not a full product shot.
+- Lighting: single hard side light from left at 45°. Strong specular highlights. Deep shadows. Chiaroscuro.
+- Detail insets: 1-2 magnified callouts showing surface texture.
+- Text: MINIMAL. Headline only.
+- Archetype: technical_breakdown. Layout: technical_callout_with_insets.
 
-## Visual Rules (Set-Wide)
-- Unified color temperature and lighting direction across all 5 images
-- Consistent background family (e.g., all white, all dark, or all neutral gray)
-- Consistent product scale reference so proportions feel natural across the set
-- Each image has a clearly differentiated composition while maintaining style coherence
-- Professional studio lighting baseline with per-image variations for role emphasis
+IMAGE 4 — LIFESTYLE / USAGE SCENE:
+- Background: authentic workshop environment (CNC bed, workbench, assembly station). Warm tones.
+- Background treatment: SHALLOW DOF, heavily blurred.
+- Product: 35-45% of frame, in sharp focus, slightly off-center.
+- Lighting: warm ambient workshop light (~3000K) + crisp key light on product.
+- Text: MINIMAL. Headline + 2-3 short application_labels.
+- Archetype: application_scene. Layout: four_panel_application_grid.
 
-## Per-Image Role Guidelines
+IMAGE 5 — PROMO / VALUE PROPOSITION:
+- Background: deep dark (#1A1A1A) with bold geometric color blocks (electric blue, vivid orange, or hot red).
+- Product: 55-65% of frame, brightly lit, sharp.
+- Lighting: dramatic key light from upper-left + colored rim light matching accent block.
+- Text: RICH. Oversized headline + subheadline + 3-4 feature badges + bottom info bar.
+- Archetype: promo_sales. Layout: top_headline_bottom_feature_bar.
 
-### Image 1 — Hero Image
-- Clean, minimal, product-centered
-- Optional headline + 2–3 short selling points as badges
-- No clutter, maximum clarity
+Cross-image consistency rules:
+- Product material, color, and finish must be IDENTICAL across all 5 images.
+- Product proportions and visible features must not change.
+- The 5 images must feel like they belong to the same product page.
 
-### Image 2 — Feature Explanation
-- Product + feature callout areas
-- Subtle connector lines to real product features
-- No fake performance metrics
+Copy strategy per image: Follow each image's own copy strategy (Hero=minimal, Feature=medium-rich, Detail=minimal, Lifestyle=minimal-medium, Promo=rich).
 
-### Image 3 — Detail Magnifier
-- Main product + 1–2 magnified insets of real visible details
-- Macro-style focus on critical edges, surfaces, or interfaces
-- No invented detail structures
-
-### Image 4 — Usage Scene
-- Natural working environment, product in context
-- Background softly blurred, product in sharp focus
-- Scene serves product; does not distract
-
-### Image 5 — Advantage Comparison OR Spec Info
-- If comparison: featured product vs abstract generic alternative, no fake data
-- If spec info: placeholder-style labels, no real measurement numbers
-- Choose based on user goal and product type
-
-## Layout (Set-Wide)
-- Consistent safe zones for text across all images
-- Headline position standardized (e.g., always top-left or always top-center)
-- Selling point badge style consistent
-- Product anchor point consistent (e.g., always center-left or always center)
+AVOID:
+- Making any image look like it belongs to a different product
+- Inconsistent product appearance between images
+- Fake prices, fake discounts, or platform logos in any image
+- Real measurement numbers in the Detail or Feature images
 
 ${COMMON_QUALITY_CHECKS}
-
-Additional set-wide checks:
-- All 5 images maintain consistent product proportions and structure
-- Material appearance does not vary across the set
-- Text style and typography are consistent across all images
 `.trim(),
     defaultRiskRules: [
       ...COMMON_RISK_RULES,
       "All 5 images must maintain consistent product proportions and structure",
-      "Do not vary material appearance across images in the same set",
-      "Text style and typography must be consistent across the set",
+      "Material appearance must be consistent across the set",
     ],
     enabled: true,
   },

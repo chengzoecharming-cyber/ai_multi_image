@@ -48,3 +48,6 @@ dev.db
 
 # test screenshots
 .test-screenshots/
+
+# user uploads (local dev artifacts)
+/public/uploads/

@@ -18,27 +18,23 @@ const VOLCANO_API_URL = "https://ark.cn-beijing.volces.com/api/v3/images/generat
 const MIN_PIXELS = 3_686_400; // Seedream 5.0 最小像素要求 (2560×1440)
 const MAX_PIXELS = 16_777_216; // 4K x 4K
 
-/** 放大尺寸到满足 Seedream 最小像素要求，保持宽高比 */
+function pixelsInRange(width: number, height: number): boolean {
+  const pixels = width * height;
+  return pixels >= MIN_PIXELS && pixels <= MAX_PIXELS;
+}
+
+/** 放大/缩小尺寸到满足 Seedream 像素要求，保持宽高比 */
 function normalizeSize(width: number, height: number): { width: number; height: number } {
   const pixels = width * height;
-  if (pixels >= MIN_PIXELS && pixels <= MAX_PIXELS) {
-    return { width, height };
-  }
-  const ratio = width / height;
+  if (pixelsInRange(width, height)) return { width, height };
+
   if (pixels < MIN_PIXELS) {
-    // 放大到最小像素
     const scale = Math.sqrt(MIN_PIXELS / pixels);
-    return {
-      width: Math.round(width * scale),
-      height: Math.round(height * scale),
-    };
+    return { width: Math.round(width * scale), height: Math.round(height * scale) };
   }
-  // 缩小到最大像素
+
   const scale = Math.sqrt(MAX_PIXELS / pixels);
-  return {
-    width: Math.round(width * scale),
-    height: Math.round(height * scale),
-  };
+  return { width: Math.round(width * scale), height: Math.round(height * scale) };
 }
 
 async function fetchImageAsBase64(url: string, signal?: AbortSignal): Promise<string | null> {
@@ -102,8 +98,22 @@ export class VolcanoProvider implements ImageProvider {
         body.seed = params.seed;
       }
 
-      // size 参数（自动适配到 Seedream 像素要求）
-      const { width, height } = normalizeSize(params.width, params.height);
+      // size 参数（Seedream 对像素有硬性范围）
+      const strictSize = params.strictSize !== false;
+      if (strictSize && !pixelsInRange(params.width, params.height)) {
+        return {
+          success: false,
+          error:
+            `Seedream 尺寸不满足像素要求：当前 ${params.width}x${params.height}（${params.width * params.height} px），` +
+            `要求在 ${MIN_PIXELS}~${MAX_PIXELS} px 之间。` +
+            `建议使用 1920x1920（方图）或 2560x1440（横图）等更大尺寸。`,
+        };
+      }
+
+      const { width, height } = strictSize
+        ? { width: params.width, height: params.height }
+        : normalizeSize(params.width, params.height);
+
       const size = `${width}x${height}`;
       body.size = size;
 

@@ -1,23 +1,29 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { Wand2, Sparkles } from "lucide-react";
 import { useV2Session } from "./hooks/useV2Session";
 import { V2Header } from "./V2Header";
+import { WorkspaceSidebar } from "./WorkspaceSidebar";
 import { SessionsSidebar } from "./SessionsSidebar";
 import { LeftPanel } from "./LeftPanel";
 import { RightPanel } from "./RightPanel";
+import { DetailLeftPanel } from "./DetailLeftPanel";
+import { DetailRightPanel } from "./DetailRightPanel";
 import PlanTemplateLibraryDrawer from "@/components/template-library/PlanTemplateLibraryDrawer";
 import SaveAsTemplateDialog from "@/components/template-library/SaveAsTemplateDialog";
+import ImageGalleryDrawer from "./components/ImageGalleryDrawer";
 
 function V2WorkbenchPageInner() {
   const {
-    sessions,
+    filteredSessions,
     activeSessionId,
     setActiveSessionId,
     activeSession,
     updateActiveSession,
     createNewSession,
+    duplicateSession,
+    deleteSession,
 
     templateLibraryOpen,
     setTemplateLibraryOpen,
@@ -30,25 +36,29 @@ function V2WorkbenchPageInner() {
     saveTemplatePlan,
     setSaveTemplatePlan,
 
-    fileInputRef,
+    productFileInputRef,
+    detailHeroFileInputRef,
     selectedTemplate,
 
-    handleUpload,
+    handleUploadProductImage,
+    handleUploadDetailHero,
     handleGenerate,
-    handleToggleSub,
-    handleExpandAllSubs,
-    handleCollapseAllSubs,
+    handleCancelGenerate,
     handleUpdateSinglePlan,
-    handleUpdateSubPlan,
-    handleGeneratePlan,
-    handleCopyPrompt,
-    handleExpandToSet,
+    handleOpenPlanPreview,
     handleOpenSaveTemplate,
     handleSaveTemplate,
     handleUseTemplate,
     handleGenerateImage,
     handleReset,
+
+    setWorkspaceTab,
+    toggleDetailType,
+    handleGenerateDetail,
+    workspaceTab,
   } = useV2Session();
+
+  const [imageGalleryOpen, setImageGalleryOpen] = useState(false);
 
   if (!activeSession) {
     return (
@@ -59,18 +69,11 @@ function V2WorkbenchPageInner() {
   }
 
   const step = activeSession.step;
-  const mode = activeSession.mode;
-  const productImageUrl = activeSession.productImageUrl;
-  const goal = activeSession.goal;
+  const tab = workspaceTab;
 
   const singlePlans = activeSession.singlePlans;
   const expandedSingleId = activeSession.expandedSingleId;
   const editingSingleId = activeSession.editingSingleId;
-
-  const setPlans = activeSession.setPlans;
-  const expandedSetId = activeSession.expandedSetId;
-  const expandedSubIds = activeSession.expandedSubIds;
-  const editingSubId = activeSession.editingSubId;
 
   const copiedId = activeSession.copiedId;
   const generatingImage = activeSession.generatingImage;
@@ -78,7 +81,6 @@ function V2WorkbenchPageInner() {
 
   const allPlans = [
     ...singlePlans,
-    ...setPlans.flatMap((sp) => sp.plans),
   ];
   const previewPlan =
     activeSession.previewPlanId
@@ -87,36 +89,56 @@ function V2WorkbenchPageInner() {
 
   return (
     <div className="flex flex-col min-h-screen bg-[#F6F8FC]">
-      <V2Header onOpenTemplateLibrary={() => setTemplateLibraryOpen(true)} />
+      <V2Header
+        onOpenTemplateLibrary={() => setTemplateLibraryOpen(true)}
+        onOpenImageGallery={() => setImageGalleryOpen(true)}
+      />
 
       <main className="flex-1 flex overflow-hidden">
+        <WorkspaceSidebar tab={tab} onChange={setWorkspaceTab} />
+
         <SessionsSidebar
-          sessions={sessions}
-          activeSession={activeSession}
-          onSelectSession={(id) => setActiveSessionId(id)}
-          onCreateSession={createNewSession}
+          sessions={filteredSessions}
+          activeSessionId={activeSessionId}
+          onSelectSession={setActiveSessionId}
+          onCreateSession={() => createNewSession({ workspaceTab: tab })}
+          onDuplicateSession={duplicateSession}
+          onDeleteSession={deleteSession}
         />
 
-        <LeftPanel
-          activeSession={activeSession}
-          selectedTemplate={selectedTemplate}
-          fileInputRef={fileInputRef}
-          onUpload={handleUpload}
-          onUpdateSession={updateActiveSession}
-          onGenerate={handleGenerate}
-          onReset={handleReset}
-        />
+        {tab === "product" ? (
+          <LeftPanel
+            activeSession={activeSession}
+            selectedTemplate={selectedTemplate}
+            fileInputRef={productFileInputRef}
+            onUpload={handleUploadProductImage}
+            onUpdateSession={updateActiveSession}
+            onGenerate={handleGenerate}
+            onCancelGenerate={handleCancelGenerate}
+            onReset={handleReset}
+            onOpenTemplateLibrary={() => setTemplateLibraryOpen(true)}
+          />
+        ) : (
+          <DetailLeftPanel
+            activeSession={activeSession}
+            fileInputRef={detailHeroFileInputRef}
+            onUpload={handleUploadDetailHero}
+            onUpdateSession={updateActiveSession}
+            onToggleType={toggleDetailType}
+            onGenerate={handleGenerateDetail}
+          />
+        )}
 
         {/* Right Panel — inline because it has many callbacks */}
         <div className="flex-1 flex overflow-hidden">
-          {step === "input" && (
+          {tab === "product" && step === "input" && (
             <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-10">
               <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
                 <Wand2 className="w-8 h-8 text-gray-300" />
               </div>
               <p className="text-base font-medium text-gray-500 mb-1">上传商品图并输入制图目标</p>
               <p className="text-sm text-gray-400">
-                {mode === "set" ? "AI 将分析商品图片并生成一套 5 张详情组图方案" : "AI 将分析商品图片并生成多个 CreativePlan 方案"}
+                AI 将分析商品图片并生成多个方案
               </p>
               {selectedTemplate && (
                 <div className="mt-4 px-4 py-2 rounded-lg bg-indigo-50 border border-indigo-100">
@@ -126,14 +148,14 @@ function V2WorkbenchPageInner() {
             </div>
           )}
 
-          {step === "generating" && (
+          {tab === "product" && step === "generating" && (
             <div className="flex-1 flex flex-col items-center justify-center p-10">
               <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center mb-4 animate-pulse">
                 <Sparkles className="w-6 h-6 text-indigo-400" />
               </div>
               <p className="text-base font-medium text-gray-700 mb-1">AI 正在分析商品图片并生成方案...</p>
               <p className="text-sm text-gray-400">
-                {mode === "set" ? "识别产品类型、结构特征，策划 5 张组图的整体方向..." : "识别产品类型、可见结构、材质预估，生成多组方案..."}
+                识别产品类型、可见结构、材质预估，生成多组方案...
               </p>
               <p className="text-xs text-amber-500 mt-2 font-medium">
                 ⏱ 约需 30-60 秒，请耐心等待
@@ -144,25 +166,27 @@ function V2WorkbenchPageInner() {
             </div>
           )}
 
-          {(step === "plans" || step === "preview") && (
+          {tab === "product" && (step === "plans" || step === "preview") && (
             <RightPanel
               activeSession={activeSession}
-              onToggleSingle={(id) => updateActiveSession((s) => ({ ...s, expandedSingleId: s.expandedSingleId === id ? null : id }))}
-              onToggleSet={(id) => updateActiveSession((s) => ({ ...s, expandedSetId: s.expandedSetId === id ? null : id }))}
-              onToggleSub={handleToggleSub}
-              onExpandAllSubs={handleExpandAllSubs}
-              onCollapseAllSubs={handleCollapseAllSubs}
+              onToggleSingle={(id) => updateActiveSession((s) => ({
+                ...s,
+                expandedSingleId: s.expandedSingleId === id ? null : id,
+                previewPlanId: id,
+              }))}
               onEditSingle={(id) => updateActiveSession((s) => ({ ...s, editingSingleId: s.editingSingleId === id ? null : id }))}
-              onEditSub={(id) => updateActiveSession((s) => ({ ...s, editingSubId: s.editingSubId === id ? null : id }))}
               onUpdateSingle={handleUpdateSinglePlan}
-              onUpdateSub={handleUpdateSubPlan}
-              onGeneratePlan={handleGeneratePlan}
-              onCopyPrompt={handleCopyPrompt}
+              onOpenPreview={handleOpenPlanPreview}
+              onClosePreview={() => updateActiveSession((s) => ({ ...s, previewPlanId: null, step: "plans" }))}
               onSave={handleOpenSaveTemplate}
-              onExpandToSet={handleExpandToSet}
               onGenerateImage={handleGenerateImage}
+              onGenerateDetails={(_plan) => createNewSession({ workspaceTab: "detail", goal: activeSession.goal, step: "input" })}
               copiedId={copiedId}
             />
+          )}
+
+          {tab === "detail" && (
+            <DetailRightPanel activeSession={activeSession} />
           )}
         </div>
       </main>
@@ -172,8 +196,14 @@ function V2WorkbenchPageInner() {
         open={templateLibraryOpen}
         onClose={() => setTemplateLibraryOpen(false)}
         onUseTemplate={handleUseTemplate}
-        systemTemplates={systemTemplates}
-        userTemplates={userTemplates}
+        systemTemplates={systemTemplates.filter((t) => t.category !== "image_set")}
+        userTemplates={userTemplates.filter((t) => t.category !== "image_set")}
+      />
+
+      {/* Image Gallery Drawer */}
+      <ImageGalleryDrawer
+        open={imageGalleryOpen}
+        onClose={() => setImageGalleryOpen(false)}
       />
 
       {/* Save As Template Dialog */}
@@ -182,7 +212,7 @@ function V2WorkbenchPageInner() {
         onClose={() => { setSaveTemplateOpen(false); setSaveTemplatePlan(null); }}
         onSave={handleSaveTemplate}
         defaultName={saveTemplatePlan?.planName || ""}
-        defaultCategory={mode === "set" ? "image_set" : "single_image"}
+        defaultCategory="single_image"
         defaultHeadline={saveTemplatePlan?.headline}
         defaultSellingPoints={saveTemplatePlan?.sellingPoints}
         defaultLayoutDirection={saveTemplatePlan?.layoutDirection}

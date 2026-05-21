@@ -14,14 +14,15 @@ export async function tryCallLLM(
   userGoal: string,
   mode: "single" | "set",
   templatePrompt: string | undefined,
-  model: string
+  model: string,
+  templateId?: string
 ): Promise<{ plans?: CreativePlan[]; sets?: ImageSetPlan[] }> {
   const apiKey = process.env.VOLCANO_API_KEY || process.env.KIMI_API_KEY;
   if (!apiKey) {
     throw new Error("LLM API key not configured (set VOLCANO_API_KEY or KIMI_API_KEY)");
   }
 
-  const systemPrompt = buildSystemPrompt(mode, templatePrompt);
+  const systemPrompt = buildSystemPrompt(mode, templatePrompt, templateId);
 
   // Per-model timeout: 60 seconds for vision model to analyze image + generate structured JSON
   const ctrl = new AbortController();
@@ -46,7 +47,9 @@ export async function tryCallLLM(
             },
             {
               type: "text",
-              text: `用户需求：${userGoal}\n制图模式：${mode === "single" ? "单张图（生成3个不同风格的单图方案）" : "五张详情组图（生成1套包含5张图的详情页组图方案）"}\n\n请严格按照 system prompt 中的 JSON 格式返回。`,
+              text: templatePrompt
+                ? `[CRITICAL] 首先通过视觉分析图片中的产品形状、结构和可见特征来确定产品身份。图片是产品识别的唯一权威。\n用户需求：${userGoal}\n制图模式：单张图（基于已选模板生成3个同风格变体方案）\n\n请严格按照 system prompt 中的 JSON 格式返回，所有方案必须遵循模板指定的视觉风格。`
+                : `[CRITICAL] 首先通过视觉分析图片中的产品形状、结构和可见特征来确定产品身份。图片是产品识别的唯一权威。\n用户需求：${userGoal}\n制图模式：${mode === "single" ? "单张图（生成3个不同风格的单图方案）" : "五张详情组图（生成1套包含5张图的详情页组图方案）"}\n\n请严格按照 system prompt 中的 JSON 格式返回。`,
             },
           ],
         },
@@ -85,10 +88,11 @@ export async function callLLM(
   base64Image: string,
   userGoal: string,
   mode: "single" | "set",
-  templatePrompt?: string
+  templatePrompt?: string,
+  templateId?: string
 ): Promise<CreativePlan[] | ImageSetPlan[]> {
   console.log(`[LLM] using model: ${LLM_MODEL}`);
-  const parsed = await tryCallLLM(base64Image, userGoal, mode, templatePrompt, LLM_MODEL);
+  const parsed = await tryCallLLM(base64Image, userGoal, mode, templatePrompt, LLM_MODEL, templateId);
 
   if (mode === "single") {
     if (!parsed.plans || !Array.isArray(parsed.plans)) {

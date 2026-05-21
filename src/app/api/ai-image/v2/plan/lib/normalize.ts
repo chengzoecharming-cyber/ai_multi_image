@@ -112,8 +112,21 @@ export function normalizeCreativePlan(raw: unknown, fallbackAnalysis?: ProductAn
     riskWarnings: Array.isArray(p?.riskWarnings) ? p.riskWarnings.map(String) : ["Keep text short English"],
   };
 
-  plan.planSummaryPrompt = buildPlanSummaryPrompt(plan);
-  plan.imageGenerationPrompt = buildImageGenerationPrompt(plan);
+  // CRITICAL FIX: If LLM already returned imageGenerationPrompt / planSummaryPrompt,
+  // preserve them instead of overwriting with generic mock-style prompts.
+  // The LLM generates prompts that already incorporate template visual identity,
+  // product-specific details, and rich copyBlocks. Overwriting them destroys
+  // template enforcement and produces generic output.
+  const llmImageGenPrompt = p?.imageGenerationPrompt ? String(p.imageGenerationPrompt) : undefined;
+  const llmPlanSummary = p?.planSummaryPrompt ? String(p.planSummaryPrompt) : undefined;
+
+  if (llmImageGenPrompt && llmPlanSummary) {
+    plan.imageGenerationPrompt = llmImageGenPrompt;
+    plan.planSummaryPrompt = llmPlanSummary;
+  } else {
+    plan.planSummaryPrompt = buildPlanSummaryPrompt(plan);
+    plan.imageGenerationPrompt = buildImageGenerationPrompt(plan);
+  }
   plan.finalPrompt = plan.imageGenerationPrompt;
 
   return plan;

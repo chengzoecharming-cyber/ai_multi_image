@@ -122,15 +122,61 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
   const lo = plan.layoutOverlay;
 
   const parts: string[] = [
-    `Create a professional e-commerce product listing image for "${plan.productName}".`,
+    `=== VISUAL STYLE AND COMPOSITION (MANDATORY — OVERRIDE ALL DEFAULT STYLES) ===`,
+    `Photography style, lighting, and atmosphere: ${plan.visualDirection}`,
+    `Color palette and tonal direction: ${plan.colorDirection}`,
+    `Composition, product placement, and layout: ${plan.layoutDirection}`,
+    `Visual complexity: ${plan.visualComplexity}. Information density: ${plan.informationDensity}.`,
     ``,
+    `=== PRODUCT SUBJECT ===`,
+    `Product: "${plan.productName}".`,
+    analysis ? `Product type: ${analysis.productType}. Key visible features: ${analysis.visibleFeatures?.join(", ") || "industrial metal product"}.` : "",
+    ``,
+  ];
+
+  // Comparison-story specific mandatory structure
+  if (plan.planArchetype === "comparison_story") {
+    parts.push(
+      `=== COMPARISON STRUCTURE (MANDATORY — DO NOT OMIT ANY ELEMENT) ===`,
+      `This is a SPLIT-SCREEN COMPARISON image showing the SAME product category on BOTH sides — the right side is the featured product, the left side is a generic lower-quality version of the SAME product type.`,
+      ``,
+      `CRITICAL PRODUCT IDENTITY RULE:`,
+      `Both sides must show the SAME product category with the SAME structure. The right side MUST match the uploaded reference product exactly in shape, proportions, and visible features.`,
+      analysis ? `Product description: ${analysis.productSubjectDescription || analysis.productType}. Visible features: ${analysis.visibleFeatures?.join(", ") || "industrial metal product"}.` : "",
+      ``,
+      `1. VERTICAL SPLIT: Strict 50/50 left-right split. Unified deep dark background across BOTH halves.`,
+      `2. CENTER "VS" DIVIDER: Large bold "VS" text centered vertically on the dividing line. White or silver, heavy weight, readable at thumbnail size. May sit in a subtle circular badge.`,
+      `3. LEFT SIDE ("ORDINARY" / "STANDARD"):`,
+      `   - The SAME product type as the right side, but shown as a GENERIC, LOWER-QUALITY version`,
+      `   - Must have the SAME overall shape, structure, and visible features as the right side`,
+      `   - VISUAL TREATMENT ONLY: DESATURATED (20-30% saturation), dimmer lighting, cool blue-gray cast`,
+      `   - Large RED "X" mark beside the product (signals problem/inferior)`,
+      `   - Label: "ORDINARY" or "STANDARD" in ALL CAPS, cool gray`,
+      `   - Short negative descriptor (e.g., "Chip Welding / Poor Finish")`,
+      `4. RIGHT SIDE ("OUR" / "UPGRADED"):`,
+      `   - The EXACT featured product from the reference image, in FULL COLOR, bright warm light, tack-sharp`,
+      `   - Must preserve all visible features from the reference: ${analysis?.visibleFeatures?.join(", ") || "all holes, grooves, threads, edges, and contours"}`,
+      `   - Slightly LARGER than left side (35-45% vs 30-40% of half-frame)`,
+      `   - Large GREEN CHECKMARK beside the product (signals superior/solution)`,
+      `   - Label: "OUR PRODUCT" or "UPGRADED" in ALL CAPS, warm accent color`,
+      `   - Short positive descriptor (e.g., "Smooth Finish / No Chip Welding")`,
+      `5. BOTTOM FEATURE BAR (spans full width):`,
+      `   - Horizontal dark panel at bottom 15-20% of image`,
+      `   - 3 feature advantage cards evenly spaced`,
+      `   - Each card: icon + bold title (2-4 words, ALL CAPS) + 1-line description`,
+      `   - Green left-border accent on each card`,
+      ``,
+    );
+  }
+
+  parts.push(
     `=== MANDATORY ON-IMAGE TEXT ===`,
     `ALL of the following English text MUST be rendered ON the image as real, readable typography.`,
     `Text must be professional commercial typesetting — NOT placeholder space, NOT blurry, NOT garbled.`,
     ``,
     `HEADLINE (largest, boldest, most prominent element on the image):`,
     `"${plan.headline}"`,
-  ];
+  );
 
   if (plan.subtitle) {
     parts.push(
@@ -270,6 +316,40 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
     ``,
     `=== TEXT RENDERING REQUIREMENTS ===`,
     ``,
+    ...(plan.planArchetype === "comparison_story" ? [
+      `## COMPARISON-SPECIFIC RENDERING (MANDATORY for split-screen comparison)`,
+      ``,
+      `### VS DIVIDER`,
+      `• Large bold 'VS' text centered vertically on the dividing line between left and right halves`,
+      `• White (#FFFFFF) or silver (#E0E0E0), heavy sans-serif weight, substantial size`,
+      `• Must be readable at thumbnail scale — this is the visual anchor of the entire image`,
+      `• May sit inside a subtle circular or diamond badge with dark translucent background`,
+      `• The VS divider makes the comparison instantly recognizable`,
+      ``,
+      `### RED X MARK (LEFT SIDE — signals problem/inferior)`,
+      `• Large red 'X' mark or red cross symbol placed prominently BESIDE the left-side product`,
+      `• Color: bright red (#DC2626) or crimson (#EF4444), solid fill`,
+      `• Must NOT cover the product itself — place it in negative space next to the product`,
+      `• Size: large enough to be immediately noticed — roughly 8-12% of half-frame height`,
+      `• Style: clean geometric X, not hand-drawn or sketchy`,
+      ``,
+      `### GREEN CHECKMARK (RIGHT SIDE — signals superior/solution)`,
+      `• Large green checkmark or tick symbol placed prominently BESIDE the right-side featured product`,
+      `• Color: bright green (#22C55E) or emerald (#10B981), solid fill`,
+      `• Must NOT cover the product itself — place it in negative space next to the product`,
+      `• Size: large enough to be immediately noticed — roughly 8-12% of half-frame height`,
+      `• Style: clean geometric checkmark, not hand-drawn or sketchy`,
+      ``,
+      `### BOTTOM FEATURE BAR`,
+      `• Horizontal dark panel spanning the FULL WIDTH at the bottom 15-20% of the image`,
+      `• Background: dark charcoal (#1A1A1A) or near-black at 85-95% opacity`,
+      `• 3 feature advantage cards evenly spaced across the bar`,
+      `• Each card: small geometric icon + bold title (2-4 words, ALL CAPS) + 1-line description`,
+      `• Card style: dark semi-transparent panel with a green left-border accent (#22C55E)`,
+      `• Card spacing: equal gaps between cards, consistent padding inside each card`,
+      `• Typography: clean sans-serif, white or warm white text`,
+      ``,
+    ] : []),
     `## HEADLINE RENDERING`,
     `• ALL CAPS, bold sans-serif, largest text on the image`,
     `• Positioned as the dominant visual anchor — upper third or center-left`,
@@ -306,6 +386,8 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
     `• Use contrasting accent colors for each side (e.g. blue vs orange, green vs red)`,
     `• Bold uppercase or bold weight, placed above or within comparison panels`,
     `• Visual separation: thin dividing line, different background tints, or side-by-side columns`,
+    `• For split-screen comparison: LEFT label = 'ORDINARY' or 'STANDARD' in cool gray (#8A9AAF). RIGHT label = 'OUR PRODUCT' or 'UPGRADED' in warm accent (#FFB347 or #4ADE80)`,
+    `• Each label must have a short descriptor beneath: LEFT = negative (e.g., 'Chip Welding / Poor Finish') in muted red-gray. RIGHT = positive (e.g., 'Smooth Finish / No Chip Welding') in warm white`,
     ``,
     `## APPLICATION LABEL RENDERING`,
     `• Render as scene tags, use-case badges, or grid item titles`,
@@ -367,24 +449,18 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
     );
   }
 
-  parts.push(
-    ``,
-    `=== VISUAL DIRECTION ===`,
-    `${plan.visualDirection}`,
-    ``,
-    `=== COLOR & BACKGROUND ===`,
-    `${plan.colorDirection}`,
-    ``,
-    `=== COMPOSITION ===`,
-    `${plan.layoutDirection}`,
-    ``,
-  );
+  // visualDirection, colorDirection, layoutDirection already included at the top of the prompt
+  // in the === VISUAL STYLE AND COMPOSITION === section. No need to repeat.
 
   if (analysis) {
+    const englishOnly = (text: string) => text.replace(/[^\x00-\x7F]/g, " ").trim();
+    const visibleFeatures = analysis.visibleFeatures?.map(englishOnly).filter(Boolean).join(", ") || "industrial metal product";
+    const isolationInstruction = analysis.isolationInstruction ? englishOnly(analysis.isolationInstruction) : "";
     parts.push(
       `=== PRODUCT PRESERVATION ===`,
-      `Preserve product structure: ${analysis.visibleFeatures.join(", ")}.`,
-      `${analysis.isolationInstruction}`,
+      `CRITICAL: Preserve the EXACT product structure, proportions, and visible features from the reference image: ${visibleFeatures}.`,
+      `Do NOT alter the product shape, add or remove parts, or change proportions.`,
+      isolationInstruction ? `Isolation instruction: ${isolationInstruction}` : "",
       ``,
     );
   }
@@ -392,8 +468,7 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
   parts.push(
     `=== STYLE & QUALITY ===`,
     `Photorealistic commercial product photography, professional studio quality, crisp edges, high resolution.`,
-    `Background must have depth — gradients, light beams, subtle textures, or atmospheric effects. NO flat solid-color backgrounds.`,
-    `Overall design must feel like a premium commercial advertisement, not a simple product photo with text.`,
+    `Follow the visual style specified in the VISUAL STYLE AND COMPOSITION section above. Do NOT override it with generic defaults.`,
     `NO fake logos, prices, certification marks, or platform branding.`,
     `NO CTA buttons, Buy Now, Shop Now, price badges, discount badges, or shipping labels.`,
     `NO watermark, NO "AI generated" mark, NO logo mark, NO signature, NO text overlay in any corner or edge of the image.`,

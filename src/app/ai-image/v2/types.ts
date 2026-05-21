@@ -1,8 +1,9 @@
 import {
   Zap, Gem, BarChart3, ImageIcon, Eye, Layout,
+  Microscope, Mountain, Sparkles, ShoppingBag,
 } from "lucide-react";
 
-export type GenerationMode = "single" | "set";
+export type GenerationMode = "single";
 
 export type CopySource = "user_exact" | "ai_rewritten" | "ai_suggested";
 
@@ -256,12 +257,38 @@ export type V2SessionStatus =
   | "done"
   | "failed";
 
+export type V2WorkspaceTab = "product" | "detail";
+
+export type V2DetailType =
+  | "detail"
+  | "multi_angle"
+  | "lifestyle"
+  | "feature";
+
+export const V2_DETAIL_TYPE_LABELS: Record<V2DetailType, string> = {
+  detail: "细节图",
+  multi_angle: "多角度图",
+  lifestyle: "仿实拍/场景图",
+  feature: "卖点图",
+};
+
 export interface V2GeneratedImage {
   id: string;
   planId?: string;
   taskId?: string;
+  tab?: V2WorkspaceTab;
+  detailType?: V2DetailType;
   imageUrl: string;
+  imageBase64?: string;
   createdAt: number;
+}
+
+export interface V2DetailState {
+  heroImageUrl: string | null;
+  selectedTypes: V2DetailType[];
+  generating: boolean;
+  results: Array<{ type: V2DetailType; imageId: string }>;
+  lastError?: string | null;
 }
 
 export interface V2Session {
@@ -270,14 +297,21 @@ export interface V2Session {
   createdAt: number;
   updatedAt: number;
 
+  // Session kind: product images vs detail images
+  workspaceTab?: V2WorkspaceTab;
+
   mode: GenerationMode;
   step: Step;
   status?: V2SessionStatus;
   lastError?: string | null;
 
   productImageUrl: string | null;
+  // optional: used as a style reference for product tab generations
   productReferenceImageUrl: string | null;
   goal: string;
+
+  outputWidth: number;
+  outputHeight: number;
 
   selectedTemplateId?: string | null;
 
@@ -285,16 +319,18 @@ export interface V2Session {
   expandedSingleId: string | null;
   editingSingleId: string | null;
 
-  setPlans: ImageSetPlan[];
-  expandedSetId: string | null;
-  expandedSubIds: string[];
-  editingSubId: string | null;
-
   previewPlanId: string | null;
   copiedId: string | null;
 
   generatingImage: boolean;
   generatedImages: V2GeneratedImage[];
+
+  detail?: V2DetailState;
+
+  // ============================================================
+  // Deprecated fields (kept for storage migration)
+  // ============================================================
+  groupId?: string | null;
 }
 
 export const IMAGE_TYPE_LABELS: Record<string, string> = {
@@ -310,18 +346,41 @@ export const IMAGE_TYPE_LABELS: Record<string, string> = {
   compatible_tools: "适配工具",
 };
 
+export interface PlanMeta {
+  icon: typeof Zap;
+  label: string;
+  color: string;
+  bg: string;
+  border: string;
+}
+
+const ARCHETYPE_META: Record<PlanArchetype, PlanMeta> = {
+  hero_feature:       { icon: Zap,          label: "单品卖点",   color: "text-orange-500",  bg: "bg-orange-50",  border: "border-orange-100" },
+  technical_breakdown:{ icon: Microscope,   label: "技术解析",   color: "text-cyan-600",    bg: "bg-cyan-50",    border: "border-cyan-100" },
+  comparison_story:   { icon: BarChart3,    label: "优势对比",   color: "text-blue-500",    bg: "bg-blue-50",    border: "border-blue-100" },
+  application_scene:  { icon: Mountain,     label: "应用场景",   color: "text-emerald-500", bg: "bg-emerald-50", border: "border-emerald-100" },
+  multi_panel_info:   { icon: Layout,       label: "多模块信息", color: "text-indigo-500",  bg: "bg-indigo-50",  border: "border-indigo-100" },
+  premium_showcase:   { icon: Sparkles,     label: "高级质感",   color: "text-violet-500",  bg: "bg-violet-50",  border: "border-violet-100" },
+  promo_sales:        { icon: ShoppingBag,  label: "强销售",     color: "text-rose-500",    bg: "bg-rose-50",    border: "border-rose-100" },
+};
+
+export function getPlanMeta(plan: CreativePlan): PlanMeta {
+  return ARCHETYPE_META[plan.planArchetype] || ARCHETYPE_META.hero_feature;
+}
+
+// Deprecated static array — kept for backward compat but should not be used for new code
 export const PLAN_META = [
-  { icon: Zap, label: "强销售卖点", color: "text-orange-500", bg: "bg-orange-50", border: "border-orange-100" },
-  { icon: Gem, label: "高级质感", color: "text-violet-500", bg: "bg-violet-50", border: "border-violet-100" },
-  { icon: BarChart3, label: "优势功能", color: "text-blue-500", bg: "bg-blue-50", border: "border-blue-100" },
+  ARCHETYPE_META.hero_feature,
+  ARCHETYPE_META.premium_showcase,
+  ARCHETYPE_META.comparison_story,
 ];
 
 export const SUB_PLAN_META = [
-  { icon: ImageIcon, color: "text-indigo-500", bg: "bg-indigo-50" },
-  { icon: Zap, color: "text-orange-500", bg: "bg-orange-50" },
-  { icon: Eye, color: "text-violet-500", bg: "bg-violet-50" },
-  { icon: Layout, color: "text-emerald-500", bg: "bg-emerald-50" },
-  { icon: BarChart3, color: "text-blue-500", bg: "bg-blue-50" },
+  { icon: ImageIcon,  color: "text-indigo-500",  bg: "bg-indigo-50" },
+  { icon: Zap,        color: "text-orange-500",  bg: "bg-orange-50" },
+  { icon: Eye,        color: "text-violet-500",  bg: "bg-violet-50" },
+  { icon: Layout,     color: "text-emerald-500", bg: "bg-emerald-50" },
+  { icon: BarChart3,  color: "text-blue-500",    bg: "bg-blue-50" },
 ];
 
 // ============================================================

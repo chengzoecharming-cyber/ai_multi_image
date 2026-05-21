@@ -35,6 +35,19 @@ export async function POST(request: NextRequest) {
       userId = "default",
     } = body;
 
+    // Resolve relative reference image URLs (e.g. "/uploads/xxx.png") to absolute URLs
+    // so the server-side provider can fetch them correctly in dev (port may not be 3000).
+    const origin = request.nextUrl?.origin || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const resolvedProductImageUrl =
+      typeof productImageUrl === "string" && productImageUrl.startsWith("/")
+        ? `${origin}${productImageUrl}`
+        : productImageUrl;
+    const resolvedStyleReferenceUrls = Array.isArray(styleReferenceUrls)
+      ? styleReferenceUrls.map((u: unknown) =>
+          typeof u === "string" && u.startsWith("/") ? `${origin}${u}` : String(u)
+        )
+      : [];
+
     let finalPrompt: string;
     let finalNegativePrompt: string;
     let isDirectPromptPath = false;
@@ -47,8 +60,8 @@ export async function POST(request: NextRequest) {
         templateId,
         variableValues: variableValues || {},
         userDescription: userDescription || "",
-        hasProductImage: !!productImageUrl,
-        hasStyleReferences: (styleReferenceUrls || []).length > 0,
+        hasProductImage: !!resolvedProductImageUrl,
+        hasStyleReferences: resolvedStyleReferenceUrls.length > 0,
       });
       finalPrompt = builderResult.positivePrompt;
       finalNegativePrompt = builderResult.negativePrompt;
@@ -69,8 +82,8 @@ export async function POST(request: NextRequest) {
         selectedFragments: fragments,
         userPrompt: promptContent || "",
         userNegativePrompt: negativePrompt || "",
-        hasProductImage: !!productImageUrl,
-        hasStyleReferences: (styleReferenceUrls || []).length > 0,
+        hasProductImage: !!resolvedProductImageUrl,
+        hasStyleReferences: resolvedStyleReferenceUrls.length > 0,
         generationModeId,
       });
       finalPrompt = builderResult.positivePrompt;
@@ -91,19 +104,24 @@ export async function POST(request: NextRequest) {
     const seed =
       typeof config?.seed === "number" && Number.isFinite(config.seed)
         ? Math.floor(config.seed)
-        : generationModeId === "conservative_enhancement" && !!productImageUrl
-          ? deriveStableSeed([productImageUrl, finalPrompt, finalNegativePrompt || "", width, height, model])
+        : generationModeId === "conservative_enhancement" && !!resolvedProductImageUrl
+          ? deriveStableSeed([resolvedProductImageUrl, finalPrompt, finalNegativePrompt || "", width, height, model])
           : undefined;
 
-    const editStrength = isDirectPromptPath
-      ? 0.75 // v2 rich prompts need high freedom for text + composition changes
-      : !!productImageUrl
+    let editStrength =
+      !!resolvedProductImageUrl
         ? generationModeId === "conservative_enhancement"
           ? 0.35
           : generationModeId === "commercial_showcase"
             ? 0.55
             : 0.75
         : undefined;
+
+    // For long "direct prompt" (V2 rich prompt) paths, keep the product closer to
+    // the reference image by default. High strength often causes product drift.
+    if (isDirectPromptPath && editStrength !== undefined) {
+      editStrength = Math.min(editStrength, 0.6);
+    }
 
     const configSnapshot = JSON.stringify({
       ...config,
@@ -137,8 +155,8 @@ export async function POST(request: NextRequest) {
         negativePromptSnapshot: finalNegativePrompt || null,
         configSnapshot,
         referenceImagesSnapshot: JSON.stringify({
-          productImageUrl: productImageUrl || null,
-          styleReferenceUrls: styleReferenceUrls || [],
+          productImageUrl: resolvedProductImageUrl || null,
+          styleReferenceUrls: resolvedStyleReferenceUrls || [],
         }),
         status: "pending",
         provider: providerName,
@@ -170,8 +188,8 @@ export async function POST(request: NextRequest) {
       result = await provider.generate({
         prompt: finalPrompt,
         negativePrompt: finalNegativePrompt,
-        productImageUrl: productImageUrl || null,
-        styleReferenceUrls: styleReferenceUrls || [],
+        productImageUrl: resolvedProductImageUrl || null,
+        styleReferenceUrls: resolvedStyleReferenceUrls || [],
         width,
         height,
         strictSize,
@@ -195,6 +213,18 @@ export async function POST(request: NextRequest) {
     }
 
     if (result.success && result.imageUrl) {
+      // Download image and convert to base64 for frontend copy/download (avoids CORS)
+      let imageBase64 = "";
+      try {
+        const imgRes = await fetch(result.imageUrl, { signal: abortController.signal });
+        if (imgRes.ok) {
+          const buffer = Buffer.from(await imgRes.arrayBuffer());
+          imageBase64 = `data:image/png;base64,${buffer.toString("base64")}`;
+        }
+      } catch (e) {
+        console.log("[Generate] failed to download image for base64:", e);
+      }
+
       const updatedTask = await prisma.aiImageTask.update({
         where: { id: task.id },
         data: {
@@ -202,7 +232,7 @@ export async function POST(request: NextRequest) {
           resultImageUrl: JSON.stringify([result.imageUrl]),
         },
       });
-      return NextResponse.json({ data: updatedTask });
+      return NextResponse.json({ data: updatedTask, imageBase64 });
     } else {
       const updatedTask = await prisma.aiImageTask.update({
         where: { id: task.id },

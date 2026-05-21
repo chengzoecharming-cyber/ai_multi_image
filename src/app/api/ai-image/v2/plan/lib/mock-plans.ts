@@ -310,11 +310,11 @@ function getArchetypeConfigs(): ArchetypeConfig[] {
       informationDensity: "high",
       layoutTypeHint: "comparison_two_columns",
       visualDesc:
-        "Split-frame studio photography with controlled lighting on both sides. Left side has flatter, cooler lighting suggesting ordinary quality. Right side has richer, warmer key light with rim accent suggesting superior quality. A subtle central divider line with glow separates the two halves. Clean, authoritative atmosphere without aggressive gimmicks.",
+        "Strict 50/50 vertical split-screen comparison photography on a unified deep dark background (#151515). LEFT side: a generic unbranded ordinary version of the same product category, desaturated to 20-30% saturation, dimmer cool blue-gray lighting (#5A6A7A cast), slightly softer focus, with a large prominent RED X mark beside the product and a 'ORDINARY' label in cool gray. RIGHT side: the actual featured product in FULL COLOR, tack-sharp, bright warm key light (3200K-4000K) from upper-left with warm amber edge highlights (#FFB347) and a subtle glow/halo, appearing slightly larger than the left side. A large GREEN CHECKMARK sits beside the featured product. CENTER: a bold white/silver 'VS' divider on a vertical dividing line, readable at thumbnail size, possibly inside a subtle circular badge. BOTTOM: a full-width horizontal dark feature bar with three evenly-spaced advantage cards. The overall feel is dramatic, decisive, and instantly readable as a comparison.",
       colorDesc:
-        "Left half: cool neutral gray (#64748b) background with muted text. Right half: deep navy (#0f172a) background with electric blue (#3b82f6) accents. Central divider uses a subtle gradient from gray to blue. Green check marks on the right use a restrained emerald (#10b981). Red crosses on the left use a muted rose (#f43f5e). The palette feels analytical and trustworthy, not gimmicky.",
+        "Unified deep dark background (#151515 to #1E1E1E) across the ENTIRE image — both halves share the same background for cohesion. LEFT side: desaturated blue-gray product tones (#5A6A7A), muted cool gray text (#8A9AAF), prominent RED (#DC2626) for the X mark. RIGHT side: full product natural colors, warm amber highlights (#FFB347), bright GREEN (#22C55E) for the checkmark, warm white text. CENTER VS divider: white (#FFFFFF) or silver (#E0E0E0) bold text. BOTTOM feature bar: dark charcoal (#1A1A1A) panels with green left-border accents (#22C55E). The contrast between the dim, cool left and the bright, warm right must be dramatic and immediately visible.",
       layoutDesc:
-        "LEFT 48% shows the 'Ordinary' scenario with muted product rendering and three red-cross labels. RIGHT 48% shows 'Our Product' with full lighting and three green-check labels. A bold headline spans the TOP CENTER on a dark banner. Each side has its own vertical feature stack. BOTTOM features a centered summary bar with three key advantage words. The composition is balanced but clearly weighted toward the right.",
+        "Strict 50/50 vertical split. LEFT half (48%): generic ordinary product at 30-40% of half-frame, desaturated, dim, with RED X mark prominently placed beside it, 'ORDINARY' label above in ALL CAPS cool gray, short negative descriptor below (e.g., 'Chip Welding / Poor Finish'). CENTER (4%): bold 'VS' text centered vertically on a thin dividing line, white/silver, heavy weight, possibly in a subtle translucent circular badge. RIGHT half (48%): actual featured product at 35-45% of half-frame — SLIGHTLY LARGER than left, full color, bright, warm light, with GREEN CHECKMARK beside it, 'OUR PRODUCT' or 'UPGRADED' label above in ALL CAPS warm accent, short positive descriptor below (e.g., 'Smooth Finish / No Chip Welding'). BOTTOM 15-20%: horizontal dark panel spanning full width with THREE feature advantage cards evenly spaced — each card has an icon + bold title (2-4 words, ALL CAPS) + 1-line description, with green left-border accent.",
     },
     {
       archetype: "application_scene",
@@ -530,7 +530,7 @@ function commonRisks(): string[] {
 
 // ── Single plans ─────────────────────────────────────────────────
 
-export function generateSinglePlans(analysis: ProductAnalysis, userGoal: string): CreativePlan[] {
+export function generateSinglePlans(analysis: ProductAnalysis, userGoal: string, forcedArchetype?: PlanArchetype): CreativePlan[] {
   const lower = userGoal.toLowerCase();
   const baseName = analysis.productName;
   const cat = detectCategory(analysis.productType);
@@ -544,7 +544,13 @@ export function generateSinglePlans(analysis: ProductAnalysis, userGoal: string)
       : undefined;
 
   const now = Date.now();
-  const archetypes = pickArchetypesForSingle(`${baseName}-${userGoal}`);
+  // Comparison template: all 3 plans must use comparison_story for strict format
+  // Other templates: Plan 1 follows template archetype, Plans 2-3 are free to vary for visual diversity
+  const archetypes = forcedArchetype
+    ? forcedArchetype === "comparison_story"
+      ? [forcedArchetype, forcedArchetype, forcedArchetype]
+      : [forcedArchetype, ...pickArchetypesForSingle(`${baseName}-${userGoal}`).slice(0, 2)]
+    : pickArchetypesForSingle(`${baseName}-${userGoal}`);
   const configs = getArchetypeConfigs();
 
   const plans: CreativePlan[] = archetypes.map((arch, idx) => {
