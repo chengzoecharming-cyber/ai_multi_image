@@ -408,7 +408,8 @@ export function getTemplateRulePrompt(templateId?: string): string {
   const styles = rule.styleIds
     .map((styleId, index) => {
       const style = getVisualStyleProfile(styleId);
-      return `${index + 1}. ${style.label}: ${style.visualDirection} Color: ${style.colorDirection}`;
+      // Keep this short: long visual/color directions in system prompt cause LLM timeouts.
+      return style ? `${index + 1}. ${style.label} (id: ${styleId})` : `${index + 1}. ${styleId}`;
     })
     .join("\n");
 
@@ -546,8 +547,7 @@ function enforceCopyProfile(plan: CreativePlan, profile: CopyProfile): CopyBlock
 export function applyTemplateRuleToPlan(
   plan: CreativePlan,
   templateId?: string,
-  variantIndex = 0,
-  templatePrompt?: string
+  variantIndex = 0
 ): CreativePlan {
   const rule = getTemplateRule(templateId || plan.templateId);
   if (!rule) {
@@ -556,7 +556,7 @@ export function applyTemplateRuleToPlan(
       ...plan,
       templateId: templateId || plan.templateId,
       planName: plan.planName?.includes(style.label) ? plan.planName : `${plan.planName} · ${style.label}`,
-      visualDirection: `${style.visualDirection}\nSaved-template constraints: ${templatePrompt || "Follow the selected saved template's saved layout, visual, and color direction without copying old product-specific content."}\nThis plan's visual style is "${style.label}", intentionally different from the other two plans in this generation record.`,
+      visualDirection: `${style.visualDirection}\nSaved-template constraints: Follow the selected saved template's saved layout, visual, and color direction without copying old product-specific content.\nThis plan's visual style is "${style.label}", intentionally different from the other two plans in this generation record.`,
       colorDirection: style.colorDirection,
       layoutDirection: `${plan.layoutDirection}\nDiversity requirement: use a distinct composition, product angle/crop, information density, and text rhythm from the other two plans.`,
     };

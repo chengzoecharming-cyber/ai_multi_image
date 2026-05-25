@@ -23,9 +23,13 @@ function nowTs() {
   return Date.now();
 }
 
+function createPlanRequestId() {
+  return `plan-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
 function createEmptySession(seed?: Partial<V2Session>): V2Session {
   const ts = nowTs();
-  return {
+  const base: V2Session = {
     id: seed?.id || globalThis.crypto?.randomUUID?.() || `sess-${ts}-${Math.random().toString(36).slice(2, 6)}`,
     title: seed?.title,
     createdAt: seed?.createdAt || ts,
@@ -55,34 +59,32 @@ function createEmptySession(seed?: Partial<V2Session>): V2Session {
     previewPlanId: seed?.previewPlanId ?? null,
     copiedId: seed?.copiedId ?? null,
 
-    generatingImage: seed?.generatingImage ?? false,
+    // Reset transient generation flags on restore — the request is dead after refresh.
+    generatingImage: false,
+    generatingImagePlanId: null,
     generatedImages: seed?.generatedImages ?? [],
 
-    detail: seed?.detail ?? {
-      heroImageUrl: null,
-      selectedTypes: [],
+    detail: {
+      ...(seed?.detail || { heroImageUrl: null, selectedTypes: [], generating: false, results: [], lastError: null }),
+      // Reset transient generation flag on restore.
       generating: false,
-      results: [],
-      lastError: null,
     },
 
     // deprecated (kept for old storage)
     groupId: (seed as any)?.groupId ?? null,
   };
+  return { ...base, status: deriveSessionStatus(base) };
 }
 
 function deriveSessionStatus(session: V2Session): V2SessionStatus {
   if (session.lastError) return "failed";
-  if (session.workspaceTab === "detail") {
-    if (session.detail?.lastError) return "failed";
-    if (session.detail?.generating) return "generating";
-    if ((session.generatedImages?.filter((g) => (g.tab || "product") === "detail").length || 0) > 0) return "done";
-    return "draft";
-  }
-  if (session.generatingImage) return "generating";
+  if (session.detail?.lastError) return "failed";
+  // Any active generation (product or detail) counts as generating.
+  if (session.generatingImage || session.detail?.generating) return "generating";
   if (session.step === "generating") return "planning";
+  // Any generated image across any tab means the session has produced output.
+  if ((session.generatedImages?.length || 0) > 0) return "done";
   if ((session.singlePlans?.length || 0) > 0) {
-    if ((session.generatedImages?.length || 0) > 0) return "done";
     if (session.step === "plans" || session.step === "preview") return "needs_review";
   }
   return "draft";
@@ -102,6 +104,23 @@ export function useV2Session() {
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const [saveTemplatePlan, setSaveTemplatePlan] = useState<CreativePlan | null>(null);
 
+  /** 开发调试：最近一次生成的 prompt 对比数据 */
+  interface DebugPromptData {
+    requestId?: string;
+    selectedTemplateId?: string | null;
+    briefSourceType?: string;
+    briefSourceId?: string;
+    briefImageType?: string;
+    briefLayoutCount?: number;
+    briefVariantCount?: number;
+    briefStyleMode?: string;
+    oldTemplatePromptLength?: number;
+    briefPromptLength?: number;
+    oldTemplatePrompt?: string;
+    briefPrompt?: string;
+  }
+  const [lastDebugPrompt, setLastDebugPrompt] = useState<DebugPromptData | null>(null);
+
   const productFileInputRef = useRef<HTMLInputElement>(null);
   const detailHeroFileInputRef = useRef<HTMLInputElement>(null);
   const referenceFileInputRef = useRef<HTMLInputElement>(null);
@@ -119,7 +138,8 @@ export function useV2Session() {
   useEffect(() => {
     const loaded = safeJsonParse<{ sessions: V2Session[]; activeSessionId: string | null }>(localStorage.getItem(SESSION_STORAGE_KEY));
     if (loaded?.sessions?.length) {
-      setSessions(loaded.sessions.map((s) => createEmptySession(s)));
+      const restored = loaded.sessions.map((s) => createEmptySession(s));
+      setSessions(restored);
       setActiveSessionId(loaded.activeSessionId || loaded.sessions[0].id);
       return;
     }
@@ -160,12 +180,48 @@ export function useV2Session() {
     setWorkspaceTabState("product");
   }, [searchParams]);
 
+  // ── Persist sessions to localStorage (with debounce) ──
+  // v2 images are persisted to local static files (/generated/...) by the
+  // backend, so imageUrl already survives refreshes.  We still keep
+  // imageBase64 in memory for copy/download but strip it from localStorage
+  // to stay well under quota.  On restore the local URL renders the image.
   useEffect(() => {
     if (!sessions.length) return;
     const t = setTimeout(() => {
-      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ sessions, activeSessionId }));
-    }, 150);
+      try {
+        const stripped = sessions.map((s) => ({
+          ...s,
+          generatedImages: s.generatedImages.map((g) => {
+            const { imageBase64, ...rest } = g;
+            return rest;
+          }),
+        }));
+        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ sessions: stripped, activeSessionId }));
+      } catch (e) {
+        console.error("[useV2Session] Failed to persist sessions:", e);
+      }
+    }, 300);
     return () => clearTimeout(t);
+  }, [sessions, activeSessionId]);
+
+  // ── Force persist on page unload ──
+  useEffect(() => {
+    const handler = () => {
+      try {
+        const stripped = sessions.map((s) => ({
+          ...s,
+          generatedImages: s.generatedImages.map((g) => {
+            const { imageBase64, ...rest } = g;
+            return rest;
+          }),
+        }));
+        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ sessions: stripped, activeSessionId }));
+      } catch {
+        // noop on unload
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
   }, [sessions, activeSessionId]);
 
   const activeSession = useMemo(() => {
@@ -385,6 +441,8 @@ export function useV2Session() {
     const controller = new AbortController();
     generateControllerRef.current = controller;
     const timeoutId = setTimeout(() => controller.abort(), 120000);
+    const clientRequestId = createPlanRequestId();
+    setLastDebugPrompt({ requestId: clientRequestId });
 
     try {
       const payload: Record<string, unknown> = {
@@ -392,8 +450,10 @@ export function useV2Session() {
         productReferenceImageUrl: activeSession.productReferenceImageUrl,
         userGoal: activeSession.goal.trim(),
         mode: "single",
+        clientRequestId,
       };
       if (selectedTemplate) payload.selectedTemplateId = selectedTemplate.id;
+      payload.debugBriefPrompt = true;
 
       const res = await fetch("/api/ai-image/v2/plan", {
         method: "POST",
@@ -405,25 +465,31 @@ export function useV2Session() {
       const data = await res.json();
       if (res.ok && data.data) {
         const plans: CreativePlan[] = data.data;
+        setLastDebugPrompt(data.debug ? { ...data.debug, requestId: data.requestId } : { requestId: data.requestId || clientRequestId });
         updateActiveSession((s) => ({
           ...s,
           singlePlans: plans,
           expandedSingleId: plans[0]?.id || null,
           step: "plans",
         }));
-        toast.success(`已生成 ${plans.length} 个方案`);
+        if (data.fallback) {
+          toast.warning(`已生成 ${plans.length} 个演示方案（LLM 暂不可用）`, { duration: 6000 });
+        } else {
+          toast.success(`已生成 ${plans.length} 个方案`);
+        }
       } else {
         toast.error(data.error || "生成失败");
         updateActiveSession((s) => ({ ...s, step: "input", lastError: data.error || "生成失败" }));
       }
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") {
-        toast.error("生成已取消");
+        toast.error("生成超时（约120秒），请重试");
       } else {
         toast.error("网络错误，请重试");
       }
       updateActiveSession((s) => ({ ...s, step: "input", lastError: "网络错误或超时" }));
     } finally {
+      clearTimeout(timeoutId);
       generateControllerRef.current = null;
     }
   }, [activeSession, selectedTemplate, updateActiveSession]);
@@ -490,7 +556,7 @@ export function useV2Session() {
         toast.error("请先上传商品图");
         return;
       }
-      updateActiveSession((s) => ({ ...s, generatingImage: true, lastError: null }));
+      updateActiveSession((s) => ({ ...s, generatingImage: true, generatingImagePlanId: plan.id, lastError: null }));
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 90000);
@@ -500,20 +566,34 @@ export function useV2Session() {
           ...(activeSession.productReferenceImageUrl ? [activeSession.productReferenceImageUrl] : []),
           ...(activeSession.referenceImageUrls || []),
         ];
+
+        // V2 default: generate WITH on-image copy using the plan's finalPrompt/imageGenerationPrompt.
+        // Fallback to "no-text" prompt only when the plan prompt is missing.
+        const promptContent =
+          plan.finalPrompt ||
+          plan.imageGenerationPrompt ||
+          buildNoTextImagePrompt(plan);
+
+        const negativePromptBase =
+          "watermark, ai generated mark, logo, signature, corner badge, copyright stamp, generated by, ai watermark, brand mark, label, stamp, qr code";
+
         const res = await fetch("/api/ai-image/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            promptContent: buildNoTextImagePrompt(plan),
+            promptContent,
             productImageUrl: activeSession.productImageUrl,
             styleReferenceUrls: styleRefs,
-            negativePrompt:
-              "text, typography, letters, words, numbers, watermark, ai generated mark, logo, signature, corner badge, copyright stamp, generated by, ai watermark, brand mark, label, stamp, qr code",
+            // Allow on-image copy in V2 by default; keep only watermark/logo bans.
+            negativePrompt: negativePromptBase,
             config: {
               width: activeSession.outputWidth,
               height: activeSession.outputHeight,
               model: "default",
-              generationModeId: "conservative_enhancement",
+              generationModeId: "commercial_showcase",
+              // V2 plans expect visible changes (lighting/background/layout).
+              // Too-low strength often returns near-identical reference images.
+              editStrength: 0.75,
               strictSize: true,
             },
           }),
@@ -528,6 +608,7 @@ export function useV2Session() {
           updateActiveSession((s) => ({
             ...s,
             generatingImage: false,
+            generatingImagePlanId: null,
             generatedImages: [
               {
                 id: globalThis.crypto?.randomUUID?.() || `img-${nowTs()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -545,16 +626,16 @@ export function useV2Session() {
           toast.success("图片生成成功");
         } else {
           toast.error(data.error || "生成失败");
-          updateActiveSession((s) => ({ ...s, generatingImage: false, lastError: data.error || "生成失败" }));
+          updateActiveSession((s) => ({ ...s, generatingImage: false, generatingImagePlanId: null, lastError: data.error || "生成失败" }));
         }
       } catch (err: unknown) {
         clearTimeout(timeoutId);
         if (err instanceof Error && err.name === "AbortError") {
           toast.error("生成超时（90秒），请重试");
-          updateActiveSession((s) => ({ ...s, generatingImage: false, lastError: "生成超时（90秒）" }));
+          updateActiveSession((s) => ({ ...s, generatingImage: false, generatingImagePlanId: null, lastError: "生成超时（90秒）" }));
         } else {
           toast.error("网络错误，请重试");
-          updateActiveSession((s) => ({ ...s, generatingImage: false, lastError: "网络错误" }));
+          updateActiveSession((s) => ({ ...s, generatingImage: false, generatingImagePlanId: null, lastError: "网络错误" }));
         }
       }
     },
@@ -730,5 +811,7 @@ export function useV2Session() {
 
     toggleDetailType,
     handleGenerateDetail,
+
+    lastDebugPrompt,
   };
 }

@@ -17,6 +17,7 @@ import ImageGalleryDrawer from "./components/ImageGalleryDrawer";
 function V2WorkbenchPageInner() {
   const {
     filteredSessions,
+    sessions,
     activeSessionId,
     setActiveSessionId,
     activeSession,
@@ -59,6 +60,7 @@ function V2WorkbenchPageInner() {
     toggleDetailType,
     handleGenerateDetail,
     workspaceTab,
+    lastDebugPrompt,
   } = useV2Session();
 
   const [imageGalleryOpen, setImageGalleryOpen] = useState(false);
@@ -86,6 +88,7 @@ function V2WorkbenchPageInner() {
 
         <SessionsSidebar
           sessions={filteredSessions}
+          totalCount={sessions.length}
           activeSessionId={activeSessionId}
           onSelectSession={setActiveSessionId}
           onCreateSession={() => createNewSession({ workspaceTab: tab })}
@@ -120,8 +123,9 @@ function V2WorkbenchPageInner() {
         )}
 
         {/* Right Panel — inline because it has many callbacks */}
-        <div className="flex-1 flex overflow-hidden bg-gray-100">
-          {tab === "product" && step === "input" && (
+        <div className="flex-1 flex flex-col overflow-hidden bg-gray-100">
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {tab === "product" && step === "input" && (
             <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-10">
               <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
                 <Wand2 className="w-8 h-8 text-gray-300" />
@@ -185,8 +189,52 @@ function V2WorkbenchPageInner() {
             />
           )}
 
-          {tab === "detail" && (
-            <DetailRightPanel activeSession={activeSession} />
+            {tab === "detail" && (
+              <DetailRightPanel activeSession={activeSession} />
+            )}
+          </div>
+
+          {/* 开发调试：Prompt 对比区域 */}
+          {lastDebugPrompt && (
+            <details className="shrink-0 border-t border-gray-200 bg-white">
+              <summary className="px-4 py-2 text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-50 select-none flex items-center gap-2">
+                <span>🔧</span>
+                Debug Prompt Compare
+                <span className="ml-auto text-gray-400 font-normal">
+                  old: {lastDebugPrompt.oldTemplatePromptLength ?? 0} chars / brief: {lastDebugPrompt.briefPromptLength ?? 0} chars
+                </span>
+              </summary>
+              <div className="px-4 py-3 space-y-3 max-h-[300px] overflow-y-auto">
+                {lastDebugPrompt.selectedTemplateId && (
+                  <div className="text-xs text-gray-500">selectedTemplateId: {String(lastDebugPrompt.selectedTemplateId)}</div>
+                )}
+                {lastDebugPrompt.requestId && (
+                  <div className="text-xs text-gray-500">requestId: {String(lastDebugPrompt.requestId)}</div>
+                )}
+                {lastDebugPrompt.briefSourceType && (
+                  <div className="grid grid-cols-2 md:grid-cols-6 gap-2 text-xs text-gray-500">
+                    <div>source: {String(lastDebugPrompt.briefSourceType)}</div>
+                    <div>sourceId: {String(lastDebugPrompt.briefSourceId)}</div>
+                    <div>imageType: {String(lastDebugPrompt.briefImageType)}</div>
+                    <div>layouts: {String(lastDebugPrompt.briefLayoutCount ?? 0)}</div>
+                    <div>variants: {String(lastDebugPrompt.briefVariantCount ?? 0)}</div>
+                    <div>style: {String(lastDebugPrompt.briefStyleMode)}</div>
+                  </div>
+                )}
+                {lastDebugPrompt.oldTemplatePrompt && (
+                  <div>
+                    <div className="text-xs font-semibold text-gray-600 mb-1">Old Template Prompt</div>
+                    <pre className="text-[11px] text-gray-700 bg-gray-50 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap border border-gray-100">{String(lastDebugPrompt.oldTemplatePrompt)}</pre>
+                  </div>
+                )}
+                {lastDebugPrompt.briefPrompt && (
+                  <div>
+                    <div className="text-xs font-semibold text-gray-600 mb-1">Brief Prompt</div>
+                    <pre className="text-[11px] text-gray-700 bg-gray-50 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap border border-gray-100">{String(lastDebugPrompt.briefPrompt)}</pre>
+                  </div>
+                )}
+              </div>
+            </details>
           )}
         </div>
       </main>

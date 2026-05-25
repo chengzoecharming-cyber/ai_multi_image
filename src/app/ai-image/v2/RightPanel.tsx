@@ -3,8 +3,9 @@
 import { useState, useCallback, useRef } from "react";
 import {
   Wand2, Sparkles, Save, Info, ChevronLeft, ChevronRight,
-  Grid3x3, Eye,
+  Grid3x3, Eye, Copy, Download,
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,7 @@ function PlanCard({
   index,
   isActive,
   hasGeneratedImage,
+  isGenerating,
   onSave,
   onGenerateImage,
   onViewImage,
@@ -28,6 +30,7 @@ function PlanCard({
   index: number;
   isActive: boolean;
   hasGeneratedImage: boolean;
+  isGenerating: boolean;
   onSave: (plan: CreativePlan) => void;
   onGenerateImage: (plan: CreativePlan) => void;
   onViewImage: (plan: CreativePlan) => void;
@@ -179,7 +182,7 @@ function PlanCard({
       </div>
 
       {/* 按钮区 */}
-      <div className={cn("px-5 py-4 shrink-0 flex gap-2.5", hasGeneratedImage ? "flex-row" : "flex-col")}>
+      <div className={cn("px-5 py-4 shrink-0 flex gap-2.5", hasGeneratedImage || isGenerating ? "flex-row" : "flex-col")}>
         {hasGeneratedImage && (
           <Button
             variant="outline"
@@ -189,11 +192,23 @@ function PlanCard({
             <Eye className="w-4 h-4 mr-1.5" />查看图片
           </Button>
         )}
+        {isGenerating && (
+          <Button
+            variant="outline"
+            onClick={() => onViewImage(plan)}
+            disabled
+            className="h-10 flex-[3] border-amber-200 text-amber-600 bg-amber-50/50 text-sm font-semibold cursor-pointer"
+          >
+            <Sparkles className="w-4 h-4 mr-1.5 animate-pulse" />生成中
+          </Button>
+        )}
         <Button
           onClick={() => onGenerateImage(plan)}
+          disabled={isGenerating}
           className={cn(
             "bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white border-0 shadow-md shadow-indigo-100 text-sm font-semibold",
-            hasGeneratedImage ? "h-10 flex-[2]" : "w-full h-10"
+            hasGeneratedImage || isGenerating ? "h-10 flex-[2]" : "w-full h-10",
+            isGenerating && "opacity-50 cursor-not-allowed"
           )}
         >
           <Wand2 className="w-4 h-4 mr-1.5" />生成图片
@@ -209,6 +224,7 @@ function PlanCardStack({
   plans,
   activeIndex,
   generatedImages,
+  generatingImagePlanId,
   onChangeIndex,
   onSave,
   onGenerateImage,
@@ -218,6 +234,7 @@ function PlanCardStack({
   plans: CreativePlan[];
   activeIndex: number;
   generatedImages: V2GeneratedImage[];
+  generatingImagePlanId: string | null;
   onChangeIndex: (index: number) => void;
   onSave: (plan: CreativePlan) => void;
   onGenerateImage: (plan: CreativePlan) => void;
@@ -345,6 +362,7 @@ function PlanCardStack({
                 index={i}
                 isActive={isActive}
                 hasGeneratedImage={hasImageForPlan(plan.id)}
+                isGenerating={generatingImagePlanId === plan.id}
                 onSave={onSave}
                 onGenerateImage={onGenerateImage}
                 onViewImage={onViewImage}
@@ -435,7 +453,66 @@ function ImagePreviewPanel({
                   <p className="text-sm text-gray-500">正在生成图片...</p>
                 </div>
               ) : imageSrc ? (
-                <img src={imageSrc} alt="Generated" className="w-full h-full object-contain" />
+                <div className="relative w-full h-full">
+                  <img src={imageSrc} alt="Generated" className="w-full h-full object-contain" />
+                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2">
+                    <button
+                      onClick={async () => {
+                        try {
+                          const source = imageSrc;
+                          if (!source) return;
+                          const res = await fetch(source);
+                          const blob = await res.blob();
+                          if (navigator.clipboard && navigator.clipboard.write) {
+                            await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+                            toast.success("图片已复制到剪贴板");
+                          } else {
+                            toast.error("当前浏览器不支持复制图片");
+                          }
+                        } catch {
+                          toast.error("复制失败，请重试");
+                        }
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 text-white text-xs font-medium hover:bg-black/70 transition-colors backdrop-blur-sm"
+                    >
+                      <Copy className="w-3.5 h-3.5" />复制
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const source = imageSrc;
+                          if (!source) return;
+                          if (source.startsWith("data:")) {
+                            const a = document.createElement("a");
+                            a.href = source;
+                            a.download = `generated-image-${Date.now()}.png`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            toast.success("下载已开始");
+                            return;
+                          }
+                          const res = await fetch(source);
+                          const blob = await res.blob();
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = `generated-image-${Date.now()}.png`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                          toast.success("下载已开始");
+                        } catch {
+                          toast.error("下载失败，请重试");
+                        }
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 text-white text-xs font-medium hover:bg-black/70 transition-colors backdrop-blur-sm"
+                    >
+                      <Download className="w-3.5 h-3.5" />下载
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <div className="text-center">
                   <p className="text-sm text-gray-400 mb-3">尚未生成图片</p>
@@ -572,6 +649,7 @@ export function RightPanel({
           plans={singlePlans}
           activeIndex={cardIndex}
           generatedImages={activeSession.generatedImages}
+          generatingImagePlanId={activeSession.generatingImagePlanId}
           onChangeIndex={(index) => {
             const plan = singlePlans[index];
             if (plan) onSelectPlan(plan.id);

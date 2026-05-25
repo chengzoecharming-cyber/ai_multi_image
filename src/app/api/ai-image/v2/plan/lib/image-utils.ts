@@ -18,7 +18,20 @@ export async function imageUrlToBase64(imageUrl: string): Promise<string | null>
       return `data:${mimeType};base64,${buffer.toString("base64")}`;
     }
     if (imageUrl.startsWith("http")) {
-      const res = await fetch(imageUrl);
+      const ctrl = new AbortController();
+      const timeout = setTimeout(() => ctrl.abort(), 15000);
+      let res: Response;
+      try {
+        res = await fetch(imageUrl, { signal: ctrl.signal });
+      } catch (e) {
+        if ((e as Error).name === "AbortError") {
+          console.error("[imageUrlToBase64] remote fetch timeout:", imageUrl);
+          return null;
+        }
+        throw e;
+      } finally {
+        clearTimeout(timeout);
+      }
       if (!res.ok) return null;
       const buffer = Buffer.from(await res.arrayBuffer());
       const contentType = res.headers.get("content-type") || "image/jpeg";

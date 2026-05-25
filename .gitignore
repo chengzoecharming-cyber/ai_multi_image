@@ -49,5 +49,8 @@ dev.db
 # test screenshots
 .test-screenshots/
 
+# persisted generated images (survive page refresh but should not be committed)
+/public/generated/
+
 # user uploads (local dev artifacts)
 /public/uploads/

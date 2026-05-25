@@ -27,6 +27,7 @@ const MAX_WIDTH = 320;
 
 export function SessionsSidebar({
   sessions,
+  totalCount,
   activeSessionId,
   onSelectSession,
   onCreateSession,
@@ -34,6 +35,7 @@ export function SessionsSidebar({
   onDeleteSession,
 }: {
   sessions: V2Session[];
+  totalCount: number;
   activeSessionId: string | null;
   onSelectSession: (sessionId: string) => void;
   onCreateSession: () => void;
@@ -107,7 +109,9 @@ export function SessionsSidebar({
           {!isCollapsed && (
             <div className="flex items-center gap-1">
               <span className="text-sm font-semibold text-gray-800 truncate">记录</span>
-              <span className="text-[10px] text-gray-400">{list.length}</span>
+              <span className="text-[10px] text-gray-400" title={`当前工作区 ${list.length} 条 / 共 ${totalCount} 条`}>
+                {list.length}/{totalCount}
+              </span>
             </div>
           )}
         </div>

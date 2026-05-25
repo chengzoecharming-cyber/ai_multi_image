@@ -163,29 +163,59 @@ ${COMMON_QUALITY_CHECKS}
       { key: "selling_points", label: "卖点 Selling Points", type: "string_list", required: true },
     ],
     templatePrompt: `
-## Template Style: Feature Explanation (Info Panel Layout) — MANDATORY
+## Template: Feature Explanation — FUNCTIONAL BRIEF
 
-This is NOT a general product showcase. This is a FEATURE EXPLANATION image where the primary job is to communicate product benefits through structured information panels.
+Purpose: Communicate product benefits through a structured "product + info" composition. The product is the HERO; information supports it. The image must make the viewer understand WHAT the product does and WHY it matters within 3 seconds.
 
-MANDATORY visual identity (all 3 plans must share this):
-- Background: cool light gray (#E8ECF0 to #F0F2F5) with subtle blue undertone. NO gradients. NO textures. The background must feel like a clean whiteboard or tech document.
-- Product treatment: product shown at a 3/4 angle or profile view, occupying 40-50% of frame, positioned LEFT or CENTER. Product must be fully visible with crisp edges. NO cropping.
-- Lighting: professional even studio light from upper-front at 50°. Soft fill from below to reduce under-shadow. Slight ground reflection. NO dramatic shadows. NO rim light.
-- Depth of field: DEEP. Entire product sharp.
-- Information panels: RIGHT side or BOTTOM must contain 3-4 structured feature blocks. Each block has a small icon hint + bold title (2-4 words, ALL CAPS) + short body text (8-15 words). Blocks separated by thin hairline dividers or subtle background tints (#FFFFFF panels on #E8ECF0 background).
-- Color palette: cool neutrals + ONE accent color (tech blue #0066CC, teal #008080, or steel blue #4682B4) used sparingly for icon hints and headline only. NO warm colors. NO high-saturation accents.
-- Text: MEDIUM density. Headline + subheadline + 3-4 feature_points (with body text) + 3 bottom_info items. Text arranged in clean vertical stacks or grids. NO comparison_labels. NO application_labels.
-- Layout: product on left/center, info panels on right/bottom. Clean vertical alignment. No overlapping text on product.
+---
 
-Copy strategy for this template: MEDIUM-RICH. Headline + subheadline + 3-4 feature_points (each with title AND body explaining the benefit) + 3 bottom_info items. Feature body text must explain WHY the feature matters, not just restate the title.
+### Hard Constraints (must follow)
+- Product must remain fully visible and recognizably accurate to the reference image (no cropping of edges, holes, threads, teeth, or cutting edges).
+- On-image text must follow the copy rules below; do NOT invent technical data.
+- The image must contain the product AND structured benefit information — never product-only or text-only.
 
-AVOID:
-- Dark backgrounds or heavy panels
-- Fake data tables, specification boxes, or measurement annotations
-- Warm colors, orange, red, or yellow accents
-- Asymmetrical or diagonal layouts
-- Product cropped or shown in extreme close-up
-- Cluttered text that overlaps the product
+### Visual Direction (suggested, not mandatory)
+The LLM may choose any of these three directions or invent a valid alternative:
+
+A. Product + Side Panels
+   - Product left or center (50-65% of frame), info panels on the opposite side.
+   - 3-4 feature blocks: icon hint + bold title + 1-line body.
+   - Blocks separated by GENEROUS SPACING + subtle hairline dividers, NOT flat color panels.
+
+B. Hero with Orbital Features
+   - Product as central hero (55-70% of frame), benefit callouts arranged around it (top, sides, or bottom).
+   - Connecting lines or subtle visual paths linking features to product zones.
+   - Background with subtle depth: faint gradient, noise texture, or geometric mesh.
+
+C. Exploded Benefit Map
+   - Product shown with "zones" or regions highlighted, each tied to a benefit.
+   - Useful when different parts of the product deliver different advantages.
+
+### Common Style Guidance
+- Headline zone: MUST exist at top as the visual anchor. Headline must be the highest visual hierarchy — large, bold, ALL CAPS or heavy weight. Headline color must echo the product's tone (analogous or complementary), never a random unrelated accent.
+- Background: light and clean (white, very light gray, or subtle cool tint) BUT must have subtle depth — use faint radial gradient, subtle noise texture, or soft brushed metal reflection. Avoid pure flat color fills.
+- Lighting: professional product lighting that keeps the product clearly readable; avoid dramatic chiaroscuro that hides details. Product must have subtle ground reflection and soft shadow beneath — never floating.
+- Color palette: restrained. One accent color maximum for headlines/icons; otherwise neutral. The accent must relate to the product's natural color. Avoid pastel or flat unlayered color schemes.
+- Information separation: feature blocks must be separated by GENEROUS SPACING and subtle hairline dividers. Do NOT use flat opaque color blocks for every text module. If panels need background, use glassmorphism (subtle translucency + soft shadow + rounded corners), never flat opaque rectangles.
+- Icons: prefer outline / line-art style, uniform and restrained. Avoid filled color blobs or overly complex illustrations.
+- Layout priority: product first (50-65% of frame), text second. Text must never obscure the product. Information is the supporting actor, not the star.
+
+### Copy Strategy
+- Density: MEDIUM as the upper limit. Prioritize generous negative space over filling the frame.
+- Required blocks: headline + subheadline + 3-4 feature_points (each with title AND body) + 3 bottom_info items.
+- Feature body text must explain WHY the feature matters, not just restate the title.
+- Prohibited: comparison_labels, application_labels, fake data tables, measurement annotations.
+
+### Avoid
+- Dark or heavy backgrounds that reduce readability.
+- Fake specifications, dimension lines, or certification badges.
+- Text crowding or overlapping the product.
+- Warm/high-saturation accents that clash with industrial product tones.
+- Pure flat backgrounds with no gradient, texture, or depth cues.
+- Product floating without shadow or reflection.
+- Information panels as flat color blocks with sharp edges and no layering.
+- Every text module having its own opaque background color — separation comes from SPACING, not boxes.
+- Information density so high that the image feels crowded.
 
 ${COMMON_QUALITY_CHECKS}
 `.trim(),
@@ -258,73 +288,65 @@ ${COMMON_QUALITY_CHECKS}
       { key: "selling_points", label: "卖点 Selling Points", type: "string_list", required: true },
     ],
     templatePrompt: `
-## Template Style: Advantage Comparison (Split-Screen Before vs After / Ordinary vs Premium) — MANDATORY
+## Template: Advantage Comparison — FUNCTIONAL BRIEF
 
-This is NOT a general product showcase. This is a SPLIT-SCREEN COMPARISON image that visually proves product superiority through dramatic side-by-side contrast. The image must instantly read as "THIS vs THAT" even at thumbnail size.
+Purpose: Visually prove the product's superiority through a side-by-side contrast. The viewer must instantly read "this is better than the alternative" at thumbnail size.
 
-CRITICAL: BOTH SIDES MUST SHOW THE SAME PRODUCT TYPE. The left side is the SAME product but rendered to look inferior through visual treatment only (desaturation, dimmer light, cooler color). The right side is the SAME product in its best form (full color, bright light, warm tones). They must NOT be two different products.
+---
 
-MANDATORY visual identity (all 3 plans must share this):
-- Layout: STRICT 50/50 vertical split-screen. Left half and right half must be visually equal in width. A bold vertical dividing line or VS element runs down the exact center.
-- Background: unified deep dark background (#151515 to #1E1E1E) across the entire image. NO separate backgrounds for each side. The darkness unifies the two halves into one cohesive image.
+### Hard Constraints (must follow)
+- BOTH sides must depict the SAME product type / category.
+- The LEFT side must show the product in a REAL PROBLEM / DEFECT STATE (e.g., chip welding, wear, dull finish, rough surface, poor cut quality) — NOT simply a desaturated version.
+- The RIGHT side must show the SAME product in the IDEAL / SOLVED STATE (e.g., smooth finish, iridescent coating, sharp edges, pristine surface, clean cut) — a genuine state difference, not just color adjustment.
+- The featured product (superior side) must preserve all visible features from the reference image: holes, grooves, threads, edges, teeth, contours.
+- Do NOT generate fake performance data, test scores, statistics, or comparison numbers.
+- Do NOT reference real competitor brands, logos, or identifiable products.
 
-LEFT SIDE ("ORDINARY" / "STANDARD" / "BEFORE") — must feel inferior:
-- The SAME product as the right side, shown as a GENERIC, LOWER-QUALITY version. NOT a real competitor brand. NOT a different product type.
-- Must have the SAME overall shape, structure, proportions, and visible features as the right side product.
-- Visual treatment: DESATURATED to 20-30% saturation. Dimmer lighting. Cool blue-gray color cast (#5A6A7A). Slightly softer focus.
-- Product scale: 30-40% of the left half.
-- Large RED "X" mark or red cross indicator placed prominently beside or over the product (NOT covering the product itself). The red X signals "problem / inferior".
-- Label above the product: "ORDINARY" or "STANDARD" in ALL CAPS, cool gray color (#8A9AAF), medium weight.
-- Short negative descriptor text beneath the product label (e.g., "Chip Welding / Poor Finish") in smaller muted red-gray text.
+### Visual Direction (suggested, not mandatory)
+The LLM may choose any of these three directions or invent a valid alternative:
 
-CENTER DIVIDER ("VS") — must be immediately visible:
-- Large bold "VS" text centered vertically on the dividing line. White (#FFFFFF) or bright silver (#E0E0E0), heavy weight, substantial size (must be readable at thumbnail scale).
-- The VS can sit inside a subtle circular badge or diamond shape with dark translucent background, or directly on a thin vertical divider line.
-- The VS must be the visual anchor that makes the comparison unmistakable.
+A. Side-by-Side Split
+   - Vertical or horizontal split. The superior side must be visually dominant (brighter, warmer, sharper, or slightly larger).
+   - A clear "VS" or dividing element makes the comparison unmistakable.
+   - Left side: product in defect state — dimmer, cooler, showing real wear/problems. Right side: product in ideal state — bright, vivid, premium finish.
 
-RIGHT SIDE ("OUR" / "UPGRADED" / "PREMIUM") — must feel superior:
-- The EXACT SAME featured product from the user's reference image, in FULL COLOR, tack-sharp focus, bright warm key light (3200K-4000K) from upper-left.
-- Must preserve ALL visible features from the reference image: every hole, groove, thread, edge, tooth, and contour must match exactly.
-- Visual treatment: FULL saturation. Bright, vivid, premium. Warm white or amber highlights on edges. A subtle warm glow or soft halo around the product.
-- Product scale: 35-45% of the right half — slightly larger than the left side to subconsciously signal superiority.
-- Large GREEN CHECKMARK or green tick indicator placed prominently beside the product. The green check signals "solution / superior".
-- Label above the product: "OUR END MILL" or "UPGRADED" in ALL CAPS, warm accent color (#FFB347 or #4ADE80), bold weight.
-- Short positive descriptor text beneath the product label (e.g., "Smooth Finish / No Chip Welding") in smaller warm white text.
+B. Diagonal Contrast
+   - A diagonal dividing line creates dynamic tension.
+   - Superior product sits in the brighter/warmer zone; inferior product in the cooler/dimmer zone.
+   - Useful when the product shape benefits from diagonal flow.
 
-BOTTOM FEATURE BAR (mandatory — spans full width below both panels):
-- A horizontal dark panel or bar at the bottom 15-20% of the image.
-- 3 feature advantage cards evenly spaced across the bar.
-- Each card: small icon + bold title (2-4 words, ALL CAPS) + optional 1-line description.
-- Card style: dark translucent background with colored left-border accent (green #22C55E for positive features).
-- Example features: "ANTI-STICK COATING", "STABLE CUTTING", "LONGER TOOL LIFE".
+C. Before/After Reveal
+   - A single product shown transitioning from "problem state" to "solved state."
+   - Could use a slider-like visual or a wipe effect within one cohesive frame.
 
-Color palette:
-- Left side: desaturated blue-gray (#5A6A7A), muted, dim.
-- Right side: full product colors + warm amber highlights (#FFB347) + bright green accents (#22C55E).
-- Center: white/silver VS divider.
-- Bottom bar: dark charcoal (#1A1A1A) with green left-border accents.
-- Overall: unified dark background makes both sides feel like one image, not two separate images pasted together.
+### Common Style Guidance
+- Headline zone: MUST exist at top as the visual anchor. Headline must be the highest visual hierarchy — large, bold, ALL CAPS or heavy weight. Headline color should echo the product's tone or the "solved" side's warmth (analogous or complementary), never a random unrelated accent.
+- Background: unified across both sides with SUBTLE DEPTH — use faint radial gradient from center, subtle light streaks, soft vignette, or faint brushed texture. Dark is recommended so the contrast reads as one image, not two pasted together. AVOID pure flat solid color.
+- Color signals: the superior side should feel "solved / premium" (warm, bright, saturated); the inferior side should feel "problem / basic" (cool, dim, desaturated).
+- Visual indicators: some form of status mark is recommended — e.g., red X / green check, or other intuitive iconography — but size must be MODERATE. Status marks are supporting elements, NOT the visual focus. They must not cover the product or dominate the frame.
+- Layout priority: the superior side must feel dominant. Exact split ratio is flexible; let the product shape and chosen layout type decide.
+- Products must have natural ground contact: subtle reflection plane + soft shadow beneath each product. Do NOT let products float.
+- Content separation: comparison cards or blocks should be separated by GENEROUS SPACING + subtle hairline dividers or rounded-corner translucent containers. Do NOT use flat opaque color blocks for every module.
+- Bottom feature bar is OPTIONAL. If present, it should have subtle top glow or gradient edge that blends naturally with the main background, not a hard rectangular block.
+- Unified ambient light across the entire image creates cohesion; the two sides should not feel like separate images pasted together.
 
-Text density: MEDIUM-HIGH.
-- Headline (top center or top-left, spanning both halves): bold ALL CAPS, 4-8 words.
-- Subheadline (beneath headline): 6-12 words.
-- Left label + descriptor + red X.
-- Right label + descriptor + green check.
-- VS center divider.
-- Bottom bar with 3 feature cards.
+### Copy Strategy
+- Density: MEDIUM as upper limit, but LOW-MEDIUM is also acceptable. Let the number of selling points dictate density; never force fill.
+- Required blocks: headline + 2 comparison_labels (e.g., "ORDINARY" / "OUR PRODUCT") + feature_points + bottom_info items. Density is flexible.
+- Comparison labels must be generic; never reference real brands.
+- Feature points should highlight the specific advantages that make the product superior.
 
-Copy strategy for this template: MEDIUM. Headline + subheadline + 2 comparison_labels ("ORDINARY" / "OUR PRODUCT") + 3-4 feature_points + 3 bottom_info items. Comparison labels must NOT reference real brands.
-
-AVOID:
-- Real competitor brand names, logos, or identifiable products
-- Fake performance data, test scores, statistics, or numbers
-- Equal lighting, equal saturation, or equal size on both sides (the right side MUST be visually dominant)
-- Separate backgrounds for left and right (must be unified dark background)
-- Missing VS divider (without it, the image is not a comparison)
-- Missing red X / green check visual indicators
-- Missing bottom feature bar
-- Overlapping or crowded layouts where text covers the product
-- Two completely different products (both sides must be the same product category)
+### Avoid
+- Real competitor names, logos, or identifiable products.
+- Fake data, test scores, or statistics.
+- Equal treatment on both sides (defeats the purpose of comparison).
+- Two completely different products.
+- Text that covers or crowds the product.
+- Pure flat backgrounds with no gradient, texture, or depth cues (e.g., solid #000000 or #1A1A1A).
+- Products floating without shadow or reflection.
+- Status marks that are oversized, cover the product, or dominate the visual hierarchy.
+- Every text module having its own opaque background color — separation comes from SPACING, not boxes.
+- Bottom bar with sharp edges, hard borders, or high-saturation color blocks.
 
 ${COMMON_QUALITY_CHECKS}
 `.trim(),
@@ -352,31 +374,67 @@ ${COMMON_QUALITY_CHECKS}
       { key: "scene_direction", label: "场景方向", type: "textarea", required: true },
     ],
     templatePrompt: `
-## Template Style: Lifestyle / Usage Scene — MANDATORY
+## Template: Lifestyle / Usage Scene — FUNCTIONAL BRIEF
 
-This is NOT a studio product shot. This is a LIFESTYLE image where the product lives in a believable industrial environment.
+Purpose: Show the product in a believable real-world environment so the buyer can instantly imagine owning and using it. The product must remain the undisputed hero; the environment exists only to give context.
 
-MANDATORY visual identity (all 3 plans must share this):
-- Background: authentic industrial environment — CNC machine bed, workshop bench with scattered tools, metal shavings, vise, or assembly station. The environment must look REAL, not staged. Visible workshop details: worn surfaces, oil stains, tool marks, clamps, rulers.
-- Background treatment: SHALLOW DEPTH OF FIELD. Background must be heavily blurred (bokeh at f/1.8-f/2.8 level). Product in tack-sharp focus. The blur transition must be natural — closer elements slightly sharper, distant elements fully soft.
-- Color palette: warm amber (#D4A574), workshop brown (#8B6914), steel gray (#708090), oxidized metal (#B87333). NO cool blue tones. NO neon accents. NO pure black backgrounds.
-- Product treatment: product shown in FULL, 35-45% of frame, positioned slightly off-center (rule of thirds). Product must be the brightest and sharpest element in the frame. A subtle warm rim light on the product's top edge to separate it from the background.
-- Lighting: warm ambient workshop light (tungsten/LED mix, ~3000K-3500K) from the environment + a dedicated crisp key light on the product from upper-left. The product must catch more light than the surroundings. NO flat even lighting.
-- Depth of field: SHALLOW. Product sharp. Background heavily blurred. Foreground may have slight blur if something is very close to camera.
-- Atmosphere: slight dust particles or metal shavings visible in the light beam (subtle, not overwhelming). The scene must feel like someone just paused work.
-- Text: MINIMAL. Headline + 2-3 short application_labels (describing the scenario) + 3 bottom_info items. NO dense feature panels. NO comparison_labels.
-- Layout: product is the hero. Environment frames it. Text elements placed in negative space (upper corners or bottom edge), never over the busy background.
+---
 
-Copy strategy for this template: MINIMAL-MEDIUM. Headline + 2-3 application_labels (title + short body describing the use scenario) + 3 bottom_info items. Application labels must describe WHERE and HOW the product is used, not just what it is.
+### Hard Constraints (must follow)
+- Product must remain fully visible and recognizably accurate to the reference image (no cropping of edges, holes, threads, teeth, or cutting edges).
+- Product must be the brightest and sharpest element in the frame. The environment must NOT steal attention.
+- A HEADLINE ZONE must exist at the top of the frame as a visual anchor. The headline color should echo the product's dominant color (analogous or complementary), NOT generic black/white.
+- Do NOT invent usage scenarios that are physically impossible or exaggerated for the product category.
+- On-image text must follow the copy rules below; do NOT invent technical data.
+- Content blocks must be separated by generous spacing and subtle hairline dividers, NOT by giving every text module its own opaque background color block.
 
-AVOID:
-- Clean studio backgrounds or pure colors
-- Even lighting across the entire frame
-- Product cropped or shown in extreme close-up
-- Exaggerated scenarios (product doing impossible things)
-- Environment that is brighter or sharper than the product
-- Text-heavy layouts or dense info panels
-- Cool blue/gray color cast on the product
+### Visual Direction (suggested, not mandatory)
+The LLM may choose any of these three directions or invent a valid alternative:
+
+A. Single Environment Hero
+   - One cohesive environment (workshop bench, CNC machine bed, assembly station, tool cart, etc.).
+   - Product positioned using standard compositional techniques (rule of thirds, leading lines, or centered hero).
+   - Background: shallow depth of field so the environment reads as context, not detail.
+
+B. Multi-Scenario Grid
+   - 2×2 or 3-panel grid showing the product in 2-4 different usage contexts.
+   - Each panel is a mini lifestyle shot with its own micro-environment.
+   - Best when the product has multiple clear use cases (e.g., cutting, drilling, finishing).
+
+C. Process Flow
+   - A sequence or path showing the product at different stages of a workflow.
+   - Could be a left-to-right narrative: raw material → product in action → finished result.
+   - Useful for tools where the "before/during/after" story is compelling.
+
+### Common Style Guidance
+- Environment: authentic and believable with AUTHENTIC USE TRACES — visible wear, tool marks, oil stains, metal shavings, cutting fluid residue, or worn surfaces. The environment must look REAL and USED, not sterile or obviously fake staging.
+- Lighting: warm ambient environment light (tungsten/LED mix ~3000K-3500K) plus a dedicated key light on the product so it pops. Avoid flat even lighting.
+- Depth of field: generally shallow — product sharp, background soft. The blur area should have SUBTLE DEPTH CUES like light falloff, soft vignette, or tonal variation. Avoid uniform flat blur.
+- Background: MUST have depth — subtle gradient, soft vignette, light falloff, or environmental texture. NEVER a flat solid color fill (e.g., solid #000000, #1A1A1A, or pure RGB).
+- Color palette: warm, earthy, industrial. Amber, brown, steel gray, oxidized metal tones are natural fits. The headline/title color should be drawn from the product's own color family. Avoid neon, pure black, or cool blue casts that fight the warmth.
+- Atmosphere: subtle dust, shavings, or light beams are acceptable if they add realism without clutter. Do not overdo particles or lens effects.
+- Layout: product is the hero. Environment frames it. Text stays in negative space; never place dense text over a busy background. If info labels or application tags are needed, prefer glassmorphism or subtle translucent overlays over opaque color blocks.
+- Product must have natural ground contact: subtle shadow beneath + soft reflection on workbench surface. Do NOT let the product float.
+- Density: MEDIUM is the upper limit. Prefer generous negative space. Do NOT crowd the frame with text boxes, labels, or decorative elements.
+
+### Copy Strategy
+- Density: MINIMAL–MEDIUM. MEDIUM is the absolute upper limit.
+- Required blocks: headline + 2-3 application_labels (title + short body describing WHERE and HOW the product is used) + 3 bottom_info items.
+- Application labels must describe the scenario, not just restate product features.
+- Prohibited: comparison_labels, dense feature panels, fake certifications.
+
+### Avoid
+- Clean studio backgrounds or pure color fills (defeats the lifestyle purpose).
+- Even lighting that makes the product blend into the environment.
+- Product cropped or in extreme close-up (must show enough context).
+- Exaggerated or physically impossible usage scenarios.
+- Environment brighter or sharper than the product.
+- Text-heavy layouts placed over busy backgrounds.
+- Sterile or overly clean environments (brand-new unused equipment, spotless workbenches with no use marks).
+- Flat uniform background blur with no tonal variation or depth cues.
+- Product floating without shadow or ground contact.
+- Every text module having its own opaque background color — separation comes from SPACING, not boxes.
+- Oversized status marks, badges, or decorative icons that dominate the frame.
 
 ${COMMON_QUALITY_CHECKS}
 `.trim(),

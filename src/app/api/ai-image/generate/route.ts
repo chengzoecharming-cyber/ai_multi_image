@@ -2,6 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getImageProvider } from "@/lib/image-providers";
 import { buildPrompt, getFragmentsByIds, buildPromptFromTemplate } from "@/lib/prompt";
+import { writeFile, mkdir } from "fs/promises";
+import path from "path";
+
+const LOCAL_GENERATED_DIR = path.join(process.cwd(), "public", "generated");
+
+async function persistImageLocally(taskId: string, imageUrl: string): Promise<string | null> {
+  try {
+    await mkdir(LOCAL_GENERATED_DIR, { recursive: true });
+    const imgRes = await fetch(imageUrl, { signal: AbortSignal.timeout(30000) });
+    if (!imgRes.ok) return null;
+    const buffer = Buffer.from(await imgRes.arrayBuffer());
+    const fileName = `task-${taskId}.png`;
+    const filePath = path.join(LOCAL_GENERATED_DIR, fileName);
+    await writeFile(filePath, buffer);
+    return `/generated/${fileName}`;
+  } catch (e) {
+    console.error("[Generate] failed to persist image locally:", e);
+    return null;
+  }
+}
 
 function fnv1a32(input: string): number {
   let hash = 0x811c9dc5;
@@ -108,6 +128,12 @@ export async function POST(request: NextRequest) {
           ? deriveStableSeed([resolvedProductImageUrl, finalPrompt, finalNegativePrompt || "", width, height, model])
           : undefined;
 
+    const requestedStrengthRaw = (config as any)?.editStrength ?? (config as any)?.strength;
+    const requestedStrength =
+      typeof requestedStrengthRaw === "number" && Number.isFinite(requestedStrengthRaw)
+        ? Math.max(0, Math.min(1, requestedStrengthRaw))
+        : undefined;
+
     let editStrength =
       !!resolvedProductImageUrl
         ? generationModeId === "conservative_enhancement"
@@ -117,10 +143,16 @@ export async function POST(request: NextRequest) {
             : 0.75
         : undefined;
 
+    // Allow explicit override from client.
+    if (requestedStrength !== undefined && editStrength !== undefined) {
+      editStrength = requestedStrength;
+    }
+
     // For long "direct prompt" (V2 rich prompt) paths, keep the product closer to
     // the reference image by default. High strength often causes product drift.
     if (isDirectPromptPath && editStrength !== undefined) {
-      editStrength = Math.min(editStrength, 0.6);
+      // Still cap, but allow enough change to avoid "original image" outputs.
+      editStrength = Math.min(editStrength, 0.75);
     }
 
     const configSnapshot = JSON.stringify({
@@ -213,10 +245,15 @@ export async function POST(request: NextRequest) {
     }
 
     if (result.success && result.imageUrl) {
+      // Persist image locally so URLs survive page refreshes (v2 session images).
+      const localImageUrl = await persistImageLocally(task.id, result.imageUrl);
+      const effectiveImageUrl = localImageUrl || result.imageUrl;
+
       // Download image and convert to base64 for frontend copy/download (avoids CORS)
       let imageBase64 = "";
       try {
-        const imgRes = await fetch(result.imageUrl, { signal: abortController.signal });
+        const fetchUrlForBase64 = effectiveImageUrl.startsWith("/") ? `${origin}${effectiveImageUrl}` : effectiveImageUrl;
+        const imgRes = await fetch(fetchUrlForBase64, { signal: abortController.signal });
         if (imgRes.ok) {
           const buffer = Buffer.from(await imgRes.arrayBuffer());
           imageBase64 = `data:image/png;base64,${buffer.toString("base64")}`;
@@ -229,10 +266,25 @@ export async function POST(request: NextRequest) {
         where: { id: task.id },
         data: {
           status: "completed",
-          resultImageUrl: JSON.stringify([result.imageUrl]),
+          resultImageUrl: JSON.stringify([effectiveImageUrl]),
         },
       });
-      return NextResponse.json({ data: updatedTask, imageBase64 });
+      return NextResponse.json({
+        data: updatedTask,
+        imageBase64,
+        debug: {
+          generationModeId,
+          model,
+          size: `${width}x${height}`,
+          editStrength: editStrength ?? null,
+          seed: seed ?? null,
+          promptLength: finalPrompt.length,
+          hasProductImage: !!resolvedProductImageUrl,
+          isDirectPromptPath,
+          strictSize,
+          provider: providerName,
+        },
+      });
     } else {
       const updatedTask = await prisma.aiImageTask.update({
         where: { id: task.id },
@@ -241,7 +293,21 @@ export async function POST(request: NextRequest) {
           errorMessage: result.error || "生成失败",
         },
       });
-      return NextResponse.json({ data: updatedTask });
+      return NextResponse.json({
+        data: updatedTask,
+        debug: {
+          generationModeId,
+          model,
+          size: `${width}x${height}`,
+          editStrength: editStrength ?? null,
+          seed: seed ?? null,
+          promptLength: finalPrompt.length,
+          hasProductImage: !!resolvedProductImageUrl,
+          isDirectPromptPath,
+          strictSize,
+          provider: providerName,
+        },
+      });
     }
   } catch (error) {
     console.error("Failed to generate image:", error);

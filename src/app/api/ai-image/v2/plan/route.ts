@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { CreativePlan, PlanArchetype } from "@/app/ai-image/v2/types";
-import { getTemplateById } from "@/lib/plan-templates/store";
-import type { PlanTemplate } from "@/lib/plan-templates/types";
 import { imageUrlToBase64 } from "./lib/image-utils";
 import { callLLM } from "./lib/llm-client";
 import { detectTemplateArchetype } from "./lib/system-prompt";
@@ -9,6 +7,12 @@ import { normalizeCreativePlan } from "./lib/normalize";
 import { analyzeProductImage } from "./lib/mock-analysis";
 import { generateSinglePlans } from "./lib/mock-plans";
 import { applyTemplateRuleToPlan } from "./lib/template-rules";
+import {
+  buildEmptyPlanBrief,
+  buildPlanBriefFromSystemTemplate,
+  type PlanBrief,
+} from "@/app/ai-image/v2/domain/plan-brief";
+import { buildPromptFromBrief } from "./lib/brief-prompt-builder";
 
 interface PlanRequest {
   mode: "single";
@@ -19,12 +23,122 @@ interface PlanRequest {
   userGoal?: string;
   goal?: string; // backward compat
   selectedTemplateId?: string;
+  clientRequestId?: string;
+  /** 调试开关：在响应中额外返回 briefPrompt */
+  debugBriefPrompt?: boolean;
+}
+
+function toUpperWords(text: string): string {
+  return text
+    .replace(/[^a-zA-Z0-9\s\-&]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+}
+
+function sanitizeRiskyCopy(text: string): string {
+  // Avoid implied technical guarantees unless user explicitly provided them.
+  return text
+    .replace(/\bheavy loads?\b/gi, "demanding use")
+    .replace(/\bload[-\s]?bearing\b/gi, "reliable fit")
+    .replace(/\btorque\b/gi, "performance")
+    .replace(/\bhardness\b/gi, "durability")
+    .replace(/\bhigh[-\s]?grade\b/gi, "premium");
+}
+
+function ensurePlanSkeleton(plans: CreativePlan[]): CreativePlan[] {
+  return plans.map((plan) => {
+    const blocks = Array.isArray(plan.copyBlocks) ? plan.copyBlocks : [];
+    const headline = String(plan.headline || "").trim();
+    const subtitle = plan.subtitle ? String(plan.subtitle).trim() : "";
+
+    // Only ADD missing essential blocks, NEVER remove or overwrite existing ones.
+    const result: typeof blocks = [...blocks];
+
+    // Ensure headline exists
+    const hasHeadline = result.some((b) => b.role === "headline");
+    if (!hasHeadline && headline) {
+      result.unshift({ id: "cb-headline", title: toUpperWords(headline), role: "headline", priority: 1 });
+    }
+
+    // Ensure subheadline exists
+    const hasSub = result.some((b) => b.role === "subheadline");
+    if (!hasSub && subtitle) {
+      // Insert after headline
+      const headlineIdx = result.findIndex((b) => b.role === "headline");
+      const insertIdx = headlineIdx >= 0 ? headlineIdx + 1 : 0;
+      result.splice(insertIdx, 0, { id: "cb-subheadline", title: sanitizeRiskyCopy(subtitle), role: "subheadline", priority: 2 });
+    }
+
+    // Ensure at least 3 feature_points exist (only ADD missing ones, keep existing)
+    const existingFeatures = result.filter((b) => b.role === "feature_point");
+    if (existingFeatures.length < 3) {
+      const features = (plan.productAnalysis?.visibleFeatures || [])
+        .map((f) => f.toLowerCase())
+        .filter(Boolean);
+
+      const candidates: string[] = [];
+      if (features.some((f) => f.includes("hole"))) candidates.push("PRECISION HOLE PATTERN");
+      if (features.some((f) => f.includes("edge") || f.includes("chamfer"))) candidates.push("CLEAN MACHINED EDGES");
+      if (features.some((f) => f.includes("surface") || f.includes("finish"))) candidates.push("SMOOTH SURFACE FINISH");
+      if (features.some((f) => f.includes("thread"))) candidates.push("PRECISE THREAD DESIGN");
+      if (features.some((f) => f.includes("coating"))) candidates.push("ADVANCED COATING");
+      candidates.push("CONSISTENT FIT", "MACHINED ACCURACY", "DURABLE CONSTRUCTION");
+
+      const needed = 3 - existingFeatures.length;
+      for (let i = 0; i < needed && i < candidates.length; i++) {
+        const title = toUpperWords(candidates[i]);
+        const body = sanitizeRiskyCopy(
+          i === 0
+            ? "Highlights visible structure for clean assembly and consistent fit."
+            : i === 1
+              ? "Emphasizes machining accuracy and stable alignment in everyday use."
+              : "Clean surface finish supports smooth contact and a refined look."
+        );
+        result.push({
+          id: `cb-feature-auto-${i}`,
+          title,
+          body,
+          role: "feature_point",
+          priority: 10 + i,
+        });
+      }
+    }
+
+    // Ensure at least 3 bottom_info items exist (only ADD missing ones)
+    const existingBottom = result.filter((b) => b.role === "bottom_info");
+    if (existingBottom.length < 3) {
+      const defaults = ["FREE SHIPPING", "2-YEAR WARRANTY", "ISO CERTIFIED"];
+      const needed = 3 - existingBottom.length;
+      for (let i = 0; i < needed; i++) {
+        result.push({
+          id: `cb-bottom-auto-${i}`,
+          title: defaults[i],
+          role: "bottom_info",
+          priority: 50 + i,
+        });
+      }
+    }
+
+    plan.copyBlocks = result;
+    return plan;
+  });
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as PlanRequest;
-
+    const requestId =
+      body.clientRequestId?.trim() ||
+      `plan-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    const routeStart = Date.now();
+    const log = (msg: string, extra?: unknown) => {
+      if (extra !== undefined) {
+        console.log(`[Plan][${requestId}] ${msg}`, extra);
+      } else {
+        console.log(`[Plan][${requestId}] ${msg}`);
+      }
+    };
     const userGoal = body.userGoal || body.goal || "";
     if (!userGoal || userGoal.trim().length < 3) {
       return NextResponse.json(
@@ -41,68 +155,142 @@ export async function POST(request: NextRequest) {
       );
     }
     const rawProductImageUrl = body.rawProductImageUrl || body.productImageUrl || "";
+    log("request received", {
+      hasTemplate: Boolean(body.selectedTemplateId),
+      hasRawImage: Boolean(rawProductImageUrl),
+      goalLength: userGoal.trim().length,
+    });
 
-    // Get template if selected
-    let templatePrompt: string | undefined;
-    let selectedTemplate: PlanTemplate | undefined = undefined;
-    if (body.selectedTemplateId) {
-      selectedTemplate = getTemplateById(body.selectedTemplateId);
-      if (selectedTemplate) {
-        templatePrompt = selectedTemplate.templatePrompt;
-        // Simple variable substitution — frontend has no variable input UI yet
-        templatePrompt = templatePrompt
-          .replace(/\{\{product_name\}\}/g, userGoal.split(/[，,\.\s]/)[0] || "the product")
-          .replace(/\{\{detail_focus\}\}/g, userGoal || "product detail");
-        console.log("[Plan] using template:", selectedTemplate.id, selectedTemplate.name);
-      } else {
-        console.log("[Plan] template not found:", body.selectedTemplateId);
-      }
+    // Template selection is used for archetype detection and rule enforcement
+    const selectedTemplateId = body.selectedTemplateId;
+    if (selectedTemplateId) {
+      console.log("[Plan] using template:", selectedTemplateId);
     } else {
       console.log("[Plan] no template selected");
     }
+
+    // ── Build PlanBrief prompt ──
+    let planBrief: PlanBrief | null = null;
+    let briefPrompt: string | undefined;
+    try {
+      planBrief = body.selectedTemplateId
+        ? buildPlanBriefFromSystemTemplate(body.selectedTemplateId, userGoal)
+        : buildEmptyPlanBrief(userGoal);
+
+      if (planBrief) {
+        briefPrompt = buildPromptFromBrief(planBrief, { userInput: userGoal });
+        if (process.env.NODE_ENV !== "production") {
+          console.debug(
+            "[PlanBrief] prompt generated:",
+            planBrief.sourceType,
+            planBrief.sourceId,
+            "length:",
+            briefPrompt.length
+          );
+        }
+      } else if (process.env.NODE_ENV !== "production") {
+        console.debug("[PlanBrief] no brief matched:", body.selectedTemplateId);
+      }
+    } catch (e) {
+      // 吞掉错误，不影响旧逻辑
+      if (process.env.NODE_ENV !== "production") {
+        console.debug("[PlanBrief] failed to build prompt:", e);
+      }
+    }
+
+    // 安全判断：是否允许返回完整 prompt
+    const isDebugAllowed = process.env.NODE_ENV !== "production" || process.env.ENABLE_AI_IMAGE_DEBUG === "true";
+    const showFullPrompt = isDebugAllowed && body.debugBriefPrompt;
+
+    // 构建 debug 对象：默认返回 length，完整内容只在安全环境下返回
+    const debugPayload = (() => {
+      const base: Record<string, unknown> = {
+        selectedTemplateId: selectedTemplateId ?? null,
+      };
+      if (planBrief) {
+        base.briefSourceType = planBrief.sourceType;
+        base.briefSourceId = planBrief.sourceId;
+        base.briefImageType = planBrief.imageType;
+        base.briefLayoutCount = planBrief.allowedLayoutTypes.length;
+        base.briefVariantCount = planBrief.variants.length;
+        base.briefStyleMode = planBrief.styleStrategy.mode;
+      }
+      if (briefPrompt) {
+        base.briefPromptLength = briefPrompt.length;
+      }
+      // 只有安全环境 + 显式请求时才返回完整 prompt
+      if (showFullPrompt) {
+        if (briefPrompt) base.briefPrompt = briefPrompt;
+      }
+      return briefPrompt ? { debug: base } : {};
+    })();
 
     // Try LLM (Volcano Engine / Kimi)
     const apiKey = process.env.VOLCANO_API_KEY || process.env.KIMI_API_KEY;
     if (apiKey && apiKey !== "sk-your-kimi-key-here") {
       try {
+        const imageStart = Date.now();
         const base64Image = await imageUrlToBase64(rawProductImageUrl);
+        log(`imageUrlToBase64 done in ${Date.now() - imageStart}ms`, { hasBase64: Boolean(base64Image) });
         if (base64Image) {
-          const result = await callLLM(base64Image, userGoal, "single", templatePrompt, body.selectedTemplateId);
+          const llmStart = Date.now();
+          // Feed PlanBrief prompt into runtime as extra user constraints (keeps system prompt short).
+          const briefPromptForRuntime = briefPrompt;
+          const result = await callLLM(base64Image, userGoal, "single", briefPromptForRuntime, selectedTemplateId, requestId);
+          log(`callLLM done in ${Date.now() - llmStart}ms`);
 
+          const normalizeStart = Date.now();
           let plans = (result as CreativePlan[]).map((p) => normalizeCreativePlan(p));
-          if (selectedTemplate && templatePrompt) {
-            plans = plans.map((plan, index) => applyTemplateRuleToPlan(plan, selectedTemplate.id, index, templatePrompt));
+          log(`normalize done in ${Date.now() - normalizeStart}ms`, { plans: plans.length });
+          if (selectedTemplateId) {
+            plans = plans.map((plan, index) => applyTemplateRuleToPlan(plan, selectedTemplateId, index));
           } else {
             plans.forEach((plan) => {
               plan.finalPrompt = plan.imageGenerationPrompt;
             });
+            // Non-template mode: enforce minimum usable structure + stable diversity.
+            plans = ensurePlanSkeleton(plans);
           }
-          return NextResponse.json({ data: plans, mode: "single" });
+          log(`request complete in ${Date.now() - routeStart}ms (LLM path)`);
+          return NextResponse.json({ data: plans, mode: "single", requestId, ...debugPayload });
         }
       } catch (e) {
-        console.error("[LLM] failed, fallback to mock:", e);
+        const errMsg = e instanceof Error ? e.message : String(e);
+        console.error(`[Plan][${requestId}] ⚠️ LLM FAILED — entering mock fallback. Reason: ${errMsg}`);
       }
+    } else {
+      console.warn(`[Plan][${requestId}] ⚠️ NO LLM API KEY — entering mock fallback.`);
     }
 
-    // Fallback: mock generation
+    // ── Fallback: mock generation ──
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     const analysis = analyzeProductImage(rawProductImageUrl, userGoal);
 
     // When a template is selected, force the mock plans to use the template's archetype
-    const forcedArchetype = selectedTemplate
-      ? (detectTemplateArchetype(selectedTemplate.id) as PlanArchetype)
+    const forcedArchetype = selectedTemplateId
+      ? (detectTemplateArchetype(selectedTemplateId) as PlanArchetype)
       : undefined;
     const plans = generateSinglePlans(analysis, userGoal, forcedArchetype);
 
-    if (selectedTemplate && templatePrompt) {
+    const fallbackPayload = {
+      fallback: true,
+      fallbackReason: "LLM unavailable or request failed — returning demo plans",
+    };
+
+    if (selectedTemplateId) {
+      log(`request complete in ${Date.now() - routeStart}ms (mock path with template)`);
       return NextResponse.json({
-        data: plans.map((plan, index) => applyTemplateRuleToPlan(plan, selectedTemplate.id, index, templatePrompt)),
+        data: plans.map((plan, index) => applyTemplateRuleToPlan(plan, selectedTemplateId, index)),
         mode: "single",
+        requestId,
+        ...fallbackPayload,
+        ...debugPayload,
       });
     }
 
-    return NextResponse.json({ data: plans, mode: "single" });
+    log(`request complete in ${Date.now() - routeStart}ms (mock path)`);
+    return NextResponse.json({ data: plans, mode: "single", requestId, ...fallbackPayload, ...debugPayload });
   } catch (error) {
     console.error("Plan generation failed:", error);
     return NextResponse.json(

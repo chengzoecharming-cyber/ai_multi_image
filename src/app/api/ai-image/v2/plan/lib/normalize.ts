@@ -50,9 +50,21 @@ export function normalizeCreativePlan(raw: unknown, fallbackAnalysis?: ProductAn
 
   const headline = String(p?.headline || "PREMIUM QUALITY");
   const subtitle = p?.subtitle ? String(p.subtitle) : undefined;
-  const sellingPoints = Array.isArray(p?.sellingPoints)
-    ? p.sellingPoints.map(String)
-    : ["QUALITY", "DURABLE"];
+  const sellingPoints = (() => {
+    if (!Array.isArray(p?.sellingPoints)) return ["QUALITY", "DURABLE"];
+    // Some models return structured objects; convert them to readable strings.
+    return (p.sellingPoints as unknown[]).map((sp) => {
+      if (typeof sp === "string") return sp;
+      if (!sp || typeof sp !== "object") return String(sp);
+      const o = sp as Record<string, unknown>;
+      const title = o.title ? String(o.title) : "";
+      const body = o.body ? String(o.body) : "";
+      const subtitleText = o.subtitle ? String(o.subtitle) : "";
+      const parts = [title, body || subtitleText].map((x) => x.trim()).filter(Boolean);
+      if (parts.length === 0) return "FEATURE";
+      return parts.join(" — ");
+    });
+  })();
 
   const layoutDirection = String(p?.layoutDirection || "Centered product on clean background");
   const visualDirection = String(p?.visualDirection || "Professional studio lighting");

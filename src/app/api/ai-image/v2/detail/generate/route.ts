@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getImageProvider } from "@/lib/image-providers";
+import { persistGeneratedImage } from "@/lib/image-persist";
 
 type DetailType = "detail" | "multi_angle" | "lifestyle" | "feature";
 
@@ -83,6 +84,7 @@ export async function POST(request: NextRequest) {
     const provider = getImageProvider();
 
     const pages: Array<{ type: DetailType; imageUrl: string }> = [];
+    let index = 0;
     for (const type of types) {
       const prompt = buildDetailPrompt({
         type,
@@ -105,7 +107,12 @@ export async function POST(request: NextRequest) {
       if (!result.success || !result.imageUrl) {
         return NextResponse.json({ error: result.error || "生成失败" }, { status: 500 });
       }
-      pages.push({ type, imageUrl: result.imageUrl });
+
+      // Persist image locally so URLs survive page refreshes
+      const fileName = `detail-${Date.now()}-${index}.png`;
+      const localUrl = await persistGeneratedImage(result.imageUrl, fileName, origin);
+      pages.push({ type, imageUrl: localUrl || result.imageUrl });
+      index++;
     }
 
     return NextResponse.json({ pages });

@@ -3,6 +3,37 @@ import {
   Microscope, Mountain, Sparkles, ShoppingBag,
 } from "lucide-react";
 import type { VisualStyleId } from "./plan-taxonomy";
+import type {
+  ImageTypeId,
+  LayoutType,
+  LayoutRegion,
+  LayoutRegionRole,
+  LayoutRegionPosition,
+  IconType,
+  IconHint,
+  TextBlockRole,
+  TextBlockPosition,
+  TextBlock,
+  ColorTheme,
+} from "./domain";
+import type { CopyDensityId } from "./domain/copy-density";
+
+// Re-export domain types for backward compat
+export type {
+  ImageTypeId,
+  LayoutType,
+  LayoutRegion,
+  LayoutRegionRole,
+  LayoutRegionPosition,
+  IconType,
+  IconHint,
+  TextBlockRole,
+  TextBlockPosition,
+  TextBlock,
+  ColorTheme,
+} from "./domain";
+export { IMAGE_TYPE_LABELS, getImageTypeLabel } from "./domain/image-types";
+export { LAYOUT_TYPE_LABELS } from "./domain/layouts";
 
 export type GenerationMode = "single";
 
@@ -35,7 +66,8 @@ export type CopyBlockRole =
   | "technical_point"
   | "comparison_label"
   | "application_label"
-  | "bottom_info";
+  | "bottom_info"
+  | "badge";
 
 export interface CopyBlock {
   id: string;
@@ -51,102 +83,12 @@ export interface CopyBlock {
 // LayoutOverlay
 // ============================================================
 
-export type LayoutType =
-  | "hero_left_text_right_product"
-  | "hero_right_product_left_features"
-  | "top_headline_bottom_feature_bar"
-  | "comparison_two_columns"
-  | "technical_callout_with_insets"
-  | "exploded_layer_explanation"
-  | "four_panel_application_grid"
-  | "large_headline_with_bottom_info_bar"
-  | "diagonal_product_with_side_features"
-  | "premium_center_product_minimal_text";
-
-export type LayoutRegionRole =
-  | "hero_product"
-  | "headline_area"
-  | "subheadline_area"
-  | "feature_stack"
-  | "bottom_info_bar"
-  | "comparison_left"
-  | "comparison_right"
-  | "detail_inset"
-  | "application_grid"
-  | "badge_area";
-
-export type LayoutRegionPosition =
-  | "top"
-  | "left"
-  | "right"
-  | "bottom"
-  | "center"
-  | "top-left"
-  | "top-right"
-  | "bottom-left"
-  | "bottom-right";
-
-export interface LayoutRegion {
-  id: string;
-  role: LayoutRegionRole;
-  position: LayoutRegionPosition;
-  size: "small" | "medium" | "large";
-  priority: number;
-}
-
-export type IconType =
-  | "shield"
-  | "wind"
-  | "temperature"
-  | "speed"
-  | "target"
-  | "gear"
-  | "leaf"
-  | "spark"
-  | "tool"
-  | "check"
-  | "cross"
-  | "clock"
-  | "chart";
-
-export interface IconHint {
-  blockId: string;
-  iconType: IconType;
-  meaning: string;
-}
-
-export type TextBlockRole =
-  | "headline"
-  | "subtitle"
-  | "selling_point"
-  | "label"
-  | "badge"
-  | "feature_title"
-  | "feature_description"
-  | "spec_label"
-  | "spec_value"
-  | "section_header"
-  | "callout";
-export type TextBlockPosition = "top-left" | "top-right" | "right" | "left" | "bottom" | "top" | "center";
-
-export interface TextBlock {
-  id: string;
-  text: string;
-  role: TextBlockRole;
-  position: TextBlockPosition;
-  priority: number;
-}
-
-export interface ColorTheme {
-  primary: string;
-  secondary: string;
-  background: string;
-  text: string;
-  accent: string;
-}
-
 export type VisualDensity = "clean" | "balanced" | "high_information";
+
+/** @deprecated Use CopyDensityId from domain/copy-density instead. */
 export type VisualComplexity = "simple" | "medium" | "complex";
+
+/** @deprecated Use CopyDensityId from domain/copy-density instead. */
 export type InformationDensity = "low" | "medium" | "high";
 
 export interface LayoutOverlay {
@@ -176,6 +118,7 @@ export type PlanArchetype =
   | "technical_breakdown"
   | "comparison_story"
   | "application_scene"
+  | "environment_showcase"
   | "multi_panel_info"
   | "premium_showcase"
   | "promo_sales";
@@ -185,7 +128,18 @@ export interface CreativePlan {
   planName: string;
   planArchetype: PlanArchetype;
   templateId: string;
-  imageType: string;
+  imageType: ImageTypeId | string;
+
+  /** @deprecated visualComplexity is being replaced by copyDensity. Kept for backward compat. */
+  visualComplexity: VisualComplexity;
+  /** @deprecated informationDensity is being replaced by copyDensity. Kept for backward compat. */
+  informationDensity: InformationDensity;
+  /** 文案密度策略（新增）。当未指定时，由 taxonomy 提供默认值。 */
+  copyDensity?: CopyDensityId;
+
+  layoutDirection: string;
+  visualDirection: string;
+  colorDirection: string;
 
   productAnalysis?: ProductAnalysis;
 
@@ -198,11 +152,6 @@ export interface CreativePlan {
   copySource: CopySource;
   copyNotes?: string[];
 
-  layoutDirection: string;
-  visualDirection: string;
-  colorDirection: string;
-  visualComplexity: VisualComplexity;
-  informationDensity: InformationDensity;
   visualStyleId?: VisualStyleId;
   visualStyleLabel?: string;
 
@@ -262,18 +211,11 @@ export type V2SessionStatus =
 
 export type V2WorkspaceTab = "product" | "detail";
 
-export type V2DetailType =
-  | "detail"
-  | "multi_angle"
-  | "lifestyle"
-  | "feature";
-
-export const V2_DETAIL_TYPE_LABELS: Record<V2DetailType, string> = {
-  detail: "细节图",
-  multi_angle: "多角度图",
-  lifestyle: "仿实拍/场景图",
-  feature: "卖点图",
-};
+// V2DetailType 定义已迁移到 domain/detail-assets，以下 import + re-export 保持兼容
+import type { V2DetailType as _V2DetailType } from "./domain/detail-assets";
+import { V2_DETAIL_TYPE_LABELS as _V2_DETAIL_TYPE_LABELS } from "./domain/detail-assets";
+export type V2DetailType = _V2DetailType;
+export const V2_DETAIL_TYPE_LABELS = _V2_DETAIL_TYPE_LABELS;
 
 export interface V2GeneratedImage {
   id: string;
@@ -328,6 +270,7 @@ export interface V2Session {
   copiedId: string | null;
 
   generatingImage: boolean;
+  generatingImagePlanId: string | null;
   generatedImages: V2GeneratedImage[];
 
   detail?: V2DetailState;
@@ -337,19 +280,6 @@ export interface V2Session {
   // ============================================================
   groupId?: string | null;
 }
-
-export const IMAGE_TYPE_LABELS: Record<string, string> = {
-  ecommerce_hero: "主图",
-  feature_showcase: "功能卖点",
-  product_detail: "局部细节",
-  lifestyle_scene: "应用场景",
-  comparison_chart: "优势对比",
-  product_showcase: "产品展示",
-  ecommerce_banner: "电商海报",
-  spec_info: "规格信息",
-  promo_sales: "促销销售",
-  compatible_tools: "适配工具",
-};
 
 export interface PlanMeta {
   icon: typeof Zap;
@@ -364,6 +294,7 @@ const ARCHETYPE_META: Record<PlanArchetype, PlanMeta> = {
   technical_breakdown:{ icon: Microscope,   label: "技术解析",   color: "text-cyan-600",    bg: "bg-cyan-50",    border: "border-cyan-100" },
   comparison_story:   { icon: BarChart3,    label: "优势对比",   color: "text-blue-500",    bg: "bg-blue-50",    border: "border-blue-100" },
   application_scene:  { icon: Mountain,     label: "应用场景",   color: "text-emerald-500", bg: "bg-emerald-50", border: "border-emerald-100" },
+  environment_showcase:{ icon: Mountain,    label: "环境场景",   color: "text-slate-500",   bg: "bg-slate-50",   border: "border-slate-100" },
   multi_panel_info:   { icon: Layout,       label: "多模块信息", color: "text-indigo-500",  bg: "bg-indigo-50",  border: "border-indigo-100" },
   premium_showcase:   { icon: Sparkles,     label: "高级质感",   color: "text-violet-500",  bg: "bg-violet-50",  border: "border-violet-100" },
   promo_sales:        { icon: ShoppingBag,  label: "强销售",     color: "text-rose-500",    bg: "bg-rose-50",    border: "border-rose-100" },
@@ -389,23 +320,6 @@ export const SUB_PLAN_META = [
 ];
 
 // ============================================================
-// Layout Type Labels
-// ============================================================
-
-export const LAYOUT_TYPE_LABELS: Record<LayoutType, string> = {
-  hero_left_text_right_product: "左侧文案 + 右侧产品",
-  hero_right_product_left_features: "右侧产品 + 左侧卖点",
-  top_headline_bottom_feature_bar: "顶部标题 + 底部卖点条",
-  comparison_two_columns: "左右双栏对比",
-  technical_callout_with_insets: "技术标注 + 局部放大",
-  exploded_layer_explanation: "分层结构说明",
-  four_panel_application_grid: "四宫格应用场景",
-  large_headline_with_bottom_info_bar: "大标题 + 底部信息栏",
-  diagonal_product_with_side_features: "对角线产品 + 侧边卖点",
-  premium_center_product_minimal_text: "居中产品 + 极简文字",
-};
-
-// ============================================================
 // Archetype Labels
 // ============================================================
 
@@ -414,6 +328,7 @@ export const ARCHETYPE_LABELS: Record<PlanArchetype, string> = {
   technical_breakdown: "技术解析",
   comparison_story: "优势对比",
   application_scene: "应用场景",
+  environment_showcase: "环境场景",
   multi_panel_info: "多模块信息",
   premium_showcase: "高级质感",
   promo_sales: "强销售",
