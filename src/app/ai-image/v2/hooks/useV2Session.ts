@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
-import type { CreativePlan, V2DetailType, V2Session, V2SessionStatus, V2WorkspaceTab } from "../types";
+import type { CreativePlan, V2DetailType, V2Session, V2SessionStatus, V2WorkspaceTab, Step } from "../types";
 import type { PlanTemplate } from "@/lib/plan-templates/types";
-import { getSystemTemplates, getUserTemplates, saveUserTemplate } from "@/lib/plan-templates/store";
+import { getSystemTemplates } from "@/app/ai-image/v2/domain/templates";
+import { getUserTemplates, saveUserTemplate } from "@/lib/plan-templates/store";
 import { buildNoTextImagePrompt } from "../lib/noTextPrompt";
 
 const SESSION_STORAGE_KEY = "ai_image_v2_sessions_v3";
@@ -27,6 +28,19 @@ function createPlanRequestId() {
   return `plan-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
+function reconcileStep(seed?: Partial<V2Session>): Step {
+  let step = seed?.step || "input";
+  if (step === "generating") {
+    if ((seed?.singlePlans?.length || 0) > 0) return "plans";
+    if ((seed?.generatedImages?.length || 0) > 0) return "plans";
+    return "input";
+  }
+  if (step === "input" && ((seed?.singlePlans?.length || 0) > 0 || (seed?.generatedImages?.length || 0) > 0)) {
+    return "plans";
+  }
+  return step;
+}
+
 function createEmptySession(seed?: Partial<V2Session>): V2Session {
   const ts = nowTs();
   const base: V2Session = {
@@ -38,7 +52,7 @@ function createEmptySession(seed?: Partial<V2Session>): V2Session {
     workspaceTab: seed?.workspaceTab || "product",
 
     mode: "single",
-    step: seed?.step || "input",
+    step: reconcileStep(seed),
     status: seed?.status,
     lastError: seed?.lastError ?? null,
 
@@ -185,12 +199,30 @@ export function useV2Session() {
   // backend, so imageUrl already survives refreshes.  We still keep
   // imageBase64 in memory for copy/download but strip it from localStorage
   // to stay well under quota.  On restore the local URL renders the image.
+  /** 从 singlePlans 的 CreativePlan 中移除超大字段，避免 localStorage quota exceeded */
+  function stripHeavyPlanFields(plans: CreativePlan[]): Partial<CreativePlan>[] {
+    return plans.map((p) => {
+      const {
+        visualDirection,
+        colorDirection,
+        layoutDirection,
+        imageGenerationPrompt,
+        finalPrompt,
+        planSummaryPrompt,
+        ...rest
+      } = p;
+      return rest;
+    });
+  }
+
   useEffect(() => {
     if (!sessions.length) return;
     const t = setTimeout(() => {
       try {
         const stripped = sessions.map((s) => ({
           ...s,
+          singlePlans: stripHeavyPlanFields(s.singlePlans || []),
+          lastDebugPrompt: undefined,
           generatedImages: s.generatedImages.map((g) => {
             const { imageBase64, ...rest } = g;
             return rest;
@@ -210,6 +242,8 @@ export function useV2Session() {
       try {
         const stripped = sessions.map((s) => ({
           ...s,
+          singlePlans: stripHeavyPlanFields(s.singlePlans || []),
+          lastDebugPrompt: undefined,
           generatedImages: s.generatedImages.map((g) => {
             const { imageBase64, ...rest } = g;
             return rest;

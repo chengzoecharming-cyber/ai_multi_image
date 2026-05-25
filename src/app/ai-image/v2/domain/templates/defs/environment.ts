@@ -40,6 +40,15 @@ export const tplEnvironment: SystemTemplate = {
     "top_headline_bottom_feature_bar",
   ],
   defaultCopyDensity: "medium",
+  visualComplexity: "medium",
+  informationDensity: "medium",
+  copyProfile: "application_medium",
+  visualIdentity:
+    "Authentic warm industrial environment scene: CNC bed, workshop bench, raw materials, machining process, shallow bokeh background, warm 3000K-3500K ambient plus crisp key light. The environment itself is the hero; the product may be absent or play a supporting role.",
+  colorDirection:
+    "Warm amber #D4A574, workshop brown #8B6914, steel gray #708090, oxidized metal #B87333; text #FFFFFF with soft shadow; no cool blue/neon/pure black backgrounds.",
+  layoutNonNegotiables:
+    "Environment must be the hero at 60-80% frame. Use headline and 2-3 scene labels. The product may be absent or appear only as a small tool in the scene. No fake machinery brands or labels.",
   riskRules: [
     "禁止生成虚假的数据表格、规格框或测量注释",
     "环境必须是真实可信的工业场景，禁止 CG 感或过度美化",

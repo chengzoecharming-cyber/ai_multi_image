@@ -3,6 +3,21 @@ import type { LayoutType } from "../layouts";
 import type { CopyDensityId } from "../copy-density";
 import type { VisualStyleId } from "../visual-styles";
 
+// ── 与 v2/types.ts 对齐的辅助类型（避免循环依赖） ──
+
+export type TemplateVisualComplexity = "simple" | "medium" | "complex";
+export type TemplateInformationDensity = "low" | "medium" | "high";
+
+export type CopyProfile =
+  | "headline_only"
+  | "headline_labels"
+  | "feature_medium"
+  | "technical_medium"
+  | "comparison_medium"
+  | "application_medium"
+  | "bundle_medium"
+  | "promo_rich";
+
 export type V2TemplateEntryKind =
   | "solution_template"
   | "saved_template"
@@ -58,6 +73,26 @@ export interface SystemTemplate {
 
   // 版式变体（同一模板下主动拉开的不同构图）
   variants: TemplateVariant[];
+
+  // === 后处理 / 英文覆盖层（从旧 TEMPLATE_RULES 迁移） ===
+
+  /** 视觉复杂度（写入 CreativePlan.visualComplexity） */
+  visualComplexity?: TemplateVisualComplexity;
+
+  /** 信息密度（写入 CreativePlan.informationDensity） */
+  informationDensity?: TemplateInformationDensity;
+
+  /** copyBlocks 重组策略（后处理强制执行） */
+  copyProfile?: CopyProfile;
+
+  /** 英文视觉身份描述（注入 LLM system prompt） */
+  visualIdentity?: string;
+
+  /** 英文色彩方向 + 精确 hex（后处理覆盖） */
+  colorDirection?: string;
+
+  /** 英文布局硬约束（后处理覆盖） */
+  layoutNonNegotiables?: string;
 
   // === 结构化视觉硬约束（可选，用于强化 brief prompt 控制力） ===
 

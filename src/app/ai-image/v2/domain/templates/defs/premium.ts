@@ -33,6 +33,15 @@ export const tplPremium: SystemTemplate = {
     "premium_center_product_minimal_text",
   ],
   defaultCopyDensity: "headline_only",
+  visualComplexity: "medium",
+  informationDensity: "low",
+  copyProfile: "headline_only",
+  visualIdentity:
+    "Premium luxury product photography in near-pure black void, sculptural full product, generous negative space, dramatic primary rim light from behind, minimal key light, satin reflection, deep focus, luxury watch-ad restraint.",
+  colorDirection:
+    "Background #0A0A0A to #111111; text #F7E7CE or #FFFFFF; rim light #FFF8E7, #FFFFFF, or #C0C0C0; optional champagne accent #F7E7CE only; no blue, green, red, color blocks, or gradients.",
+  layoutNonNegotiables:
+    "Headline only. Product full at 60-70% frame with maximum negative space. No feature labels, bottom info, panels, particles, lifestyle, gradients, or extra products.",
   riskRules: [
     "仅允许标题，禁止功能标签、底部信息、面板、粒子、生活场景、渐变或多产品",
   ],

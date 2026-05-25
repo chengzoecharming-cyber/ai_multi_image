@@ -34,6 +34,15 @@ export const tplDimension: SystemTemplate = {
     "exploded_layer_explanation",
   ],
   defaultCopyDensity: "medium",
+  visualComplexity: "complex",
+  informationDensity: "medium",
+  copyProfile: "technical_medium",
+  visualIdentity:
+    "Clean engineering drawing sheet style: white or very light warm gray background, full product at dimension-revealing angle, deep focus, even diffused light, thin measurement lines, arrowheads, placeholder dimension boxes.",
+  colorDirection:
+    "Background #FFFFFF or #F5F5F0; annotation text/lines #333333 or #666666; panel fill #F0F0F0; panel border #CCCCCC; one subtle leader-line accent #2196F3 or #F44336; product natural colors.",
+  layoutNonNegotiables:
+    "No real measurement numbers. Dimension values must be blanks, dashes, or generic labels. Full product visible at 50-60%; annotation lines point only to visible features and must not cross.",
   riskRules: [
     "禁止生成真实尺寸数值或具体测量",
     "尺寸值必须是占位符样式（空白、破折号或通用标签）",

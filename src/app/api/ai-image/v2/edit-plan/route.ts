@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { CreativePlan } from "@/app/ai-image/v2/types";
-import { getTemplateById } from "@/lib/plan-templates/store";
+import {
+  buildPlanBriefFromSystemTemplate,
+  buildEmptyPlanBrief,
+} from "@/app/ai-image/v2/domain/plan-brief";
+import { buildPromptFromBrief } from "../plan/lib/brief-prompt-builder";
 import { LLM_API_URL, LLM_MODEL } from "../plan/lib/llm-client";
 
 interface EditPlanRequest {
@@ -30,8 +34,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "未配置 LLM API Key" }, { status: 500 });
     }
 
-    const template = plan.templateId ? getTemplateById(plan.templateId) : null;
-    const templatePrompt = template?.templatePrompt || "";
+    // Build PlanBrief from the plan's template (or empty fallback)
+    let briefPrompt = "";
+    try {
+      const planBrief = plan.templateId
+        ? buildPlanBriefFromSystemTemplate(plan.templateId, plan.productName || "")
+        : buildEmptyPlanBrief(plan.productName || "");
+      if (planBrief) {
+        briefPrompt = buildPromptFromBrief(planBrief, {
+          userInput: plan.productName || "",
+          mode: "edit",
+        });
+      }
+    } catch (e) {
+      // Graceful fallback: briefPrompt remains empty
+      if (process.env.NODE_ENV !== "production") {
+        console.debug("[EditPlanBrief] failed to build prompt:", e);
+      }
+    }
 
     const systemPrompt = [
       `You are an assistant that edits a structured CreativePlan JSON for an e-commerce image plan.`,
@@ -44,8 +64,7 @@ export async function POST(request: NextRequest) {
       `- Keep productAnalysis if present; do not remove it.`,
       `- Keep text language English; user will see Chinese explanation elsewhere.`,
       `- If a field is not mentioned, keep it as-is.`,
-      ``,
-      templatePrompt ? `Template constraints (must follow):\n${templatePrompt}` : "",
+      briefPrompt ? `\n${briefPrompt}` : "",
     ]
       .filter(Boolean)
       .join("\n");

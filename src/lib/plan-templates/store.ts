@@ -1,14 +1,14 @@
 import type { PlanTemplate } from "./types";
-import { SYSTEM_TEMPLATES } from "./templates";
+import { getSystemTemplates as getDomainSystemTemplates } from "@/app/ai-image/v2/domain/templates";
 
 const STORAGE_KEY = "ai_image_v2_user_templates";
 
 export function getSystemTemplates(): PlanTemplate[] {
-  return SYSTEM_TEMPLATES.filter((t) => t.enabled);
+  return getDomainSystemTemplates();
 }
 
 export function getSystemTemplateById(id: string): PlanTemplate | undefined {
-  return SYSTEM_TEMPLATES.find((t) => t.id === id && t.enabled);
+  return getDomainSystemTemplates().find((t) => t.id === id);
 }
 
 export function getUserTemplates(): PlanTemplate[] {

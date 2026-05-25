@@ -35,6 +35,15 @@ export const tplPromo: SystemTemplate = {
     "hero_left_text_right_product",
   ],
   defaultCopyDensity: "rich",
+  visualComplexity: "complex",
+  informationDensity: "high",
+  copyProfile: "promo_rich",
+  visualIdentity:
+    "High-energy Temu promo style: deep matte black base, hard-edged geometric color blocks, dramatic upper-left key light, subtle colored rim light, crisp shadow, sharp product, bold commercial impact.",
+  colorDirection:
+    "Background #0A0A0A to #1A1A1A; choose one dominant accent per plan from #007BFF, #FF6B00, #FF2D55, or #39FF14; text #FFFFFF; panels #111111; product natural colors.",
+  layoutNonNegotiables:
+    "Asymmetric high-impact promo layout with oversized headline, subheadline, 3-4 feature blocks, and bottom info. No fake prices, discounts, countdowns, CTA buttons, or platform marks.",
   riskRules: [
     "禁止生成假价格、假折扣、假倒计时、CTA 按钮或平台标识",
   ],

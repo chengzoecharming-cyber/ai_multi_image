@@ -35,6 +35,15 @@ export const tplFeature: SystemTemplate = {
     "exploded_layer_explanation",
   ],
   defaultCopyDensity: "medium",
+  visualComplexity: "medium",
+  informationDensity: "medium",
+  copyProfile: "feature_medium",
+  visualIdentity:
+    "Clean feature-explanation image on cool light gray whiteboard background, deep focus, even upper-front studio light, slight ground reflection, structured white information panels, restrained technical clarity.",
+  colorDirection:
+    "Background #E8ECF0 to #F0F2F5; panels #FFFFFF; primary text #111827; secondary text #475569; one restrained accent #0066CC, #008080, or #4682B4.",
+  layoutNonNegotiables:
+    "Product full and sharp at 40-50% frame. Use headline, subheadline, 3-4 feature panels with body copy, and optional bottom info. No dark backgrounds, warm accents, comparison labels, or fake specs.",
   riskRules: [
     "禁止生成虚假数据表格、规格框或测量注释",
     "禁止用 CAD 式蓝色细线标注",

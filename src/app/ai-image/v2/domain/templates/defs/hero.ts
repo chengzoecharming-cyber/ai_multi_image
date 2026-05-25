@@ -34,6 +34,15 @@ export const tplHero: SystemTemplate = {
     "hero_left_text_right_product",
   ],
   defaultCopyDensity: "minimal",
+  visualComplexity: "simple",
+  informationDensity: "low",
+  copyProfile: "headline_labels",
+  visualIdentity:
+    "Pure white or very light neutral gray Amazon/Temu main-image photography. Full product only, centered or slightly offset, 70-85% of the frame, deep focus, soft diffused overhead light, gentle natural shadow, subtle low-opacity ground reflection, no accent colors, no texture, no environment.",
+  colorDirection:
+    "Background #FFFFFF or #F7F7F7 only; text #111111; product uses natural material colors only; no accent color, no color blocks, no gradients.",
+  layoutNonNegotiables:
+    "Full product must remain visible with no cropped edges. One concise headline plus 2-3 short labels only. No panels, bottom bars, grids, decorative frames, badges, or environment.",
   riskRules: [
     "产品边缘不得裁切",
     "仅允许一个简洁标题 + 2-3 个短标签",

@@ -100,8 +100,10 @@ export function buildPromptFromBrief(
   options?: {
     userInput?: string;
     productContext?: unknown;
+    mode?: "generate" | "edit" | "image";
   }
 ): string {
+  const mode = options?.mode ?? "generate";
   const imageTypeLabel = getImageTypeLabel(brief.imageType);
   const layoutTypesLabel = formatLayoutTypes(brief.allowedLayoutTypes);
   const copyDensityLabel = formatCopyDensity(brief.defaultCopyDensity);
@@ -236,6 +238,125 @@ export function buildPromptFromBrief(
 - 方案 2（Feature）：informationDensity = medium，visualComplexity = medium — 像详情页卖点图，信息丰富但层次分明
 - 方案 3（InfoDense）：informationDensity = rich，visualComplexity = complex — 像完整产品海报，参数/优势/信任状一次给足（禁止编造具体参数，可用占位标签）
 `.trim();
+
+  if (mode === "edit") {
+    return `
+## 编辑任务简报（Plan Brief）
+
+你正在编辑一个已有的结构化创意方案（CreativePlan JSON），而不是从零生成。
+
+### 图片用途
+${brief.imageType === "auto" ? "自动判断：先根据商品图和用户目标判断最适合的图片用途，再生成方案。" : imageTypeLabel}
+
+### 版式约束
+允许使用的版式结构：${layoutTypesLabel}
+
+### 版式变体
+${variantsLabel}
+
+### 文案策略
+${copyDensityLabel}
+
+### 视觉风格策略
+${styleStrategyLabel}
+
+### 视觉硬约束
+${mandatoryVisualText}
+
+### 场景/环境规则
+${sceneText}
+
+### 灯光/景深/色彩规则
+${lightingColorText}
+
+### 产品摆放规则
+${placementText}
+
+### 文案规则
+${copyRulesText}
+
+### 禁止事项
+${avoidText}
+
+### 安全规则
+
+【全局安全规则】
+${globalSafetyText}
+
+【模板级安全规则】
+${riskRulesText}
+
+### 用户制图目标
+${userGoalText}${productContextText}${conflictText}
+
+---
+
+编辑规则：
+1. 保留原有方案的核心身份（plan.id、planArchetype、templateId 不得变更）。
+2. 忠于上传的产品图，不得修改产品轮廓、比例、结构特征。
+3. 编辑结果必须严格遵守上方「版式约束」「视觉硬约束」「禁止事项」「安全规则」。
+4. 画面文字继续使用简洁英文。
+5. visualDirection 必须具体详细：描述精确的光照角度、色温、表面反射、背景质感、氛围效果。
+6. layoutDirection 必须具体详细：描述精确的产品位置百分比、文字块大小、重叠关系、层级。
+7. colorDirection 必须包含精确色值（hex 或命名色），并描述颜色在画面中的过渡方式。
+`.trim();
+  }
+
+  if (mode === "image") {
+    return `
+## 图片生成任务简报（Plan Brief）
+
+### 图片用途
+${brief.imageType === "auto" ? "自动判断：先根据商品图和用户目标判断最适合的图片用途，再生成方案。" : imageTypeLabel}
+
+### 版式约束
+允许使用的版式结构：${layoutTypesLabel}
+
+### 文案策略
+${copyDensityLabel}
+
+### 视觉风格策略
+${styleStrategyLabel}
+
+### 视觉硬约束
+${mandatoryVisualText}
+
+### 场景/环境规则
+${sceneText}
+
+### 灯光/景深/色彩规则
+${lightingColorText}
+
+### 产品摆放规则
+${placementText}
+
+### 文案规则
+${copyRulesText}
+
+### 禁止事项
+${avoidText}
+
+### 安全规则
+
+【全局安全规则】
+${globalSafetyText}
+
+【模板级安全规则】
+${riskRulesText}
+
+### 用户制图目标
+${userGoalText}${productContextText}${conflictText}
+
+---
+
+请根据以上简报生成一张高质量电商商品图片。要求：
+1. 忠于上传的产品图，不得修改产品轮廓、比例、结构特征。
+2. 画面不得出现文字、Logo、水印、品牌标识。
+3. 保持商业摄影级别的质感：真实材质、自然光影、 clean commercial look。
+4. 根据「图片用途」和「版式约束」决定构图策略。
+5. 背景简洁、不喧宾夺主，产品必须有清晰的边缘分离。
+`.trim();
+  }
 
   return `
 ## 生成任务简报（Plan Brief）

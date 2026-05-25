@@ -35,6 +35,15 @@ export const tplBundle: SystemTemplate = {
     "four_panel_application_grid",
   ],
   defaultCopyDensity: "medium",
+  visualComplexity: "complex",
+  informationDensity: "medium",
+  copyProfile: "bundle_medium",
+  visualIdentity:
+    "Bundle showcase with multiple related items or variants, deep navy or charcoal base, hard geometric accent blocks, evenly lit full products, deep focus, energetic but orderly product arrangement.",
+  colorDirection:
+    "Primary background #1A2744 or #2D2D2D; accent blocks #007BFF, #FF6B00, or #FF2D55; text #FFFFFF; panels #111827; product natural colors.",
+  layoutNonNegotiables:
+    "Show 3-5 related items or deliberate variants, all fully visible and evenly lit. Copy should emphasize complete set, full range, variety, and value. No fake prices or bundle values.",
   riskRules: [
     "禁止生成假价格、假折扣或假套装价值",
   ],

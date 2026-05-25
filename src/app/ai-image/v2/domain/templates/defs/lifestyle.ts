@@ -35,6 +35,15 @@ export const tplLifestyle: SystemTemplate = {
     "diagonal_product_with_side_features",
   ],
   defaultCopyDensity: "medium",
+  visualComplexity: "medium",
+  informationDensity: "medium",
+  copyProfile: "application_medium",
+  visualIdentity:
+    "Authentic warm industrial lifestyle scene: CNC bed, workshop bench, vise, metal shavings, worn surfaces, shallow bokeh background, product tack-sharp and brightest, warm 3000K-3500K ambient plus crisp key light.",
+  colorDirection:
+    "Warm amber #D4A574, workshop brown #8B6914, steel gray #708090, oxidized metal #B87333; text #FFFFFF with soft shadow; no cool blue/neon/pure black backgrounds.",
+  layoutNonNegotiables:
+    "Product full and sharp at 35-45% frame, off-center by rule of thirds. Use headline, 2-3 application labels, and bottom info. Environment must support product, not outshine it.",
   riskRules: [
     "环境不得分散产品注意力；产品必须是画面中最亮、最清晰的元素",
   ],

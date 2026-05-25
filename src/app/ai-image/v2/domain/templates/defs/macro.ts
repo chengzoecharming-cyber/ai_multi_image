@@ -34,6 +34,15 @@ export const tplMacro: SystemTemplate = {
     "premium_center_product_minimal_text",
   ],
   defaultCopyDensity: "headline_only",
+  visualComplexity: "medium",
+  informationDensity: "low",
+  copyProfile: "headline_only",
+  visualIdentity:
+    "Macro detail photography on near-pure black, single hard warm side light from camera-left at 45 degrees, no fill, strong specular edge highlights, shallow razor-thin focal plane, dramatic cropped product texture.",
+  colorDirection:
+    "Background RGB 5-15 / #050505 to #0F0F0F; product natural metal tones only; optional warm copper or amber edge highlight #B87333 or #D97706; text #F5F5F0.",
+  layoutNonNegotiables:
+    "Show only 40-60% of the product, cropped dramatically. Headline only. Optional 1-2 optical magnified insets with hairline borders. No body text, fake dimensions, gradients, color blocks, or full-product catalog view.",
   riskRules: [
     "仅显示产品 40-60%，必须戏剧性裁切",
     "仅允许标题，禁止正文、虚假尺寸、渐变、色块或完整产品目录视图",

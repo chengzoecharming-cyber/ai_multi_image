@@ -34,6 +34,15 @@ export const tplSpec: SystemTemplate = {
     "exploded_layer_explanation",
   ],
   defaultCopyDensity: "medium",
+  visualComplexity: "complex",
+  informationDensity: "high",
+  copyProfile: "technical_medium",
+  visualIdentity:
+    "Technical documentation style on cool slate CAD-like grid, flat even overhead lighting, infinite depth of field, product in isometric/profile/top-down technical angle, clean placeholder panels and precise leader lines.",
+  colorDirection:
+    "Background #4A5568 to #5A6A7A with grid #E2E8F0 at 5-8% opacity; text/lines #FFFFFF or #E2E8F0; accent #00BCD4 or #2196F3 only; product natural colors.",
+  layoutNonNegotiables:
+    "No real numbers or invented specifications. Use placeholder-style labels and values only. Product full and sharp at 40-50%, technical panels on right, clean annotation lines to visible structures.",
   riskRules: [
     "禁止生成真实尺寸或具体数值测量",
     "规格字段必须是占位符样式标签",

@@ -31,6 +31,15 @@ export const tplComparison: SystemTemplate = {
   archetype: "comparison_story",
   allowedLayoutTypes: ["comparison_two_columns", "diagonal_product_with_side_features", "large_headline_with_bottom_info_bar"],
   defaultCopyDensity: "medium",
+  visualComplexity: "complex",
+  informationDensity: "high",
+  copyProfile: "comparison_medium",
+  visualIdentity:
+    "Strict split-screen advantage comparison on one unified deep dark background: left same product category desaturated and dim with red X, right reference product full color and warm sharp with green check, clear VS divider, bottom advantage bar.",
+  colorDirection:
+    "Unified background #151515 to #1E1E1E; left desaturated blue-gray #5A6A7A with red X #DC2626; right natural product color with warm amber #FFB347 and green check #22C55E; VS #FFFFFF or #E0E0E0; bottom bar #1A1A1A.",
+  layoutNonNegotiables:
+    "All plans must be 50/50 vertical comparison with center VS, same product category both sides, red X left, green check right, right side slightly larger/brighter, and bottom feature bar with three cards.",
   riskRules: [
     "禁止引用具体竞争品牌或产品",
     "禁止生成虚假性能数据、测试分数、对比数字或统计",
