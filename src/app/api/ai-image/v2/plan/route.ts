@@ -226,7 +226,7 @@ export async function POST(request: NextRequest) {
     })();
 
     // Try LLM (Volcano Engine / Kimi)
-    const apiKey = process.env.VOLCANO_API_KEY || process.env.KIMI_API_KEY;
+    const apiKey = process.env.VOLCANO_API_KEY || process.env.KIMI_API_KEY || process.env.NEXT_PUBLIC_CHATGPT2API_KEY;
     if (apiKey && apiKey !== "sk-your-kimi-key-here") {
       try {
         const imageStart = Date.now();

@@ -1,12 +1,12 @@
 import type { CreativePlan, ImageSetPlan } from "@/app/ai-image/v2/types";
 import { buildSystemPrompt } from "./system-prompt";
 
-export const LLM_API_URL = process.env.LLM_API_URL || "https://ark.cn-beijing.volces.com/api/v3/chat/completions";
-// 日志证明 seed-2-0-lite 60s 内完不成，seed-1-6 也不稳定，
-// flash 单独跑只要 ~42s，所以直接用 flash 做主模型，去掉串行 fallback。
-export const LLM_MODEL = process.env.LLM_MODEL || "doubao-seed-1-6-flash-250615";
+const BASE_URL = process.env.NEXT_PUBLIC_CHATGPT2API_URL || "http://localhost:3000/v1";
+const AUTH_KEY = process.env.NEXT_PUBLIC_CHATGPT2API_KEY || "chatgpt2api";
 
-// 如需 fallback，改为并行调用（串行会时间叠加踩前端超时）
+export const LLM_API_URL = process.env.LLM_API_URL || `${BASE_URL}/chat/completions`;
+export const LLM_MODEL = process.env.LLM_MODEL || "auto";
+
 export const FALLBACK_VISION_MODELS: string[] = [];
 
 export async function tryCallLLM(
@@ -18,14 +18,12 @@ export async function tryCallLLM(
   templateId?: string,
   requestId?: string
 ): Promise<{ plans?: CreativePlan[]; sets?: ImageSetPlan[] }> {
-  const apiKey = process.env.VOLCANO_API_KEY || process.env.KIMI_API_KEY;
+  const apiKey = process.env.VOLCANO_API_KEY || process.env.KIMI_API_KEY || AUTH_KEY;
   if (!apiKey) {
-    throw new Error("LLM API key not configured (set VOLCANO_API_KEY or KIMI_API_KEY)");
+    throw new Error("LLM API key not configured");
   }
 
   const systemPrompt = buildSystemPrompt(mode, templateId);
-
-  // Per-model timeout: keep below frontend 120s, but allow enough time for vision + JSON planning.
   const ctrl = new AbortController();
   const perModelTimeout = setTimeout(() => ctrl.abort(), 110000);
 
@@ -45,10 +43,7 @@ export async function tryCallLLM(
           {
             role: "user",
             content: [
-              {
-                type: "image_url",
-                image_url: { url: base64Image },
-              },
+              { type: "image_url", image_url: { url: base64Image } },
               {
                 type: "text",
                 text: (() => {
@@ -65,7 +60,6 @@ export async function tryCallLLM(
         response_format: { type: "json_object" },
         temperature: templateId ? 0.65 : 0.9,
         max_tokens: 8192,
-        thinking: { type: "disabled" },
       }),
       signal: ctrl.signal,
     });
@@ -74,7 +68,7 @@ export async function tryCallLLM(
     const err = error as Error;
     const tag = requestId ? `[LLM][${requestId}]` : "[LLM]";
     if (err.name === "AbortError") {
-      console.error(`${tag} timeout after ${durationMs}ms (per-model timeout: 60000ms)`);
+      console.error(`${tag} timeout after ${durationMs}ms`);
       throw new Error(`LLM request timeout after ${durationMs}ms`);
     }
     console.error(`${tag} request failed after ${durationMs}ms:`, err.message);
@@ -82,6 +76,7 @@ export async function tryCallLLM(
   } finally {
     clearTimeout(perModelTimeout);
   }
+
   const llmDurationMs = Date.now() - llmStart;
   console.log(`${requestId ? `[LLM][${requestId}]` : "[LLM]"} response received in ${llmDurationMs}ms`);
 
@@ -99,11 +94,7 @@ export async function tryCallLLM(
     throw new Error("LLM returned empty content");
   }
 
-  return JSON.parse(content) as {
-    mode?: string;
-    plans?: CreativePlan[];
-    sets?: ImageSetPlan[];
-  };
+  return JSON.parse(content) as { mode?: string; plans?: CreativePlan[]; sets?: ImageSetPlan[] };
 }
 
 export async function callLLM(
@@ -115,7 +106,7 @@ export async function callLLM(
   requestId?: string
 ): Promise<CreativePlan[] | ImageSetPlan[]> {
   const tag = requestId ? `[LLM][${requestId}]` : "[LLM]";
-  console.log(`${tag} using model: ${LLM_MODEL}`);
+  console.log(`${tag} using model: ${LLM_MODEL}, url: ${LLM_API_URL}`);
   const parsed = await tryCallLLM(base64Image, userGoal, mode, briefPrompt, LLM_MODEL, templateId, requestId);
 
   if (mode === "single") {

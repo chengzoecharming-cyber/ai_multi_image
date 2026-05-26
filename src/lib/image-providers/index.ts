@@ -4,9 +4,10 @@ import { PollinationsProvider } from "./pollinations-provider";
 import { SiliconFlowProvider } from "./siliconflow-provider";
 import { VolcanoProvider } from "./volcano-provider";
 import { QwenProvider } from "./qwen-provider";
+import { ChatGPT2APIProvider } from "./chatgpt2api-provider";
 
-export function getImageProvider(): ImageProvider {
-  const provider = process.env.IMAGE_PROVIDER || "pollinations";
+export function getImageProvider(providerName?: string): ImageProvider {
+  const provider = providerName || process.env.IMAGE_PROVIDER || "pollinations";
 
   switch (provider.toLowerCase()) {
     case "mock":
@@ -21,10 +22,18 @@ export function getImageProvider(): ImageProvider {
     case "wanx":
     case "dashscope":
       return new QwenProvider();
+    case "chatgpt2api":
+    case "chatgpt":
+    case "gpt-image-2":
+      return new ChatGPT2APIProvider();
     case "pollinations":
     default:
       return new PollinationsProvider();
   }
+}
+
+export function listProviderNames(): string[] {
+  return ["pollinations", "volcano", "siliconflow", "qwen", "chatgpt2api"];
 }
 
 export * from "./types";

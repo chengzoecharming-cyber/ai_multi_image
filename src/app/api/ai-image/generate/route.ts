@@ -171,8 +171,8 @@ export async function POST(request: NextRequest) {
       seed,
     });
 
-    const provider = getImageProvider();
-    const providerName = process.env.IMAGE_PROVIDER || "pollinations";
+    const providerName = body.provider || process.env.IMAGE_PROVIDER || "chatgpt2api";
+    const provider = getImageProvider(providerName);
 
     const task = await prisma.aiImageTask.create({
       data: {
@@ -246,8 +246,13 @@ export async function POST(request: NextRequest) {
 
     if (result.success && result.imageUrl) {
       // Persist image locally so URLs survive page refreshes (v2 session images).
-      const localImageUrl = await persistImageLocally(task.id, result.imageUrl);
-      const effectiveImageUrl = localImageUrl || result.imageUrl;
+      let imageUrl = result.imageUrl;
+      if (providerName === "chatgpt2api" && imageUrl && imageUrl.includes("localhost:3000")) {
+        imageUrl = imageUrl.replace("localhost:3000", "47.237.113.100:3000");
+        console.log("[Generate] chatgpt2api imageUrl replaced:", imageUrl);
+      }
+      const localImageUrl = providerName === "chatgpt2api" ? null : await persistImageLocally(task.id, imageUrl);
+      const effectiveImageUrl = localImageUrl || imageUrl;
 
       // Download image and convert to base64 for frontend copy/download (avoids CORS)
       let imageBase64 = "";
@@ -256,7 +261,9 @@ export async function POST(request: NextRequest) {
         const imgRes = await fetch(fetchUrlForBase64, { signal: abortController.signal });
         if (imgRes.ok) {
           const buffer = Buffer.from(await imgRes.arrayBuffer());
+          if (buffer.length > 0) {
           imageBase64 = `data:image/png;base64,${buffer.toString("base64")}`;
+          }
         }
       } catch (e) {
         console.log("[Generate] failed to download image for base64:", e);

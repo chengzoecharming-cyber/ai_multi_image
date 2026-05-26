@@ -1,0 +1,12 @@
+services:
+  ai-image-mvp:
+    build: .
+    container_name: ai-image-mvp
+    ports:
+      - "3002:3002"
+    restart: unless-stopped
+    env_file:
+      - .env.local
+    volumes:
+      - ./public/uploads:/app/public/uploads
+      - ./prisma:/app/prisma

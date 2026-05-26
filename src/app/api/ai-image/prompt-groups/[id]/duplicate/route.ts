@@ -33,7 +33,8 @@ export async function POST(
         remark: original.remark,
         coverImageUrl: original.coverImageUrl,
         references: {
-          create: original.references.map((ref, index) => ({
+          create: original.references.map(
+  (ref: { imageUrl: string; imageName?: string | null; referenceType?: string | null }, index: number) => ({
             imageUrl: ref.imageUrl,
             imageName: ref.imageName,
             referenceType: ref.referenceType,

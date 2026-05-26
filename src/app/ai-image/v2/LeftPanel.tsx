@@ -4,7 +4,7 @@ import { RefObject, useState } from "react";
 import {
   ImageIcon, X, Upload, Lightbulb,
   Sparkles, BookOpen, Square, SlidersHorizontal,
-  Plus,
+  Plus, Server,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -52,9 +52,21 @@ export function LeftPanel({
   const outputHeight = activeSession.outputHeight;
   const [customSizeOpen, setCustomSizeOpen] = useState(false);
 
-  const PRESET_1_1 = { w: 1920, h: 1920 };
-  const PRESET_3_4 = { w: 1920, h: 2560 };
-  const PRESET_2_4 = { w: 1440, h: 2880 };
+  const isChatGPT2API = activeSession.provider === "chatgpt2api";
+
+  const VOLCANO_PRESET_1_1 = { w: 1920, h: 1920 };
+  const VOLCANO_PRESET_3_4 = { w: 1920, h: 2560 };
+  const VOLCANO_PRESET_2_4 = { w: 1440, h: 2880 };
+
+  const GPT_PRESET_1_1 = { w: 1024, h: 1024 };
+  const GPT_PRESET_3_4 = { w: 1024, h: 1536 };
+  const GPT_PRESET_16_9 = { w: 1536, h: 1024 };
+
+  const PRESET_1_1 = isChatGPT2API ? GPT_PRESET_1_1 : VOLCANO_PRESET_1_1;
+  const PRESET_3_4 = isChatGPT2API ? GPT_PRESET_3_4 : VOLCANO_PRESET_3_4;
+  const PRESET_2_4 = isChatGPT2API ? GPT_PRESET_16_9 : VOLCANO_PRESET_2_4;
+
+  const maxReferenceImages = isChatGPT2API ? 0 : 3;
 
   const isPreset = (p: { w: number; h: number }) => outputWidth === p.w && outputHeight === p.h;
 
@@ -143,12 +155,51 @@ export function LeftPanel({
           <p className="text-xs text-gray-400">用自然语言描述制图需求，AI 会分析商品图并生成方案。</p>
         </div>
 
+        {/* Provider Selection */}
+        <div className="space-y-2">
+          <Label className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
+            <Server className="w-3 h-3 text-gray-400" />生成后端
+          </Label>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { id: "volcano", label: "火山引擎" },
+              { id: "chatgpt2api", label: "ChatGPT2API" },
+            ].map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                className={cn(
+                  "px-2 py-1.5 rounded-lg border text-xs font-medium transition-colors",
+                  activeSession.provider === p.id
+                    ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+                    : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                )}
+                onClick={() => {
+                  onUpdateSession((s) => {
+                    const isGpt = p.id === "chatgpt2api";
+                    return {
+                      ...s,
+                      provider: p.id,
+                      outputWidth: isGpt ? 1024 : 1920,
+                      outputHeight: isGpt ? 1024 : 1920,
+                      lastError: null,
+                    };
+                  });
+                }}
+                disabled={step === "generating"}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Output Size */}
         <div className="space-y-2">
           <Label className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
             <SlidersHorizontal className="w-3 h-3 text-gray-400" />输出尺寸
           </Label>
-          <div className="grid grid-cols-4 gap-2">
+          <div className={cn("grid gap-2", isChatGPT2API ? "grid-cols-3" : "grid-cols-4")}>
             <button
               type="button"
               className={cn(
@@ -163,7 +214,7 @@ export function LeftPanel({
               }}
               disabled={step === "generating"}
             >
-              1:1
+              {isChatGPT2API ? "1024²" : "1:1"}
             </button>
             <button
               type="button"
@@ -179,7 +230,7 @@ export function LeftPanel({
               }}
               disabled={step === "generating"}
             >
-              3:4
+              {isChatGPT2API ? "1024×1536" : "3:4"}
             </button>
             <button
               type="button"
@@ -195,23 +246,25 @@ export function LeftPanel({
               }}
               disabled={step === "generating"}
             >
-              2:4
+              {isChatGPT2API ? "1536×1024" : "2:4"}
             </button>
-            <button
-              type="button"
-              className={cn(
-                "px-2 py-1.5 rounded-lg border text-xs font-medium transition-colors",
-                customSizeOpen
-                  ? "border-indigo-200 bg-indigo-50 text-indigo-700"
-                  : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-              )}
-              onClick={() => setCustomSizeOpen(true)}
-              disabled={step === "generating"}
-            >
-              自定义
-            </button>
+            {!isChatGPT2API && (
+              <button
+                type="button"
+                className={cn(
+                  "px-2 py-1.5 rounded-lg border text-xs font-medium transition-colors",
+                  customSizeOpen
+                    ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+                    : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                )}
+                onClick={() => setCustomSizeOpen(true)}
+                disabled={step === "generating"}
+              >
+                自定义
+              </button>
+            )}
           </div>
-          {customSizeOpen && (
+          {customSizeOpen && !isChatGPT2API && (
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <Label className="text-[11px] text-gray-500">宽</Label>
@@ -244,48 +297,61 @@ export function LeftPanel({
             </div>
           )}
           <p className="text-xs text-gray-400">
-            说明：Seedream 对像素有下限，过小会提示尺寸不支持；文字将由前端自动叠加，不需要你手动排版。
+            {isChatGPT2API
+              ? "ChatGPT2API 仅支持 1024×1024、1024×1536、1536×1024 三种尺寸。"
+              : "说明：Seedream 对像素有下限，过小会提示尺寸不支持；文字将由前端自动叠加，不需要你手动排版。"}
           </p>
         </div>
 
-        {/* Reference Images — up to 3, optional */}
+        {/* Reference Images — provider-dependent limit */}
         <div className="space-y-2">
           <Label className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
             <ImageIcon className="w-3 h-3 text-gray-400" />
             参考图
-            <span className="text-gray-400 font-normal">（可选，最多3张）</span>
+            <span className="text-gray-400 font-normal">
+              {isChatGPT2API ? "（ChatGPT2API 不支持参考图）" : "（可选，最多3张）"}
+            </span>
           </Label>
-          <input
-            ref={referenceFileInputRef}
-            type="file"
-            accept="image/jpeg,image/jpg,image/png,image/webp"
-            className="hidden"
-            onChange={onUploadReference}
-          />
-          <div className="flex flex-wrap gap-2">
-            {referenceImageUrls.map((url, i) => (
-              <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200 bg-[#F5F6F8] group shrink-0">
-                <img src={url} alt={`参考图 ${i + 1}`} className="w-full h-full object-cover" />
-                <button
-                  onClick={() => onRemoveReference?.(i)}
-                  className="absolute top-0.5 right-0.5 p-0.5 rounded bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="删除"
-                >
-                  <X className="w-3 h-3" />
-                </button>
+          {!isChatGPT2API && (
+            <>
+              <input
+                ref={referenceFileInputRef}
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/webp"
+                className="hidden"
+                onChange={onUploadReference}
+              />
+              <div className="flex flex-wrap gap-2">
+                {referenceImageUrls.map((url, i) => (
+                  <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200 bg-[#F5F6F8] group shrink-0">
+                    <img src={url} alt={`参考图 ${i + 1}`} className="w-full h-full object-cover" />
+                    <button
+                      onClick={() => onRemoveReference?.(i)}
+                      className="absolute top-0.5 right-0.5 p-0.5 rounded bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="删除"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+                {referenceImageUrls.length < maxReferenceImages && (
+                  <button
+                    onClick={() => referenceFileInputRef?.current?.click()}
+                    className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors flex items-center justify-center text-gray-400 shrink-0"
+                    title="添加参考图"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                )}
               </div>
-            ))}
-            {referenceImageUrls.length < 3 && (
-              <button
-                onClick={() => referenceFileInputRef?.current?.click()}
-                className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors flex items-center justify-center text-gray-400 shrink-0"
-                title="添加参考图"
-              >
-                <Plus className="w-5 h-5" />
-              </button>
-            )}
-          </div>
-          <p className="text-xs text-gray-400">支持 jpg、png、webp，用于风格参考</p>
+              <p className="text-xs text-gray-400">支持 jpg、png、webp，用于风格参考</p>
+            </>
+          )}
+          {isChatGPT2API && (
+            <p className="text-xs text-gray-400">
+              ChatGPT2API 仅支持通过「商品图」进行单张参考图编辑，不支持额外的风格参考图。
+            </p>
+          )}
         </div>
       </div>
 

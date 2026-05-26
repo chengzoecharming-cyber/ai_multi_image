@@ -64,6 +64,8 @@ function createEmptySession(seed?: Partial<V2Session>): V2Session {
     outputWidth: Number.isFinite(seed?.outputWidth) ? Number(seed?.outputWidth) : 1920,
     outputHeight: Number.isFinite(seed?.outputHeight) ? Number(seed?.outputHeight) : 1920,
 
+    provider: seed?.provider || process.env.NEXT_PUBLIC_DEFAULT_IMAGE_PROVIDER || "chatgpt2api",
+
     selectedTemplateId: seed?.selectedTemplateId ?? null,
 
     singlePlans: seed?.singlePlans ?? [],
@@ -414,8 +416,9 @@ export function useV2Session() {
       if (!activeSession) return;
       const file = e.target.files?.[0];
       if (!file) return;
-      if ((activeSession.referenceImageUrls?.length || 0) >= 3) {
-        toast.error("参考图最多3张");
+      const maxRef = activeSession.provider === "chatgpt2api" ? 0 : 3;
+      if ((activeSession.referenceImageUrls?.length || 0) >= maxRef) {
+        toast.error(maxRef === 0 ? "ChatGPT2API 不支持参考图" : "参考图最多3张");
         if (referenceFileInputRef.current) referenceFileInputRef.current.value = "";
         return;
       }
@@ -596,10 +599,15 @@ export function useV2Session() {
       const timeoutId = setTimeout(() => controller.abort(), 90000);
 
       try {
-        const styleRefs = [
-          ...(activeSession.productReferenceImageUrl ? [activeSession.productReferenceImageUrl] : []),
-          ...(activeSession.referenceImageUrls || []),
-        ];
+        const isChatGPT2API = activeSession.provider === "chatgpt2api";
+
+        // ChatGPT2API 只支持单张参考图（productImageUrl），不支持 styleReferenceUrls
+        const styleRefs = isChatGPT2API
+          ? []
+          : [
+              ...(activeSession.productReferenceImageUrl ? [activeSession.productReferenceImageUrl] : []),
+              ...(activeSession.referenceImageUrls || []),
+            ];
 
         // V2 default: generate WITH on-image copy using the plan's finalPrompt/imageGenerationPrompt.
         // Fallback to "no-text" prompt only when the plan prompt is missing.
@@ -620,6 +628,7 @@ export function useV2Session() {
             styleReferenceUrls: styleRefs,
             // Allow on-image copy in V2 by default; keep only watermark/logo bans.
             negativePrompt: negativePromptBase,
+            provider: activeSession.provider,
             config: {
               width: activeSession.outputWidth,
               height: activeSession.outputHeight,
@@ -634,34 +643,66 @@ export function useV2Session() {
           signal: controller.signal,
         });
         clearTimeout(timeoutId);
-        const data = await res.json();
-        if (res.ok && data.data?.resultImageUrl) {
-          const urls = JSON.parse(data.data.resultImageUrl);
-          const imageUrl = urls[0];
-          const imageBase64 = data.imageBase64 || "";
-          updateActiveSession((s) => ({
-            ...s,
-            generatingImage: false,
-            generatingImagePlanId: null,
-            generatedImages: [
-              {
-                id: globalThis.crypto?.randomUUID?.() || `img-${nowTs()}-${Math.random().toString(36).slice(2, 6)}`,
-                planId: plan.id,
-                taskId: data.data?.id,
-                tab: "product",
-                imageUrl,
-                imageBase64,
-                createdAt: nowTs(),
-              },
-              ...s.generatedImages,
-            ],
-            productReferenceImageUrl: s.productReferenceImageUrl || imageUrl,
-          }));
-          toast.success("图片生成成功");
-        } else {
-          toast.error(data.error || "生成失败");
-          updateActiveSession((s) => ({ ...s, generatingImage: false, generatingImagePlanId: null, lastError: data.error || "生成失败" }));
-        }
+                  const data = await res.json();
+
+          const rawResultImageUrl =
+            data?.data?.resultImageUrl ?? data?.data?.imageUrl ?? data?.imageUrl ?? null;
+
+          const imageUrl = (() => {
+            if (!rawResultImageUrl) return null;
+            if (Array.isArray(rawResultImageUrl)) return rawResultImageUrl[0] || null;
+            if (typeof rawResultImageUrl !== "string") return null;
+
+            try {
+              const parsed = JSON.parse(rawResultImageUrl);
+              if (Array.isArray(parsed)) return parsed[0] || null;
+              if (typeof parsed === "string") return parsed;
+            } catch {
+              // Fallback: extract first URL-like substring (handles broken ["http://..."] strings).
+              const m = rawResultImageUrl.match(/https?:\/\/[^\s"'\\\]]+/);
+              return m?.[0] || rawResultImageUrl;
+            }
+            return null;
+          })();
+
+          if (res.ok && imageUrl) {
+            const rawBase64 = (data?.imageBase64 as string | undefined) || "";
+            const imageBase64 =
+              rawBase64 && rawBase64.startsWith("data:")
+                ? rawBase64
+                : rawBase64 && rawBase64.length > 64
+                  ? `data:image/png;base64,${rawBase64}`
+                  : "";
+
+            updateActiveSession((s) => ({
+              ...s,
+              generatingImage: false,
+              generatingImagePlanId: null,
+              generatedImages: [
+                {
+                  id: globalThis.crypto?.randomUUID?.() || `img-${nowTs()}-${Math.random().toString(36).slice(2, 6)}`,
+                  planId: plan.id,
+                  taskId: data.data?.id,
+                  tab: "product",
+                  imageUrl,
+                  imageBase64,
+                  createdAt: nowTs(),
+                },
+                ...s.generatedImages,
+              ],
+              productReferenceImageUrl: s.productReferenceImageUrl || imageUrl,
+            }));
+            toast.success("图片生成成功");
+          } else {
+            toast.error(data.error || "生成失败");
+            updateActiveSession((s) => ({
+              ...s,
+              generatingImage: false,
+              generatingImagePlanId: null,
+              lastError: data.error || "生成失败",
+            }));
+          }              
+
       } catch (err: unknown) {
         clearTimeout(timeoutId);
         if (err instanceof Error && err.name === "AbortError") {
@@ -733,6 +774,7 @@ export function useV2Session() {
           heroImageUrl,
           productDescription: activeSession.goal,
           selectedTypes,
+          provider: activeSession.provider,
           output: { width: activeSession.outputWidth, height: activeSession.outputHeight },
         }),
       });

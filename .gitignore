@@ -54,3 +54,7 @@ dev.db
 
 # user uploads (local dev artifacts)
 /public/uploads/
+
+# local/runtime
+ai-image-mvp.log
+src/app/ai-image/v2/hooks/useV2Session.ts.bak.*
