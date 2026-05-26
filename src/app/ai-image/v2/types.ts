@@ -260,6 +260,9 @@ export interface V2Session {
   outputWidth: number;
   outputHeight: number;
 
+  /** 图片生成后端 Provider */
+  provider?: string;
+
   selectedTemplateId?: string | null;
 
   singlePlans: CreativePlan[];

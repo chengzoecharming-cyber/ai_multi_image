@@ -171,8 +171,8 @@ export async function POST(request: NextRequest) {
       seed,
     });
 
-    const provider = getImageProvider();
-    const providerName = process.env.IMAGE_PROVIDER || "pollinations";
+    const providerName = body.provider || process.env.IMAGE_PROVIDER || "pollinations";
+    const provider = getImageProvider(providerName);
 
     const task = await prisma.aiImageTask.create({
       data: {

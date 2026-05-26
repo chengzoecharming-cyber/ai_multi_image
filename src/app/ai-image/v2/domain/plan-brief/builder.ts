@@ -1,9 +1,12 @@
 import type { PlanBrief, StyleStrategy, EmptyTemplateMode, EmptyTemplatePlanConfig, EmptyTemplatePlanType } from "./types";
 import type { SavedTemplate } from "../templates";
+import type { StyleWorldId } from "../style-worlds";
 import type { V2DetailType } from "../detail-assets";
 import { getSystemTemplateProfile } from "../templates";
 import { DETAIL_ASSET_TO_IMAGE_TYPE, IMAGE_TYPE_TO_ALLOWED_LAYOUTS, IMAGE_TYPE_TO_DEFAULT_COPY_DENSITY } from "../taxonomy";
 import type { VisualStyleId } from "../visual-styles";
+import { getStyleWorldById } from "../style-worlds";
+import { adaptStyleWorldsForRuntime } from "./style-world-adapter";
 
 /**
  * 默认视觉风格策略：从候选池选出 3 个不同风格。
@@ -225,18 +228,60 @@ const EMPTY_TEMPLATE_COPY_RULES: string[] = [
  * - 给出 3 个方案的方向参考，由 LLM 根据产品特征自行决定最佳组合
  * - 提供通用电商约束 + 产品特征上下文，让 LLM 自行发挥构图创意
  */
+// v2.1: 空模板默认 styleWorld 池（确保三方案差异）
+const EMPTY_DEFAULT_STYLE_WORLDS: StyleWorldId[] = [
+  "editorial_product_ad",
+  "gradient_modern_showcase",
+  "material_stage",
+  "soft_premium",
+  "clean_catalog",
+  "diagram_light",
+];
+
+/**
+ * v2.1: 从默认池为 3 个方案分配不同的 styleWorld + copyMode。
+ */
+function assignEmptyStyleWorlds(
+  _inferredMode: EmptyTemplateMode
+): { styleWorldId: StyleWorldId; copyMode: string }[] {
+  // 固定分配 3 个差异明显的组合（不依赖 mode，因为 styleWorld 本身已含背景/灯光差异）
+  return [
+    { styleWorldId: "editorial_product_ad", copyMode: "headline_only" },
+    { styleWorldId: "gradient_modern_showcase", copyMode: "feature_cards" },
+    { styleWorldId: "material_stage", copyMode: "headline_labels" },
+  ];
+}
+
 export function buildEmptyPlanBrief(
   userGoal?: string,
   productContext?: { productName?: string; productType?: string }
 ): PlanBrief {
   const inferredMode = inferEmptyTemplateMode(userGoal, productContext);
 
+  const assigned = assignEmptyStyleWorlds(inferredMode);
+
   // 方案方向参考：不强制绑定，作为 LLM 的参考池
   const suggestedPlanDirections = [
-    { type: "platform_hero", description: "第一眼主图：产品占画面 65-80%，打破对称，有侵略性张力，极简大字" },
-    { type: "feature_showcase", description: "卖点爆破图：产品+环绕信息卡片，3-4个卖点几何组织，层次分明" },
-    { type: "info_dense", description: "高密度信息板：标题+产品+底部信息条全开，参数/优势/信任状满载" },
+    {
+      type: "platform_hero" as EmptyTemplatePlanType,
+      description: "第一眼主图：产品占画面 65-80%，打破对称，有侵略性张力。风格为杂志广告级大留白，产品像艺术品般摆放。",
+      layoutType: "premium_center_product_minimal_text",
+    },
+    {
+      type: "feature_showcase" as EmptyTemplatePlanType,
+      description: "卖点爆破图：产品+环绕信息卡片，3-4个卖点以现代渐变背景+几何区块组织，层次分明，年轻科技风。",
+      layoutType: "hero_right_product_left_features",
+    },
+    {
+      type: "info_dense" as EmptyTemplatePlanType,
+      description: "高密度信息板：产品置于真实材质台面（石材/金属/亚克力），标题+卖点+底部信息条全开，真实空间感。",
+      layoutType: "large_headline_with_bottom_info_bar",
+    },
   ];
+
+  // 通过 adapter 获取 runtime 可用的 fallback visualStyleIds + hints
+  const { visualStyleIds, styleWorldPool, primaryHints, resolvedFreedom } =
+    adaptStyleWorldsForRuntime(assigned.map((a) => a.styleWorldId), userGoal);
 
   return {
     sourceType: "empty",
@@ -245,7 +290,13 @@ export function buildEmptyPlanBrief(
     allowedLayoutTypes: [],
     defaultCopyDensity: "rich",
     riskRules: EMPTY_TEMPLATE_RISK_RULES,
-    styleStrategy: freeStyleStrategy(),
+    styleStrategy: {
+      mode: "pick_from_pool",
+      pool: visualStyleIds,
+      count: 3,
+      styleWorldPool,
+      recommendedCopyMode: assigned.map((a) => a.copyMode).join(", "),
+    },
     variants: [],
     userGoal,
     productContext,
@@ -253,13 +304,18 @@ export function buildEmptyPlanBrief(
     avoidRules: EMPTY_TEMPLATE_AVOID_RULES,
     copyRules: EMPTY_TEMPLATE_COPY_RULES,
     inferredMode,
-    emptyTemplatePlans: suggestedPlanDirections.map((d) => ({
-      type: d.type as EmptyTemplatePlanType,
+    emptyTemplatePlans: suggestedPlanDirections.map((d, i) => ({
+      type: d.type,
       mode: inferredMode === "mixed" ? "dark" : inferredMode,
-      styleId: "free",
-      layoutType: "auto",
-      description: d.description,
+      styleId: visualStyleIds[i] || "free",
+      layoutType: d.layoutType,
+      description: `${d.description} [StyleWorld: ${assigned[i].styleWorldId}, copyMode: ${assigned[i].copyMode}]`,
+      styleWorldId: assigned[i].styleWorldId,
+      copyMode: assigned[i].copyMode,
     })),
+    styleWorldPromptHints: primaryHints,
+    resolvedCreativeFreedom: resolvedFreedom,
+    resolvedPrimaryStyleWorld: assigned[0].styleWorldId,
   };
 }
 
@@ -273,6 +329,41 @@ export function buildPlanBriefFromSystemTemplate(
   const template = getSystemTemplateProfile(templateId);
   if (!template) return null;
 
+  // v2.1: 如果模板有 configV2，优先使用 styleWorld 系统
+  if (template.configV2) {
+    const { visualStyleIds, styleWorldPool, primaryHints, resolvedFreedom } =
+      adaptStyleWorldsForRuntime(template.configV2.preferredStyleWorlds, userGoal);
+
+    return {
+      sourceType: "system_template",
+      sourceId: templateId,
+      imageType: template.imageType,
+      allowedLayoutTypes: template.allowedLayoutTypes,
+      defaultCopyDensity: template.defaultCopyDensity,
+      riskRules: template.riskRules,
+      styleStrategy: {
+        mode: "pick_from_pool",
+        pool: visualStyleIds,
+        count: 3,
+        styleWorldPool,
+        recommendedCopyMode: template.configV2.defaultCopyMode,
+      },
+      variants: template.variants,
+      userGoal,
+      mandatoryVisualRules: template.mandatoryVisualRules,
+      avoidRules: template.avoidRules,
+      sceneRules: template.sceneRules,
+      lightingColorRules: template.lightingColorRules,
+      productPlacementRules: template.productPlacementRules,
+      copyRules: template.copyRules,
+      userGoalConflictResolution: template.userGoalConflictResolution,
+      styleWorldPromptHints: primaryHints,
+      resolvedCreativeFreedom: resolvedFreedom,
+      resolvedPrimaryStyleWorld: styleWorldPool[0],
+    };
+  }
+
+  // Legacy fallback
   return {
     sourceType: "system_template",
     sourceId: templateId,

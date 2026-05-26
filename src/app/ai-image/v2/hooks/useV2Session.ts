@@ -5,8 +5,13 @@ import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
 import type { CreativePlan, V2DetailType, V2Session, V2SessionStatus, V2WorkspaceTab, Step } from "../types";
 import type { PlanTemplate } from "@/lib/plan-templates/types";
-import { getSystemTemplates } from "@/app/ai-image/v2/domain/templates";
-import { getUserTemplates, saveUserTemplate } from "@/lib/plan-templates/store";
+import {
+  getSystemTemplates,
+  getSavedTemplates,
+  saveSavedTemplate,
+  savedTemplateToPlanTemplate,
+  planTemplateToSavedTemplate,
+} from "@/app/ai-image/v2/domain/templates";
 import { buildNoTextImagePrompt } from "../lib/noTextPrompt";
 
 const SESSION_STORAGE_KEY = "ai_image_v2_sessions_v3";
@@ -63,6 +68,8 @@ function createEmptySession(seed?: Partial<V2Session>): V2Session {
 
     outputWidth: Number.isFinite(seed?.outputWidth) ? Number(seed?.outputWidth) : 1920,
     outputHeight: Number.isFinite(seed?.outputHeight) ? Number(seed?.outputHeight) : 1920,
+
+    provider: seed?.provider || process.env.NEXT_PUBLIC_DEFAULT_IMAGE_PROVIDER || "volcano",
 
     selectedTemplateId: seed?.selectedTemplateId ?? null,
 
@@ -142,11 +149,11 @@ export function useV2Session() {
 
   useEffect(() => {
     setSystemTemplates(getSystemTemplates());
-    setUserTemplates(getUserTemplates());
+    setUserTemplates(getSavedTemplates().map(savedTemplateToPlanTemplate));
   }, []);
 
   const refreshUserTemplates = useCallback(() => {
-    setUserTemplates(getUserTemplates());
+    setUserTemplates(getSavedTemplates().map(savedTemplateToPlanTemplate));
   }, []);
 
   useEffect(() => {
@@ -414,8 +421,9 @@ export function useV2Session() {
       if (!activeSession) return;
       const file = e.target.files?.[0];
       if (!file) return;
-      if ((activeSession.referenceImageUrls?.length || 0) >= 3) {
-        toast.error("参考图最多3张");
+      const maxRef = activeSession.provider === "chatgpt2api" ? 0 : 3;
+      if ((activeSession.referenceImageUrls?.length || 0) >= maxRef) {
+        toast.error(maxRef === 0 ? "ChatGPT2API 不支持参考图" : "参考图最多3张");
         if (referenceFileInputRef.current) referenceFileInputRef.current.value = "";
         return;
       }
@@ -560,7 +568,7 @@ export function useV2Session() {
 
   const handleSaveTemplate = useCallback(
     (template: PlanTemplate) => {
-      saveUserTemplate(template);
+      saveSavedTemplate(planTemplateToSavedTemplate(template));
       refreshUserTemplates();
       toast.success(`模板「${template.name}」已保存`);
     },
@@ -596,10 +604,15 @@ export function useV2Session() {
       const timeoutId = setTimeout(() => controller.abort(), 90000);
 
       try {
-        const styleRefs = [
-          ...(activeSession.productReferenceImageUrl ? [activeSession.productReferenceImageUrl] : []),
-          ...(activeSession.referenceImageUrls || []),
-        ];
+        const isChatGPT2API = activeSession.provider === "chatgpt2api";
+
+        // ChatGPT2API 只支持单张参考图（productImageUrl），不支持 styleReferenceUrls
+        const styleRefs = isChatGPT2API
+          ? []
+          : [
+              ...(activeSession.productReferenceImageUrl ? [activeSession.productReferenceImageUrl] : []),
+              ...(activeSession.referenceImageUrls || []),
+            ];
 
         // V2 default: generate WITH on-image copy using the plan's finalPrompt/imageGenerationPrompt.
         // Fallback to "no-text" prompt only when the plan prompt is missing.
@@ -620,6 +633,7 @@ export function useV2Session() {
             styleReferenceUrls: styleRefs,
             // Allow on-image copy in V2 by default; keep only watermark/logo bans.
             negativePrompt: negativePromptBase,
+            provider: activeSession.provider,
             config: {
               width: activeSession.outputWidth,
               height: activeSession.outputHeight,
@@ -733,6 +747,7 @@ export function useV2Session() {
           heroImageUrl,
           productDescription: activeSession.goal,
           selectedTypes,
+          provider: activeSession.provider,
           output: { width: activeSession.outputWidth, height: activeSession.outputHeight },
         }),
       });

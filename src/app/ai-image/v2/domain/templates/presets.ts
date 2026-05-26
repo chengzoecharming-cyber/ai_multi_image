@@ -3,6 +3,8 @@ import type { ImageTypeId } from "../image-types";
 import type { LayoutType } from "../layouts";
 import type { CopyDensityId } from "../copy-density";
 
+import { resolveTemplateFields } from "./compat";
+
 import { tplComparison } from "./defs/comparison";
 import { tplLifestyle } from "./defs/lifestyle";
 import { tplEnvironment } from "./defs/environment";
@@ -46,7 +48,10 @@ export const SYSTEM_TEMPLATE_IDS = Object.keys(SYSTEM_TEMPLATE_PROFILES);
  * 通过模板 ID 查询系统模板配置。
  */
 export function getSystemTemplateProfile(id: string): SystemTemplate | undefined {
-  return SYSTEM_TEMPLATE_PROFILES[id];
+  const raw = SYSTEM_TEMPLATE_PROFILES[id];
+  if (!raw) return undefined;
+  // v2.1 compat: 若模板包含 configV2，自动派生旧字段供下游零改动消费
+  return raw.configV2 ? resolveTemplateFields(raw) : raw;
 }
 
 /**

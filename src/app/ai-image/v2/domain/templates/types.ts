@@ -8,6 +8,7 @@ import type { VisualStyleId } from "../visual-styles";
 export type TemplateVisualComplexity = "simple" | "medium" | "complex";
 export type TemplateInformationDensity = "low" | "medium" | "high";
 
+/** @deprecated 保留旧值，新逻辑使用 copyMode + headlineRequirement */
 export type CopyProfile =
   | "headline_only"
   | "headline_labels"
@@ -30,7 +31,191 @@ export const V2_TEMPLATE_ENTRY_KIND_LABELS: Record<V2TemplateEntryKind, string> 
 };
 
 // ============================================================
-// SystemTemplate — 系统方案模板
+// 新三层架构 — 意图层
+// ============================================================
+
+export type TemplateIntentId =
+  | "hero_main"           // 主图/首图 — 识别产品
+  | "feature_explain"     // 功能卖点说明
+  | "detail_focus"        // 局部放大/细节聚焦
+  | "usage_scene"         // 应用场景/生活方式
+  | "comparison"          // 优势对比
+  | "spec_dimension"      // 规格参数/尺寸标注
+  | "promo_campaign"      // 促销/campaign
+  | "brand_mood"          // 品牌氛围/形象
+  | "bundle_showcase"     // 套装组合展示
+  | "story_sequence";     // 叙事/流程
+
+export interface TemplateIntent {
+  id: TemplateIntentId;
+  name: string;
+  description: string;
+  /** 该意图通常用于什么图片类型 */
+  typicalImageTypes: ImageTypeId[];
+  /** 该意图下产品的一般角色 */
+  defaultProductScaleStrategy: ProductScaleStrategy;
+  /** 该意图的默认文案模式 */
+  defaultCopyMode: CopyMode;
+  /** 该意图的默认创意自由度 */
+  defaultCreativeFreedom: CreativeFreedomLevel;
+}
+
+// ============================================================
+// 新三层架构 — 视觉世界层
+// ============================================================
+
+export type StyleWorldId =
+  // 原有方向（保留兼容）
+  | "clean_catalog"
+  | "light_technical"
+  | "dark_technical"
+  | "high_contrast_promo"
+  | "macro_chiaroscuro"
+  | "premium_black"
+  | "comparison_drama"
+  | "bundle_pop"
+  | "workshop_lifestyle"
+  | "cnc_machine_bed"
+  | "worn_workbench"
+  | "assembly_station"
+  // 新增方向
+  | "editorial_product_ad"
+  | "gradient_modern_showcase"
+  | "material_stage"
+  | "soft_premium"
+  | "colorful_marketplace"
+  | "minimal_no_text"
+  | "diagram_light"
+  | "scene_story"
+  | "cinematic_workshop";
+
+export interface StyleWorld {
+  id: StyleWorldId;
+  label: string;
+  description: string;
+  /** 视觉方向描述（注入 LLM） */
+  visualDirection: string;
+  /** 色彩方向描述（注入 LLM） */
+  colorDirection: string;
+  /** 该风格适合的意图 */
+  suitableIntents: TemplateIntentId[];
+  /** 该风格适合的创意自由度 */
+  suitableFreedomLevels: CreativeFreedomLevel[];
+  /** 该风格下的典型背景类型 */
+  typicalBackgrounds: BackgroundType[];
+  /** 该风格下的典型光源 */
+  typicalLighting: LightingMood[];
+}
+
+/** 背景类型 — 用于指导 LLM 选择，不锁定具体颜色 */
+export type BackgroundType =
+  | "pure_white"
+  | "light_neutral"
+  | "soft_gradient"
+  | "deep_void"
+  | "warm_studio"
+  | "cool_studio"
+  | "industrial_environment"
+  | "material_surface"
+  | "geometric_blocks"
+  | "editorial_negative_space"
+  | "cinematic_dark"
+  | "colorful_flat"
+  | "blueprint_grid"
+  | "bokeh_scene";
+
+export type LightingMood =
+  | "soft_diffused"
+  | "even_technical"
+  | "dramatic_key_rim"
+  | "warm_ambient"
+  | "hard_chiaroscuro"
+  | "flat_cad"
+  | "editorial_natural"
+  | "promo_spotlight"
+  | "cinematic_mixed";
+
+// ============================================================
+// 新三层架构 — 版式层
+// ============================================================
+
+export type LayoutStrategyId =
+  | "center_hero"
+  | "offset_hero"
+  | "side_panels"
+  | "orbital_callouts"
+  | "split_compare"
+  | "diagonal_energy"
+  | "grid_story"
+  | "poster_headline"
+  | "editorial_negative_space"
+  | "process_flow"
+  | "top_focus_bottom_bar"
+  | "full_bleed_product"
+  | "asymmetric_dynamic";
+
+export interface LayoutStrategy {
+  id: LayoutStrategyId;
+  name: string;
+  description: string;
+  /** 对应的底层 LayoutType */
+  compatibleLayoutTypes: LayoutType[];
+  /** 该版式下产品的典型呈现方式 */
+  productPresentation: string;
+}
+
+// ============================================================
+// 新枚举 — 文案模式与创意自由度
+// ============================================================
+
+export type CopyMode =
+  | "no_text"           // 纯视觉，无文案
+  | "headline_only"     // 仅一个大标题
+  | "headline_labels"   // 标题 + 简短标签
+  | "feature_cards"     // 标题 + 功能卡片/面板
+  | "technical_annotations" // 技术标注/占位符
+  | "promo_poster"      // 促销海报级丰富文案
+  | "story_sequence";   // 叙事型文案
+
+export type HeadlineRequirement = "required" | "optional" | "none";
+
+export type CreativeFreedomLevel = "strict" | "balanced" | "expressive";
+
+/** 产品比例策略 — 抽象化，不锁死百分比 */
+export type ProductScaleStrategy =
+  | "dominant"        // 产品是绝对主角，占画面主体
+  | "balanced"        // 产品与信息/环境均衡
+  | "supporting"      // 产品是配角，环境/信息是主角
+  | "detail_crop"     // 戏剧性裁切，只展示局部
+  | "environment_first"; // 环境/场景是主角，产品可小可隐
+
+// ============================================================
+// 新三层架构 — 模板配置（推荐组合）
+// ============================================================
+
+export interface TemplateConfigV2 {
+  /** 图片用途意图 */
+  intent: TemplateIntentId;
+  /** 推荐视觉世界（候选池，不锁定） */
+  preferredStyleWorlds: StyleWorldId[];
+  /** 推荐版式策略（候选池，不锁定） */
+  preferredLayouts: LayoutStrategyId[];
+  /** 默认文案模式 */
+  defaultCopyMode: CopyMode;
+  /** 标题要求强度 */
+  headlineRequirement: HeadlineRequirement;
+  /** 默认创意自由度 */
+  defaultCreativeFreedom: CreativeFreedomLevel;
+  /** 产品比例策略 */
+  productScaleStrategy: ProductScaleStrategy;
+  /** 安全规则（不变的红线） */
+  safetyRules: string[];
+  /** 冲突处理说明 */
+  conflictResolution?: string;
+}
+
+// ============================================================
+// SystemTemplate — 系统方案模板（扩展后）
 // ============================================================
 
 /**
@@ -45,105 +230,79 @@ export interface TemplateVariant {
 /**
  * SystemTemplate — 系统方案模板。
  *
- * 约束的是图片用途、结构规则、安全边界、可选布局范围、默认文案密度。
- * 不绑定固定视觉风格（allowedStyleIds 只是候选池）。
+ * v2.1 重构说明：
+ * - 旧字段（visualIdentity / colorDirection / layoutNonNegotiables / mandatoryVisualRules / ...）
+ *   保留但标记为 deprecated，由兼容层自动从 v2 字段生成。
+ * - 新增 configV2 字段承载三层架构（intent + styleWorld + layout）。
+ * - 新增 copyMode / headlineRequirement / creativeFreedom / productScaleStrategy。
+ * - 运行时通过 compat 层将 v2 字段映射回旧字段，保证下游零改动。
  */
 export interface SystemTemplate {
   id: string;
   name: string;
   description: string;
 
-  // 图片用途
+  // ── 基础分类（保留兼容） ──
   imageType: ImageTypeId;
-
-  // 结构原型（暂时用 string，后续收敛到 domain 类型）
   archetype: string;
-
-  // 版式约束：该模板允许使用哪些版式结构
   allowedLayoutTypes: LayoutType[];
-
-  // 文案密度策略
   defaultCopyDensity: CopyDensityId;
-
-  // 安全边界 / 风险规则
   riskRules: string[];
-
-  // 允许的视觉风格候选池（不绑定固定风格）
   allowedStyleIds: VisualStyleId[];
-
-  // 版式变体（同一模板下主动拉开的不同构图）
   variants: TemplateVariant[];
 
-  // === 后处理 / 英文覆盖层（从旧 TEMPLATE_RULES 迁移） ===
+  // ── 新三层架构（核心新增，可选，逐步迁移） ──
+  configV2?: TemplateConfigV2;
 
-  /** 视觉复杂度（写入 CreativePlan.visualComplexity） */
+  // ── 新控制字段（直接替换旧 profile，可选，逐步迁移） ──
+  copyMode?: CopyMode;
+  headlineRequirement?: HeadlineRequirement;
+  creativeFreedom?: CreativeFreedomLevel;
+  productScaleStrategy?: ProductScaleStrategy;
+
+  // ── 旧字段（deprecated，保留供兼容层读取） ──
+  /** @deprecated 由 styleWorld + intent 自动推导 */
   visualComplexity?: TemplateVisualComplexity;
-
-  /** 信息密度（写入 CreativePlan.informationDensity） */
+  /** @deprecated 由 copyMode + intent 自动推导 */
   informationDensity?: TemplateInformationDensity;
-
-  /** copyBlocks 重组策略（后处理强制执行） */
+  /** @deprecated 由 copyMode 直接替代 */
   copyProfile?: CopyProfile;
-
-  /** 英文视觉身份描述（注入 LLM system prompt） */
+  /** @deprecated 由 configV2.styleWorld.visualDirection 自动推导 */
   visualIdentity?: string;
-
-  /** 英文色彩方向 + 精确 hex（后处理覆盖） */
+  /** @deprecated 由 configV2.styleWorld.colorDirection 自动推导 */
   colorDirection?: string;
-
-  /** 英文布局硬约束（后处理覆盖） */
+  /** @deprecated 由 configV2.intent + layout 自动推导 */
   layoutNonNegotiables?: string;
 
-  // === 结构化视觉硬约束（可选，用于强化 brief prompt 控制力） ===
-
-  /** 视觉硬约束：必须遵守的画面规则 */
+  // ── 结构化规则字段（deprecated，兼容层自动合并生成） ──
+  /** @deprecated 由 intent + styleWorld + creativeFreedom 自动生成 */
   mandatoryVisualRules?: string[];
-
-  /** 禁止事项：必须避免的画面元素或处理方式 */
+  /** @deprecated 由 styleWorld + intent 自动生成 */
   avoidRules?: string[];
-
-  /** 场景/环境规则：背景、氛围、空间要求 */
+  /** @deprecated 由 intent + styleWorld 自动生成 */
   sceneRules?: string[];
-
-  /** 灯光/景深/色彩规则：光照、景深、调色要求 */
+  /** @deprecated 由 styleWorld 自动生成 */
   lightingColorRules?: string[];
-
-  /** 产品摆放规则：产品在画面中的位置、比例、处理方式 */
+  /** @deprecated 由 intent + productScaleStrategy + layout 自动生成 */
   productPlacementRules?: string[];
-
-  /** 文案规则：该模板下文案的具体形式、位置、密度要求 */
+  /** @deprecated 由 copyMode + headlineRequirement 自动生成 */
   copyRules?: string[];
-
-  /** 用户输入与模板用途冲突时的处理说明 */
+  /** @deprecated 由 configV2.conflictResolution 替代 */
   userGoalConflictResolution?: string;
 }
 
 // ============================================================
-// SavedTemplate — 我的模板
+// SavedTemplate — 我的模板（不变）
 // ============================================================
 
-/**
- * SavedTemplate — 用户保存的模板。
- *
- * 保存的是结构和规则，不是 prompt 字符串，也不保存视觉风格。
- */
 export interface SavedTemplate {
   id: string;
   name: string;
-
-  // 从哪个系统模板衍生（可选）
   baseTemplateId?: string;
-
-  // 用户确认过的图片用途
   imageType: ImageTypeId;
-
-  // 结构原型（可选）
   archetype?: string;
-
-  // 用户自定义规则
   allowedLayoutTypes?: LayoutType[];
   defaultCopyDensity?: CopyDensityId;
   riskRules?: string[];
-
   createdAt: number;
 }
