@@ -649,10 +649,38 @@ export function useV2Session() {
         });
         clearTimeout(timeoutId);
         const data = await res.json();
-        if (res.ok && data.data?.resultImageUrl) {
-          const urls = JSON.parse(data.data.resultImageUrl);
-          const imageUrl = urls[0];
-          const imageBase64 = data.imageBase64 || "";
+        const rawResultImageUrl =
+          data?.data?.resultImageUrl ?? data?.data?.imageUrl ?? data?.imageUrl ?? null;
+
+        const imageUrl = (() => {
+          if (!rawResultImageUrl) return null;
+          if (Array.isArray(rawResultImageUrl)) return rawResultImageUrl[0] || null;
+          if (typeof rawResultImageUrl !== "string") return null;
+
+          // Backends may return:
+          // 1) JSON stringified array: '["https://..."]'
+          // 2) JSON stringified string: '"https://..."'
+          // 3) Plain URL string: 'https://...'
+          try {
+            const parsed = JSON.parse(rawResultImageUrl);
+            if (Array.isArray(parsed)) return parsed[0] || null;
+            if (typeof parsed === "string") return parsed;
+          } catch {
+            return rawResultImageUrl;
+          }
+          return null;
+        })();
+
+        if (res.ok && imageUrl) {
+          const rawBase64 = (data?.imageBase64 as string | undefined) || "";
+          const imageBase64 =
+            rawBase64 && rawBase64.startsWith("data:")
+              ? rawBase64
+              : rawBase64 && rawBase64.startsWith("http")
+                ? ""
+                : rawBase64 && rawBase64.length > 64
+                  ? `data:image/png;base64,${rawBase64}`
+                  : "";
           updateActiveSession((s) => ({
             ...s,
             generatingImage: false,
