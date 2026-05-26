@@ -3,6 +3,7 @@ import type { LayoutType } from "../layouts";
 import type { CopyDensityId } from "../copy-density";
 import type { VisualStyleId } from "../visual-styles";
 import type { TemplateVariant } from "../templates";
+import type { StyleWorldId } from "../style-worlds";
 
 export type PlanBriefSourceType =
   | "empty"
@@ -33,20 +34,45 @@ export interface EmptyTemplatePlanConfig {
   layoutType: string;
   /** 方案描述 */
   description: string;
+  /** v2.1: 分配的 styleWorldId */
+  styleWorldId?: StyleWorldId;
+  /** v2.1: 文案模式 */
+  copyMode?: string;
 }
 
 /**
  * 视觉风格策略。
  *
  * 描述的是「怎么选风格」，不是绑定固定风格。
+ * v2.1 扩展：同时支持 legacy VisualStyleId 和新 StyleWorldId。
  */
 export interface StyleStrategy {
   /** 策略模式 */
   mode: "pick_from_pool" | "free";
-  /** 候选风格池 */
+  /** 候选 legacy visual style 池 */
   pool: VisualStyleId[];
   /** 需要从池中选出几个不同风格（例如一次生成 3 个方案） */
   count: number;
+  /** v2.1: 候选 styleWorld 池（优先消费） */
+  styleWorldPool?: StyleWorldId[];
+  /** v2.1: 推荐 copyMode */
+  recommendedCopyMode?: string;
+}
+
+/** v2.1: StyleWorld 运行时注入的 prompt hints */
+export interface StyleWorldPromptHints {
+  /** 视觉方向补充文本（并入 visualDirection） */
+  visualDirectionAddendum: string;
+  /** 色彩方向补充文本（并入 colorDirection） */
+  colorDirectionAddendum: string;
+  /** 额外 mandatory 规则 */
+  extraMandatoryRules: string[];
+  /** 额外 avoid 规则 */
+  extraAvoidRules: string[];
+  /** 场景/背景提示 */
+  sceneHints: string[];
+  /** 灯光提示 */
+  lightingHints: string[];
 }
 
 /**
@@ -78,6 +104,15 @@ export interface PlanBrief {
 
   /** 风格选择策略（不绑定固定风格） */
   styleStrategy: StyleStrategy;
+
+  /** v2.1: 选定的 styleWorld 提示（供 applyTemplateRuleToPlan 合并进 prompt） */
+  styleWorldPromptHints?: StyleWorldPromptHints;
+
+  /** v2.1: 解析后的用户意图冲突结果 */
+  resolvedCreativeFreedom?: "strict" | "balanced" | "expressive";
+
+  /** v2.1: 解析后的首选 styleWorld */
+  resolvedPrimaryStyleWorld?: StyleWorldId;
 
   // === 版式变体 ===
 

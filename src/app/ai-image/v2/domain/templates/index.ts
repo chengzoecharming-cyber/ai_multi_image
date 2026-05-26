@@ -1,6 +1,6 @@
 export type { V2TemplateEntryKind } from "./types";
 export { V2_TEMPLATE_ENTRY_KIND_LABELS } from "./types";
-export type { SystemTemplate, SavedTemplate, TemplateVariant, CopyProfile } from "./types";
+export type { SystemTemplate, SavedTemplate, TemplateVariant, CopyProfile, TemplateConfigV2 } from "./types";
 export {
   SYSTEM_TEMPLATE_PROFILES,
   getSystemTemplateProfile,
@@ -8,6 +8,7 @@ export {
   getTemplateDefaultCopyDensity,
   getTemplateAllowedLayouts,
 } from "./presets";
+export { resolveTemplateFields } from "./compat";
 export {
   templateToImageType,
   templateToAllowedLayouts,
@@ -19,6 +20,8 @@ export {
   getSystemTemplates,
   getSystemTemplateById,
   systemTemplateToPlanTemplate,
+  savedTemplateToPlanTemplate,
+  planTemplateToSavedTemplate,
 } from "./adapter";
 export {
   getSavedTemplates,

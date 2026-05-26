@@ -171,7 +171,7 @@ export async function POST(request: NextRequest) {
       seed,
     });
 
-    const providerName = body.provider || process.env.IMAGE_PROVIDER || "chatgpt2api";
+const providerName = body.provider || process.env.IMAGE_PROVIDER || "chatgpt2api";
     const provider = getImageProvider(providerName);
 
     const task = await prisma.aiImageTask.create({

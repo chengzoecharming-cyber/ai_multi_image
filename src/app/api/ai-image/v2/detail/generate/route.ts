@@ -93,8 +93,8 @@ export async function POST(request: NextRequest) {
     const width = Number.isFinite(Number(output?.width)) ? Number(output?.width) : 1920;
     const height = Number.isFinite(Number(output?.height)) ? Number(output?.height) : 1920;
 
-    const provider = getImageProvider();
-    const providerName = process.env.IMAGE_PROVIDER || "pollinations";
+    const providerName = body.provider || process.env.IMAGE_PROVIDER || "pollinations";
+    const provider = getImageProvider(providerName);
 
     const pages: Array<{ type: DetailType; imageUrl: string; taskId?: string }> = [];
     let index = 0;

@@ -312,95 +312,145 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
     );
   }
 
-  parts.push(
+  // ── Dynamic TEXT RENDERING REQUIREMENTS ──
+  // Only emit rendering rules for copyBlock roles that actually exist.
+  // This prevents 8k-10k prompts when only a headline is present.
+  const cbRoles = new Set(plan.copyBlocks?.map((b) => b.role) || []);
+  const hasHeadline = cbRoles.has("headline");
+  const hasSubheadline = cbRoles.has("subheadline");
+  const hasCoreClaim = cbRoles.has("core_claim");
+  const hasFeature = cbRoles.has("feature_point");
+  const hasTechnical = cbRoles.has("technical_point");
+  const hasComparison = cbRoles.has("comparison_label");
+  const hasApplication = cbRoles.has("application_label");
+  const hasBottom = cbRoles.has("bottom_info");
+  const hasAnyBlocks = plan.copyBlocks && plan.copyBlocks.length > 0;
+
+  const renderingParts: string[] = [
     ``,
     `=== TEXT RENDERING REQUIREMENTS ===`,
     ``,
-    ...(plan.planArchetype === "comparison_story" ? [
+  ];
+
+  if (plan.planArchetype === "comparison_story") {
+    renderingParts.push(
       `## COMPARISON-SPECIFIC RENDERING (MANDATORY for split-screen comparison)`,
       ``,
       `### VS DIVIDER`,
       `• Large bold 'VS' text centered vertically on the dividing line between left and right halves`,
       `• White (#FFFFFF) or silver (#E0E0E0), heavy sans-serif weight, substantial size`,
-      `• Must be readable at thumbnail scale — this is the visual anchor of the entire image`,
-      `• May sit inside a subtle circular or diamond badge with dark translucent background`,
-      `• The VS divider makes the comparison instantly recognizable`,
+      `• Must be readable at thumbnail scale`,
       ``,
-      `### RED X MARK (LEFT SIDE — signals problem/inferior)`,
-      `• Large red 'X' mark or red cross symbol placed prominently BESIDE the left-side product`,
-      `• Color: bright red (#DC2626) or crimson (#EF4444), solid fill`,
-      `• Must NOT cover the product itself — place it in negative space next to the product`,
-      `• Size: large enough to be immediately noticed — roughly 8-12% of half-frame height`,
-      `• Style: clean geometric X, not hand-drawn or sketchy`,
+      `### RED X MARK (LEFT SIDE)`,
+      `• Large red 'X' mark beside the left-side product. Color: #DC2626. Size: ~8-12% of half-frame height.`,
       ``,
-      `### GREEN CHECKMARK (RIGHT SIDE — signals superior/solution)`,
-      `• Large green checkmark or tick symbol placed prominently BESIDE the right-side featured product`,
-      `• Color: bright green (#22C55E) or emerald (#10B981), solid fill`,
-      `• Must NOT cover the product itself — place it in negative space next to the product`,
-      `• Size: large enough to be immediately noticed — roughly 8-12% of half-frame height`,
-      `• Style: clean geometric checkmark, not hand-drawn or sketchy`,
+      `### GREEN CHECKMARK (RIGHT SIDE)`,
+      `• Large green checkmark beside the right-side product. Color: #22C55E. Size: ~8-12% of half-frame height.`,
       ``,
       `### BOTTOM FEATURE BAR`,
-      `• Horizontal dark panel spanning the FULL WIDTH at the bottom 15-20% of the image`,
-      `• Background: dark charcoal (#1A1A1A) or near-black at 85-95% opacity`,
-      `• 3 feature advantage cards evenly spaced across the bar`,
-      `• Each card: small geometric icon + bold title (2-4 words, ALL CAPS) + 1-line description`,
-      `• Card style: dark semi-transparent panel with a green left-border accent (#22C55E)`,
-      `• Card spacing: equal gaps between cards, consistent padding inside each card`,
-      `• Typography: clean sans-serif, white or warm white text`,
+      `• Horizontal dark panel at bottom 15-20%. 3 evenly-spaced cards with icon + bold title (ALL CAPS) + 1-line description. Green left-border accent.`,
       ``,
-    ] : []),
-    `## HEADLINE RENDERING`,
-    `• ALL CAPS, bold sans-serif, largest text on the image`,
-    `• Positioned as the dominant visual anchor — upper third or center-left`,
-    `• Must have maximum contrast against background — use solid text, never outline-only`,
-    `• If multiple headlines exist, the highest-priority one is primary; others become secondary headlines at ~60% size`,
-    ``,
-    `## SUBHEADLINE RENDERING`,
-    `• Clean readable weight (medium, not bold), ~40-50% of headline size`,
-    `• Positioned directly under or beside the main headline with consistent vertical rhythm`,
-    `• Use a slightly muted color (e.g. secondary text color, not pure black/white)`,
-    ``,
-    `## CORE CLAIM RENDERING`,
-    `• Render as bold trust statements — large bold text blocks, certification-style badges, or guarantee callouts`,
-    `• Use accent color backgrounds or left-border accent strips for visual weight`,
-    `• These are persuasion elements, so make them visually distinct from neutral feature blocks`,
-    ``,
-    `## FEATURE POINT RENDERING`,
-    `• EACH feature point is a self-contained visual card/panel`,
-    `• Title: bold, slightly larger than description, positioned at top of the card`,
-    `• Description (body): clean readable weight, 1-2 lines beneath the title, explaining the BENEFIT (not just the feature name)`,
-    `• Style options: dark semi-transparent panel, gradient card, left-accent-border block, or icon+text layout`,
-    `• If an iconHint is provided, place a simple geometric icon to the LEFT of the title`,
-    `• Cards should have consistent spacing, padding, and rounded corners`,
-    `• Cards can slightly overlap the product image for depth, or sit in clean negative space`,
-    ``,
-    `## TECHNICAL POINT RENDERING`,
-    `• Render as precision/specification blocks — engineering-style typography`,
-    `• Use monospaced or clean sans-serif with tight letter-spacing`,
-    `• Style: clean rectangular panels with subtle borders, callout boxes, or inset specification badges`,
-    `• Place near the product or in a technical sidebar — avoid cluttering the main visual focus`,
-    ``,
-    `## COMPARISON LABEL RENDERING`,
-    `• Render as side-by-side column headers or contrast badges`,
-    `• Use contrasting accent colors for each side (e.g. blue vs orange, green vs red)`,
-    `• Bold uppercase or bold weight, placed above or within comparison panels`,
-    `• Visual separation: thin dividing line, different background tints, or side-by-side columns`,
-    `• For split-screen comparison: LEFT label = 'ORDINARY' or 'STANDARD' in cool gray (#8A9AAF). RIGHT label = 'OUR PRODUCT' or 'UPGRADED' in warm accent (#FFB347 or #4ADE80)`,
-    `• Each label must have a short descriptor beneath: LEFT = negative (e.g., 'Chip Welding / Poor Finish') in muted red-gray. RIGHT = positive (e.g., 'Smooth Finish / No Chip Welding') in warm white`,
-    ``,
-    `## APPLICATION LABEL RENDERING`,
-    `• Render as scene tags, use-case badges, or grid item titles`,
-    `• Pill-shaped badges, small cards, or labels overlaying scene imagery`,
-    `• Use-case imagery should visually depict the application context (e.g. factory floor, workshop, machinery)`,
-    ``,
-    `## BOTTOM INFO BAR RENDERING`,
-    `• Horizontal dark panel spanning the full width at the bottom edge`,
-    `• Evenly-spaced labels separated by thin vertical dividers`,
-    `• Typography: clean sans-serif, medium weight, white or light-colored text`,
-    `• Background: solid dark band (dark gray, navy, or black at ~80-90% opacity)`,
-    `• Each label is a concise value or specification — NOT a CTA button`,
-    ``,
+    );
+  }
+
+  if (hasHeadline || !hasAnyBlocks) {
+    renderingParts.push(
+      `## HEADLINE RENDERING`,
+      `• ALL CAPS, bold sans-serif, largest text on the image`,
+      `• Dominant visual anchor — upper third or center-left`,
+      `• Maximum contrast against background — solid text, never outline-only`,
+      hasAnyBlocks && plan.copyBlocks!.filter((b) => b.role === "headline").length > 1
+        ? `• Multiple headlines: highest-priority is primary; others become secondary at ~60% size`
+        : ``,
+      ``,
+    );
+  }
+
+  if (hasSubheadline) {
+    renderingParts.push(
+      `## SUBHEADLINE RENDERING`,
+      `• Medium weight, ~40-50% of headline size`,
+      `• Positioned directly under or beside the main headline`,
+      `• Use slightly muted color (secondary text color)`,
+      ``,
+    );
+  }
+
+  if (hasCoreClaim) {
+    renderingParts.push(
+      `## CORE CLAIM RENDERING`,
+      `• Bold trust statements — large bold text blocks, certification badges, or guarantee callouts`,
+      `• Accent color backgrounds or left-border accent strips for visual weight`,
+      ``,
+    );
+  }
+
+  if (hasFeature) {
+    renderingParts.push(
+      `## FEATURE POINT RENDERING`,
+      `• EACH feature point is a self-contained visual card/panel`,
+      `• Title: bold, slightly larger, at top of card`,
+      `• Description: clean readable weight, 1-2 lines, explaining the BENEFIT`,
+      `• Style: dark semi-transparent panel, gradient card, left-accent-border block, or icon+text layout`,
+      `• If iconHint provided, place simple geometric icon to the LEFT of the title`,
+      `• Consistent spacing, padding, rounded corners`,
+      ``,
+    );
+  }
+
+  if (hasTechnical) {
+    renderingParts.push(
+      `## TECHNICAL POINT RENDERING`,
+      `• Precision/specification blocks — engineering-style typography`,
+      `• Monospaced or clean sans-serif with tight letter-spacing`,
+      `• Clean rectangular panels with subtle borders or inset badges`,
+      `• Place near the product or in a technical sidebar`,
+      ``,
+    );
+  }
+
+  if (hasComparison) {
+    renderingParts.push(
+      `## COMPARISON LABEL RENDERING`,
+      `• Side-by-side column headers or contrast badges`,
+      `• Contrasting accent colors per side (e.g. blue vs orange)`,
+      `• Bold uppercase, placed above or within comparison panels`,
+      ``,
+    );
+  }
+
+  if (hasApplication) {
+    renderingParts.push(
+      `## APPLICATION LABEL RENDERING`,
+      `• Scene tags, use-case badges, or grid item titles`,
+      `• Pill-shaped badges or small cards overlaying scene imagery`,
+      ``,
+    );
+  }
+
+  if (hasBottom) {
+    renderingParts.push(
+      `## BOTTOM INFO BAR RENDERING`,
+      `• Horizontal dark panel at bottom edge, full width`,
+      `• Evenly-spaced labels separated by thin vertical dividers`,
+      `• Clean sans-serif, medium weight, white or light-colored text`,
+      `• Background: solid dark band at ~80-90% opacity`,
+      `• Each label is a concise value/spec — NOT a CTA button`,
+      ``,
+    );
+  }
+
+  // Fallback selling points rendering (when no copyBlocks)
+  if (!hasAnyBlocks && plan.sellingPoints.length > 0) {
+    renderingParts.push(
+      `## SELLING POINT RENDERING`,
+      `• Each selling point as a distinct visual badge, tag, or info block`,
+      `• Use consistent card style or badge style across all points`,
+      ``,
+    );
+  }
+
+  renderingParts.push(
     `## GENERAL TYPOGRAPHY RULES`,
     `• Text must NEVER float on empty background — every text block must have a designed background treatment`,
     `• Background treatments: solid color blocks, gradient panels, geometric shapes, subtle dark overlays, frosted glass`,
@@ -409,6 +459,8 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
     `• Maintain consistent font family across all text — use 1-2 complementary typefaces maximum`,
     `• Ensure ALL text is fully legible at intended viewing size — test contrast ratios`,
   );
+
+  parts.push(...renderingParts.filter((s) => s !== ""));
 
   if (lo) {
     parts.push(

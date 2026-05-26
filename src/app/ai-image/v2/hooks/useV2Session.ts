@@ -5,8 +5,13 @@ import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
 import type { CreativePlan, V2DetailType, V2Session, V2SessionStatus, V2WorkspaceTab, Step } from "../types";
 import type { PlanTemplate } from "@/lib/plan-templates/types";
-import { getSystemTemplates } from "@/app/ai-image/v2/domain/templates";
-import { getUserTemplates, saveUserTemplate } from "@/lib/plan-templates/store";
+import {
+  getSystemTemplates,
+  getSavedTemplates,
+  saveSavedTemplate,
+  savedTemplateToPlanTemplate,
+  planTemplateToSavedTemplate,
+} from "@/app/ai-image/v2/domain/templates";
 import { buildNoTextImagePrompt } from "../lib/noTextPrompt";
 
 const SESSION_STORAGE_KEY = "ai_image_v2_sessions_v3";
@@ -64,8 +69,7 @@ function createEmptySession(seed?: Partial<V2Session>): V2Session {
     outputWidth: Number.isFinite(seed?.outputWidth) ? Number(seed?.outputWidth) : 1920,
     outputHeight: Number.isFinite(seed?.outputHeight) ? Number(seed?.outputHeight) : 1920,
 
-    provider: seed?.provider || process.env.NEXT_PUBLIC_DEFAULT_IMAGE_PROVIDER || "chatgpt2api",
-
+provider: seed?.provider || process.env.NEXT_PUBLIC_DEFAULT_IMAGE_PROVIDER || "chatgpt2api",
     selectedTemplateId: seed?.selectedTemplateId ?? null,
 
     singlePlans: seed?.singlePlans ?? [],
@@ -144,11 +148,11 @@ export function useV2Session() {
 
   useEffect(() => {
     setSystemTemplates(getSystemTemplates());
-    setUserTemplates(getUserTemplates());
+    setUserTemplates(getSavedTemplates().map(savedTemplateToPlanTemplate));
   }, []);
 
   const refreshUserTemplates = useCallback(() => {
-    setUserTemplates(getUserTemplates());
+    setUserTemplates(getSavedTemplates().map(savedTemplateToPlanTemplate));
   }, []);
 
   useEffect(() => {
@@ -563,7 +567,7 @@ export function useV2Session() {
 
   const handleSaveTemplate = useCallback(
     (template: PlanTemplate) => {
-      saveUserTemplate(template);
+      saveSavedTemplate(planTemplateToSavedTemplate(template));
       refreshUserTemplates();
       toast.success(`模板「${template.name}」已保存`);
     },
@@ -643,66 +647,62 @@ export function useV2Session() {
           signal: controller.signal,
         });
         clearTimeout(timeoutId);
-                  const data = await res.json();
+        const data = await res.json();
+        const rawResultImageUrl =
+          data?.data?.resultImageUrl ?? data?.data?.imageUrl ?? data?.imageUrl ?? null;
 
-          const rawResultImageUrl =
-            data?.data?.resultImageUrl ?? data?.data?.imageUrl ?? data?.imageUrl ?? null;
+        const imageUrl = (() => {
+          if (!rawResultImageUrl) return null;
+          if (Array.isArray(rawResultImageUrl)) return rawResultImageUrl[0] || null;
+          if (typeof rawResultImageUrl !== "string") return null;
 
-          const imageUrl = (() => {
-            if (!rawResultImageUrl) return null;
-            if (Array.isArray(rawResultImageUrl)) return rawResultImageUrl[0] || null;
-            if (typeof rawResultImageUrl !== "string") return null;
+          // Backends may return:
+          // 1) JSON stringified array: '["https://..."]'
+          // 2) JSON stringified string: '"https://..."'
+          // 3) Plain URL string: 'https://...'
+          try {
+            const parsed = JSON.parse(rawResultImageUrl);
+            if (Array.isArray(parsed)) return parsed[0] || null;
+            if (typeof parsed === "string") return parsed;
+          } catch {
+            return rawResultImageUrl;
+          }
+          return null;
+        })();
 
-            try {
-              const parsed = JSON.parse(rawResultImageUrl);
-              if (Array.isArray(parsed)) return parsed[0] || null;
-              if (typeof parsed === "string") return parsed;
-            } catch {
-              // Fallback: extract first URL-like substring (handles broken ["http://..."] strings).
-              const m = rawResultImageUrl.match(/https?:\/\/[^\s"'\\\]]+/);
-              return m?.[0] || rawResultImageUrl;
-            }
-            return null;
-          })();
-
-          if (res.ok && imageUrl) {
-            const rawBase64 = (data?.imageBase64 as string | undefined) || "";
-            const imageBase64 =
-              rawBase64 && rawBase64.startsWith("data:")
-                ? rawBase64
+        if (res.ok && imageUrl) {
+          const rawBase64 = (data?.imageBase64 as string | undefined) || "";
+          const imageBase64 =
+            rawBase64 && rawBase64.startsWith("data:")
+              ? rawBase64
+              : rawBase64 && rawBase64.startsWith("http")
+                ? ""
                 : rawBase64 && rawBase64.length > 64
                   ? `data:image/png;base64,${rawBase64}`
                   : "";
-
-            updateActiveSession((s) => ({
-              ...s,
-              generatingImage: false,
-              generatingImagePlanId: null,
-              generatedImages: [
-                {
-                  id: globalThis.crypto?.randomUUID?.() || `img-${nowTs()}-${Math.random().toString(36).slice(2, 6)}`,
-                  planId: plan.id,
-                  taskId: data.data?.id,
-                  tab: "product",
-                  imageUrl,
-                  imageBase64,
-                  createdAt: nowTs(),
-                },
-                ...s.generatedImages,
-              ],
-              productReferenceImageUrl: s.productReferenceImageUrl || imageUrl,
-            }));
-            toast.success("图片生成成功");
-          } else {
-            toast.error(data.error || "生成失败");
-            updateActiveSession((s) => ({
-              ...s,
-              generatingImage: false,
-              generatingImagePlanId: null,
-              lastError: data.error || "生成失败",
-            }));
-          }              
-
+          updateActiveSession((s) => ({
+            ...s,
+            generatingImage: false,
+            generatingImagePlanId: null,
+            generatedImages: [
+              {
+                id: globalThis.crypto?.randomUUID?.() || `img-${nowTs()}-${Math.random().toString(36).slice(2, 6)}`,
+                planId: plan.id,
+                taskId: data.data?.id,
+                tab: "product",
+                imageUrl,
+                imageBase64,
+                createdAt: nowTs(),
+              },
+              ...s.generatedImages,
+            ],
+            productReferenceImageUrl: s.productReferenceImageUrl || imageUrl,
+          }));
+          toast.success("图片生成成功");
+        } else {
+          toast.error(data.error || "生成失败");
+          updateActiveSession((s) => ({ ...s, generatingImage: false, generatingImagePlanId: null, lastError: data.error || "生成失败" }));
+        }
       } catch (err: unknown) {
         clearTimeout(timeoutId);
         if (err instanceof Error && err.name === "AbortError") {

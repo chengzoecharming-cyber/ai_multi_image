@@ -1,0 +1,1177 @@
+
+================================================================================
+A. 空模板 / auto — userGoal: 更高级，有设计感
+================================================================================
+
+─── 1. PlanBrief 核心字段 ───
+sourceType: empty
+sourceId: auto
+styleStrategy.pool (legacy): [ 'clean_catalog', 'clean_catalog', 'workshop_lifestyle' ]
+styleStrategy.styleWorldPool: [
+  'editorial_product_ad',
+  'gradient_modern_showcase',
+  'material_stage'
+]
+styleStrategy.recommendedCopyMode: headline_only, feature_cards, headline_labels
+resolvedCreativeFreedom: expressive
+resolvedPrimaryStyleWorld: editorial_product_ad
+
+─── 2. StyleWorldPromptHints（注入前） ───
+visualDirectionAddendum: StyleWorld: "杂志广告风". Editorial magazine-style commercial photography. Generous negative space, the product is placed like a curated art object. Bold typography with extreme size contrast between massive headlines and minimal supporting text. The overall mood is Apple-product-page level restraint, authority, and editorial confidence.
+colorDirectionAddendum: StyleWorld palette: Background: very light warm gray #FAFAFA to #F0F0F0, or muted sage #E8E8E0, or dusty rose #F5E6E0 depending on product tone. Product: natural material colors only. Text: deep charcoal #1A1A1A for headlines, medium gray #6B7280 for subtext. Accent: single technical blue #0066FF or terracotta #C67B5C used sparingly for one highlight element only.
+extraMandatoryRules: [
+  'Background must be one of: light_neutral, editorial_negative_space, soft_gradient.',
+  'Lighting must be one of: editorial_natural, soft_diffused.'
+]
+extraAvoidRules: [
+  'Do NOT use backgrounds or lighting moods outside the "杂志广告风" style world.'
+]
+sceneHints: [
+  'Allowed background: light_neutral',
+  'Allowed background: editorial_negative_space',
+  'Allowed background: soft_gradient'
+]
+lightingHints: [
+  'Allowed lighting: editorial_natural',
+  'Allowed lighting: soft_diffused'
+]
+
+─── 3. applyTemplateRuleToPlan 之前 — mockPlan.visualDirection ───
+Professional studio lighting with crisp edge highlights
+mockPlan.colorDirection: Metallic silver tones with dark charcoal background
+
+─── 4. applyTemplateRuleToPlan 之后 — final visualDirection ───
+Light technical explainer style with full sharp product rendering, even studio light, subtle ground reflection, precise alignment, and clean information panels. The mood is engineered, readable, and calm.
+Saved-template constraints: Follow the selected saved template's saved layout, visual, and color direction without copying old product-specific content.
+This plan's visual style is "浅色技术说明", intentionally different from the other two plans in this generation record.
+StyleWorld: "杂志广告风". Editorial magazine-style commercial photography. Generous negative space, the product is placed like a curated art object. Bold typography with extreme size contrast between massive headlines and minimal supporting text. The overall mood is Apple-product-page level restraint, authority, and editorial confidence.
+final colorDirection: Cool light gray background #E8ECF0 to #F4F6F8, white panels #FFFFFF, primary text #111827, secondary #475569, single technical accent #0066CC or #008080.
+StyleWorld palette: Background: very light warm gray #FAFAFA to #F0F0F0, or muted sage #E8E8E0, or dusty rose #F5E6E0 depending on product tone. Product: natural material colors only. Text: deep charcoal #1A1A1A for headlines, medium gray #6B7280 for subtext. Accent: single technical blue #0066FF or terracotta #C67B5C used sparingly for one highlight element only.
+
+─── 5. 最终进入模型的完整 prompt（imageGenerationPrompt） ───
+=== VISUAL STYLE AND COMPOSITION (MANDATORY — OVERRIDE ALL DEFAULT STYLES) ===
+Photography style, lighting, and atmosphere: Light technical explainer style with full sharp product rendering, even studio light, subtle ground reflection, precise alignment, and clean information panels. The mood is engineered, readable, and calm.
+Saved-template constraints: Follow the selected saved template's saved layout, visual, and color direction without copying old product-specific content.
+This plan's visual style is "浅色技术说明", intentionally different from the other two plans in this generation record.
+StyleWorld: "杂志广告风". Editorial magazine-style commercial photography. Generous negative space, the product is placed like a curated art object. Bold typography with extreme size contrast between massive headlines and minimal supporting text. The overall mood is Apple-product-page level restraint, authority, and editorial confidence.
+Color palette and tonal direction: Cool light gray background #E8ECF0 to #F4F6F8, white panels #FFFFFF, primary text #111827, secondary #475569, single technical accent #0066CC or #008080.
+StyleWorld palette: Background: very light warm gray #FAFAFA to #F0F0F0, or muted sage #E8E8E0, or dusty rose #F5E6E0 depending on product tone. Product: natural material colors only. Text: deep charcoal #1A1A1A for headlines, medium gray #6B7280 for subtext. Accent: single technical blue #0066FF or terracotta #C67B5C used sparingly for one highlight element only.
+Composition, product placement, and layout: Product centered with text blocks arranged in clean hierarchy
+Diversity requirement: use a distinct composition, product angle/crop, information density, and text rhythm from the other two plans.
+Visual complexity: medium. Information density: medium.
+
+=== PRODUCT SUBJECT ===
+Product: "Carbide Drill Bit".
+
+
+=== MANDATORY ON-IMAGE TEXT ===
+ALL of the following English text MUST be rendered ON the image as real, readable typography.
+Text must be professional commercial typesetting — NOT placeholder space, NOT blurry, NOT garbled.
+
+HEADLINE (largest, boldest, most prominent element on the image):
+"PRECISION CUT EVERY TIME"
+
+SUBTITLE (clearly readable beneath the headline):
+"Engineered for high-speed steel drilling with extended tool life"
+
+HEADLINES (render as largest, boldest text — choose the highest-priority headline as the main visual anchor):
+  • "PRECISION CUT EVERY TIME" (P1)
+
+SUBHEADLINES (render directly beneath or beside the main headline, slightly smaller but still prominent):
+  • "Engineered for high-speed steel drilling"
+
+CORE CLAIMS (render as bold trust statements — large bold text blocks or badge-style callouts):
+  • "BUILT TO PERFORM"
+
+FEATURE POINTS (render EACH as a self-contained visual card/panel with title + description):
+  - Title: bold, slightly larger, dark or accent-colored text
+  - Description (body): clean readable weight, 1-2 lines beneath the title, explaining the benefit
+  - Style: dark semi-transparent panel, gradient card, or left-accent-border block
+  - If an iconHint is provided, place a simple geometric icon to the LEFT of the title
+  • "FAST CHIP REMOVAL" | Optimized flute geometry clears chips rapidly
+  • "LESS HEAT BUILD-UP" | Advanced edge geometry reduces friction
+  • "HIGH FEED EFFICIENCY" | Supports aggressive feed rates
+
+TECHNICAL POINTS (render as precision/specification blocks — monospaced or engineering-style typography):
+  - Title: bold label (e.g. "Material", "Tolerance", "Surface Finish")
+  - Description: technical detail explaining the specification
+  - Style: clean rectangular panels with subtle borders, callout boxes, or inset badges
+  • "OPTIMIZED HELIX ANGLE" | 35-degree helix for smooth entry
+  • "REINFORCED CORE" | Stronger core for deep hole drilling
+
+BOTTOM INFO BAR (render as a horizontal dark panel at the bottom edge of the image):
+  - Layout: evenly-spaced labels separated by thin vertical dividers
+  - Typography: clean sans-serif, medium weight, white or light-colored text
+  - Background: solid dark band (dark gray, navy, or black at ~80-90% opacity)
+  - Each label should be a concise value or specification (NOT a CTA button)
+  • "DRY CUT READY"
+  • "CNC OPTIMIZED"
+  • "LONGER TOOL LIFE"
+
+=== TEXT RENDERING REQUIREMENTS ===
+
+## HEADLINE RENDERING
+• ALL CAPS, bold sans-serif, largest text on the image
+• Positioned as the dominant visual anchor — upper third or center-left
+• Must have maximum contrast against background — use solid text, never outline-only
+• If multiple headlines exist, the highest-priority one is primary; others become secondary headlines at ~60% size
+
+## SUBHEADLINE RENDERING
+• Clean readable weight (medium, not bold), ~40-50% of headline size
+• Positioned directly under or beside the main headline with consistent vertical rhythm
+• Use a slightly muted color (e.g. secondary text color, not pure black/white)
+
+## CORE CLAIM RENDERING
+• Render as bold trust statements — large bold text blocks, certification-style badges, or guarantee callouts
+• Use accent color backgrounds or left-border accent strips for visual weight
+• These are persuasion elements, so make them visually distinct from neutral feature blocks
+
+## FEATURE POINT RENDERING
+• EACH feature point is a self-contained visual card/panel
+• Title: bold, slightly larger than description, positioned at top of the card
+• Description (body): clean readable weight, 1-2 lines beneath the title, explaining the BENEFIT (not just the feature name)
+• Style options: dark semi-transparent panel, gradient card, left-accent-border block, or icon+text layout
+• If an iconHint is provided, place a simple geometric icon to the LEFT of the title
+• Cards should have consistent spacing, padding, and rounded corners
+• Cards can slightly overlap the product image for depth, or sit in clean negative space
+
+## TECHNICAL POINT RENDERING
+• Render as precision/specification blocks — engineering-style typography
+• Use monospaced or clean sans-serif with tight letter-spacing
+• Style: clean rectangular panels with subtle borders, callout boxes, or inset specification badges
+• Place near the product or in a technical sidebar — avoid cluttering the main visual focus
+
+## COMPARISON LABEL RENDERING
+• Render as side-by-side column headers or contrast badges
+• Use contrasting accent colors for each side (e.g. blue vs orange, green vs red)
+• Bold uppercase or bold weight, placed above or within comparison panels
+• Visual separation: thin dividing line, different background tints, or side-by-side columns
+• For split-screen comparison: LEFT label = 'ORDINARY' or 'STANDARD' in cool gray (#8A9AAF). RIGHT label = 'OUR PRODUCT' or 'UPGRADED' in warm accent (#FFB347 or #4ADE80)
+• Each label must have a short descriptor beneath: LEFT = negative (e.g., 'Chip Welding / Poor Finish') in muted red-gray. RIGHT = positive (e.g., 'Smooth Finish / No Chip Welding') in warm white
+
+## APPLICATION LABEL RENDERING
+• Render as scene tags, use-case badges, or grid item titles
+• Pill-shaped badges, small cards, or labels overlaying scene imagery
+• Use-case imagery should visually depict the application context (e.g. factory floor, workshop, machinery)
+
+## BOTTOM INFO BAR RENDERING
+• Horizontal dark panel spanning the full width at the bottom edge
+• Evenly-spaced labels separated by thin vertical dividers
+• Typography: clean sans-serif, medium weight, white or light-colored text
+• Background: solid dark band (dark gray, navy, or black at ~80-90% opacity)
+• Each label is a concise value or specification — NOT a CTA button
+
+## GENERAL TYPOGRAPHY RULES
+• Text must NEVER float on empty background — every text block must have a designed background treatment
+• Background treatments: solid color blocks, gradient panels, geometric shapes, subtle dark overlays, frosted glass
+• Typography must look like professional commercial graphic design, not simple captions
+• Layer text with visual depth: headline overlaps nothing or sits on top, subtitles on panels, selling points in cards
+• Maintain consistent font family across all text — use 1-2 complementary typefaces maximum
+• Ensure ALL text is fully legible at intended viewing size — test contrast ratios
+
+=== LAYOUT ===
+Layout Type: premium_center_product_minimal_text
+Visual Density: clean
+Regions:
+  [hero_product] center / large (priority 1)
+  [headline_area] top / medium (priority 2)
+  [subheadline_area] bottom / small (priority 3)
+Text Elements:
+  [headline] "PRECISION CUT EVERY TIME" → position: top (priority 1)
+  [subtitle] "Engineered for high-speed steel drilling with extended tool life" → position: bottom (priority 2)
+  [feature_title] "FAST CHIP REMOVAL / Optimized flute geometry clears chips rapidly" → position: top (priority 3)
+  [feature_title] "LESS HEAT BUILD-UP / Advanced edge geometry reduces friction" → position: bottom (priority 4)
+  [selling_point] "HIGH FEED EFFICIENCY / Supports aggressive feed rates" → position: top (priority 5)
+Icon System:
+  target: "PRECISION CUT EVERY TIME"
+  speed: "Engineered for high-speed steel drilling"
+  wind: "FAST CHIP REMOVAL"
+  temperature: "LESS HEAT BUILD-UP"
+  chart: "HIGH FEED EFFICIENCY"
+  target: "DRY CUT READY"
+  gear: "CNC OPTIMIZED"
+  clock: "LONGER TOOL LIFE"
+Color Theme:
+  Primary: #0a0a0f
+  Secondary: #1c1917
+  Background: #0a0a0f
+  Text: #ffffff
+  Accent: #dc2626
+=== STYLE & QUALITY ===
+Photorealistic commercial product photography, professional studio quality, crisp edges, high resolution.
+Follow the visual style specified in the VISUAL STYLE AND COMPOSITION section above. Do NOT override it with generic defaults.
+NO fake logos, prices, certification marks, or platform branding.
+NO CTA buttons, Buy Now, Shop Now, price badges, discount badges, or shipping labels.
+NO watermark, NO "AI generated" mark, NO logo mark, NO signature, NO text overlay in any corner or edge of the image.
+The image must be completely clean — no corner badges, no small text labels, no generated-by marks, no copyright stamps.
+
+─── 6. 冲突审计 ───
+
+【冲突审计结果】
+  ✅ 未检测到明显冲突
+
+【Prompt 统计】
+  总字符数: 9958
+  总行数: 133
+  重复行比例: 0.0%
+  ⚠️ Prompt 过长 (9958 chars)，可能超出模型上下文或导致规则稀释
+
+【StyleWorld vs Old VisualStyle 影响检查】
+  是否包含旧 VisualStyle 标记: 是
+  是否包含 StyleWorld 标记: 是
+  ⚠️ 同时存在旧 VisualStyle 和 StyleWorld 标记，需确认优先级
+
+【StyleWorld Hints 注入位置】
+  StyleWorld 提示出现在字符位置: 596
+  VISUAL STYLE 区块起始位置: 0
+  ✅ StyleWorld 提示在 VISUAL STYLE 区块之后，属于追加注入
+
+─── 7. riskWarnings / avoid rules 汇总 ───
+riskWarnings:
+  1. Preserve original product structure
+  2. No fake specifications
+  3. Background must be one of: light_neutral, editorial_negative_space, soft_gradient.
+  4. Lighting must be one of: editorial_natural, soft_diffused.
+  5. Allowed background: light_neutral
+  6. Allowed background: editorial_negative_space
+  7. Allowed background: soft_gradient
+  8. Allowed lighting: editorial_natural
+  9. Allowed lighting: soft_diffused
+  10. Do NOT use backgrounds or lighting moods outside the "杂志广告风" style world.
+
+================================================================================
+B. 白底主图 (tpl-white-bg-hero) — userGoal: 干净的电商主图
+================================================================================
+
+─── 1. PlanBrief 核心字段 ───
+sourceType: system_template
+sourceId: tpl-white-bg-hero
+styleStrategy.pool (legacy): [ 'clean_catalog' ]
+styleStrategy.styleWorldPool: [ 'clean_catalog' ]
+styleStrategy.recommendedCopyMode: headline_labels
+resolvedCreativeFreedom: strict
+resolvedPrimaryStyleWorld: clean_catalog
+
+─── 2. StyleWorldPromptHints: 无 ───
+
+─── 3. applyTemplateRuleToPlan 之前 — mockPlan.visualDirection ───
+Professional studio lighting with crisp edge highlights
+mockPlan.colorDirection: Metallic silver tones with dark charcoal background
+
+─── 4. applyTemplateRuleToPlan 之后 — final visualDirection ───
+Clean catalog-style product photography with full product visibility, deep focus, soft diffused overhead lighting, gentle contact shadow, and disciplined negative space. The image should feel trustworthy, neutral, and marketplace-ready rather than decorative.
+Template purpose constraints: Clean product-hero photography with the product as the absolute protagonist. Background is determined by the selected style world — could be pure white, warm gray, soft gradient, material surface, or editorial negative space. Full product visibility, sharp focus, and generous negative space.
+Variant "Centered Catalog": use this composition variant. This plan's visual style is "干净货架主图", intentionally different from the other two plans in this generation record.
+final colorDirection: White or very light neutral background (#FFFFFF, #F7F7F7, #F2F4F7), product natural colors, dark charcoal text #111827, restrained gray support text #6B7280.
+Template palette guardrails: Determined by style world. For strict/platform mode: #FFFFFF or #F7F7F7 only. For expressive/editorial: very light warm gray #FAFAFA, soft gradient, or material surface tone. Product uses natural material colors. Text deep charcoal #111111.
+
+─── 5. 最终进入模型的完整 prompt（imageGenerationPrompt） ───
+=== VISUAL STYLE AND COMPOSITION (MANDATORY — OVERRIDE ALL DEFAULT STYLES) ===
+Photography style, lighting, and atmosphere: Clean catalog-style product photography with full product visibility, deep focus, soft diffused overhead lighting, gentle contact shadow, and disciplined negative space. The image should feel trustworthy, neutral, and marketplace-ready rather than decorative.
+Template purpose constraints: Clean product-hero photography with the product as the absolute protagonist. Background is determined by the selected style world — could be pure white, warm gray, soft gradient, material surface, or editorial negative space. Full product visibility, sharp focus, and generous negative space.
+Variant "Centered Catalog": use this composition variant. This plan's visual style is "干净货架主图", intentionally different from the other two plans in this generation record.
+Color palette and tonal direction: White or very light neutral background (#FFFFFF, #F7F7F7, #F2F4F7), product natural colors, dark charcoal text #111827, restrained gray support text #6B7280.
+Template palette guardrails: Determined by style world. For strict/platform mode: #FFFFFF or #F7F7F7 only. For expressive/editorial: very light warm gray #FAFAFA, soft gradient, or material surface tone. Product uses natural material colors. Text deep charcoal #111111.
+Composition, product placement, and layout: Layout type: premium_center_product_minimal_text. 产品居中作为绝对主角，完整展示无裁切；标题在上方或下方三分之一，2-3 个短标签在产品下方或侧面整齐排列；背景干净简洁，由所选风格世界决定具体色调（纯白、浅灰、渐变或材质台面）。
+Shared template constraints: Full product must remain visible with no cropped edges. One concise headline plus 2-3 short labels only, or no text at all. No fake data, no panels, no decorative frames in strict mode. In expressive mode, subtle geometric shapes or soft gradients allowed as background elements only.
+Visual complexity: simple. Information density: low.
+
+=== PRODUCT SUBJECT ===
+Product: "Carbide Drill Bit".
+
+
+=== MANDATORY ON-IMAGE TEXT ===
+ALL of the following English text MUST be rendered ON the image as real, readable typography.
+Text must be professional commercial typesetting — NOT placeholder space, NOT blurry, NOT garbled.
+
+HEADLINE (largest, boldest, most prominent element on the image):
+"PRECISION CUT EVERY TIME"
+
+HEADLINES (render as largest, boldest text — choose the highest-priority headline as the main visual anchor):
+  • "PRECISION CUT EVERY TIME" (P1)
+
+FEATURE POINTS (render EACH as a self-contained visual card/panel with title + description):
+  - Title: bold, slightly larger, dark or accent-colored text
+  - Description (body): clean readable weight, 1-2 lines beneath the title, explaining the benefit
+  - Style: dark semi-transparent panel, gradient card, or left-accent-border block
+  - If an iconHint is provided, place a simple geometric icon to the LEFT of the title
+  • "FAST CHIP"
+  • "LESS HEAT"
+  • "HIGH FEED"
+
+=== TEXT RENDERING REQUIREMENTS ===
+
+## HEADLINE RENDERING
+• ALL CAPS, bold sans-serif, largest text on the image
+• Positioned as the dominant visual anchor — upper third or center-left
+• Must have maximum contrast against background — use solid text, never outline-only
+• If multiple headlines exist, the highest-priority one is primary; others become secondary headlines at ~60% size
+
+## SUBHEADLINE RENDERING
+• Clean readable weight (medium, not bold), ~40-50% of headline size
+• Positioned directly under or beside the main headline with consistent vertical rhythm
+• Use a slightly muted color (e.g. secondary text color, not pure black/white)
+
+## CORE CLAIM RENDERING
+• Render as bold trust statements — large bold text blocks, certification-style badges, or guarantee callouts
+• Use accent color backgrounds or left-border accent strips for visual weight
+• These are persuasion elements, so make them visually distinct from neutral feature blocks
+
+## FEATURE POINT RENDERING
+• EACH feature point is a self-contained visual card/panel
+• Title: bold, slightly larger than description, positioned at top of the card
+• Description (body): clean readable weight, 1-2 lines beneath the title, explaining the BENEFIT (not just the feature name)
+• Style options: dark semi-transparent panel, gradient card, left-accent-border block, or icon+text layout
+• If an iconHint is provided, place a simple geometric icon to the LEFT of the title
+• Cards should have consistent spacing, padding, and rounded corners
+• Cards can slightly overlap the product image for depth, or sit in clean negative space
+
+## TECHNICAL POINT RENDERING
+• Render as precision/specification blocks — engineering-style typography
+• Use monospaced or clean sans-serif with tight letter-spacing
+• Style: clean rectangular panels with subtle borders, callout boxes, or inset specification badges
+• Place near the product or in a technical sidebar — avoid cluttering the main visual focus
+
+## COMPARISON LABEL RENDERING
+• Render as side-by-side column headers or contrast badges
+• Use contrasting accent colors for each side (e.g. blue vs orange, green vs red)
+• Bold uppercase or bold weight, placed above or within comparison panels
+• Visual separation: thin dividing line, different background tints, or side-by-side columns
+• For split-screen comparison: LEFT label = 'ORDINARY' or 'STANDARD' in cool gray (#8A9AAF). RIGHT label = 'OUR PRODUCT' or 'UPGRADED' in warm accent (#FFB347 or #4ADE80)
+• Each label must have a short descriptor beneath: LEFT = negative (e.g., 'Chip Welding / Poor Finish') in muted red-gray. RIGHT = positive (e.g., 'Smooth Finish / No Chip Welding') in warm white
+
+## APPLICATION LABEL RENDERING
+• Render as scene tags, use-case badges, or grid item titles
+• Pill-shaped badges, small cards, or labels overlaying scene imagery
+• Use-case imagery should visually depict the application context (e.g. factory floor, workshop, machinery)
+
+## BOTTOM INFO BAR RENDERING
+• Horizontal dark panel spanning the full width at the bottom edge
+• Evenly-spaced labels separated by thin vertical dividers
+• Typography: clean sans-serif, medium weight, white or light-colored text
+• Background: solid dark band (dark gray, navy, or black at ~80-90% opacity)
+• Each label is a concise value or specification — NOT a CTA button
+
+## GENERAL TYPOGRAPHY RULES
+• Text must NEVER float on empty background — every text block must have a designed background treatment
+• Background treatments: solid color blocks, gradient panels, geometric shapes, subtle dark overlays, frosted glass
+• Typography must look like professional commercial graphic design, not simple captions
+• Layer text with visual depth: headline overlaps nothing or sits on top, subtitles on panels, selling points in cards
+• Maintain consistent font family across all text — use 1-2 complementary typefaces maximum
+• Ensure ALL text is fully legible at intended viewing size — test contrast ratios
+
+=== LAYOUT ===
+Layout Type: premium_center_product_minimal_text
+Visual Density: clean
+Regions:
+  [hero_product] center / large (priority 1)
+  [headline_area] top / medium (priority 2)
+  [subheadline_area] bottom / small (priority 3)
+Text Elements:
+  [headline] "PRECISION CUT EVERY TIME" → position: top (priority 1)
+  [feature_title] "FAST CHIP" → position: top (priority 2)
+  [feature_title] "LESS HEAT" → position: bottom (priority 3)
+  [selling_point] "HIGH FEED" → position: top (priority 4)
+Icon System:
+  target: "PRECISION CUT EVERY TIME"
+  wind: "FAST CHIP"
+  temperature: "LESS HEAT"
+  chart: "HIGH FEED"
+Color Theme:
+  Primary: #0a0a0f
+  Secondary: #1e1e24
+  Background: #050508
+  Text: #f5f0e8
+  Accent: #c9a96e
+=== STYLE & QUALITY ===
+Photorealistic commercial product photography, professional studio quality, crisp edges, high resolution.
+Follow the visual style specified in the VISUAL STYLE AND COMPOSITION section above. Do NOT override it with generic defaults.
+NO fake logos, prices, certification marks, or platform branding.
+NO CTA buttons, Buy Now, Shop Now, price badges, discount badges, or shipping labels.
+NO watermark, NO "AI generated" mark, NO logo mark, NO signature, NO text overlay in any corner or edge of the image.
+The image must be completely clean — no corner badges, no small text labels, no generated-by marks, no copyright stamps.
+
+─── 6. 冲突审计 ───
+
+【冲突审计结果】
+  ⚠️  白色/纯白 vs 渐变/暗色 背景冲突: 同时出现'纯白背景'和'渐变/暗色背景'指示
+      匹配1: "pure white"
+      匹配2: "gradient"
+  ⚠️  产品完整展示 vs dramatic crop 冲突: 同时出现'产品完整展示'和'dramatic crop'
+      匹配1: "full product"
+      匹配2: "裁切"
+
+【Prompt 统计】
+  总字符数: 8200
+  总行数: 107
+  重复行比例: 0.0%
+  ⚠️ Prompt 过长 (8200 chars)，可能超出模型上下文或导致规则稀释
+
+【StyleWorld vs Old VisualStyle 影响检查】
+  是否包含旧 VisualStyle 标记: 是
+  是否包含 StyleWorld 标记: 否
+  ⚠️ 仅有旧 VisualStyle，StyleWorld 未注入 prompt
+
+─── 7. riskWarnings / avoid rules 汇总 ───
+riskWarnings:
+  1. Preserve original product structure
+  2. No fake specifications
+  3. 产品边缘不得裁切
+  4. 禁止生成虚假数据、规格框或测量注释
+  5. strict 模式下禁止任何非纯白/极浅灰的背景
+  6. Full product must remain visible with no cropped edges. One concise headline plus 2-3 short labels only, or no text at all. No fake data, no panels, no decorative frames in strict mode. In expressive mode, subtle geometric shapes or soft gradients allowed as background elements only.
+
+================================================================================
+C. 白底主图 + 用户风格冲突 — userGoal: 不要纯白，要柔和渐变
+================================================================================
+
+─── 1. PlanBrief 核心字段 ───
+sourceType: system_template
+sourceId: tpl-white-bg-hero
+styleStrategy.pool (legacy): [
+  'clean_catalog',
+  'clean_catalog',
+  'workshop_lifestyle',
+  'premium_black',
+  'premium_black'
+]
+styleStrategy.styleWorldPool: [
+  'editorial_product_ad',
+  'gradient_modern_showcase',
+  'material_stage',
+  'soft_premium',
+  'minimal_no_text'
+]
+styleStrategy.recommendedCopyMode: headline_labels
+resolvedCreativeFreedom: expressive
+resolvedPrimaryStyleWorld: editorial_product_ad
+
+─── 2. StyleWorldPromptHints（注入前） ───
+visualDirectionAddendum: StyleWorld: "杂志广告风". Editorial magazine-style commercial photography. Generous negative space, the product is placed like a curated art object. Bold typography with extreme size contrast between massive headlines and minimal supporting text. The overall mood is Apple-product-page level restraint, authority, and editorial confidence.
+colorDirectionAddendum: StyleWorld palette: Background: very light warm gray #FAFAFA to #F0F0F0, or muted sage #E8E8E0, or dusty rose #F5E6E0 depending on product tone. Product: natural material colors only. Text: deep charcoal #1A1A1A for headlines, medium gray #6B7280 for subtext. Accent: single technical blue #0066FF or terracotta #C67B5C used sparingly for one highlight element only.
+extraMandatoryRules: [
+  'Background must be one of: light_neutral, editorial_negative_space, soft_gradient.',
+  'Lighting must be one of: editorial_natural, soft_diffused.'
+]
+extraAvoidRules: [
+  'Do NOT use backgrounds or lighting moods outside the "杂志广告风" style world.'
+]
+sceneHints: [
+  'Allowed background: light_neutral',
+  'Allowed background: editorial_negative_space',
+  'Allowed background: soft_gradient'
+]
+lightingHints: [
+  'Allowed lighting: editorial_natural',
+  'Allowed lighting: soft_diffused'
+]
+
+─── 3. applyTemplateRuleToPlan 之前 — mockPlan.visualDirection ───
+Professional studio lighting with crisp edge highlights
+mockPlan.colorDirection: Metallic silver tones with dark charcoal background
+
+─── 4. applyTemplateRuleToPlan 之后 — final visualDirection ───
+Clean catalog-style product photography with full product visibility, deep focus, soft diffused overhead lighting, gentle contact shadow, and disciplined negative space. The image should feel trustworthy, neutral, and marketplace-ready rather than decorative.
+Template purpose constraints: Clean product-hero photography with the product as the absolute protagonist. Background is determined by the selected style world — could be pure white, warm gray, soft gradient, material surface, or editorial negative space. Full product visibility, sharp focus, and generous negative space.
+Variant "Centered Catalog": use this composition variant. This plan's visual style is "干净货架主图", intentionally different from the other two plans in this generation record.
+StyleWorld: "杂志广告风". Editorial magazine-style commercial photography. Generous negative space, the product is placed like a curated art object. Bold typography with extreme size contrast between massive headlines and minimal supporting text. The overall mood is Apple-product-page level restraint, authority, and editorial confidence.
+final colorDirection: White or very light neutral background (#FFFFFF, #F7F7F7, #F2F4F7), product natural colors, dark charcoal text #111827, restrained gray support text #6B7280.
+Template palette guardrails: Determined by style world. For strict/platform mode: #FFFFFF or #F7F7F7 only. For expressive/editorial: very light warm gray #FAFAFA, soft gradient, or material surface tone. Product uses natural material colors. Text deep charcoal #111111.
+StyleWorld palette: Background: very light warm gray #FAFAFA to #F0F0F0, or muted sage #E8E8E0, or dusty rose #F5E6E0 depending on product tone. Product: natural material colors only. Text: deep charcoal #1A1A1A for headlines, medium gray #6B7280 for subtext. Accent: single technical blue #0066FF or terracotta #C67B5C used sparingly for one highlight element only.
+
+─── 5. 最终进入模型的完整 prompt（imageGenerationPrompt） ───
+=== VISUAL STYLE AND COMPOSITION (MANDATORY — OVERRIDE ALL DEFAULT STYLES) ===
+Photography style, lighting, and atmosphere: Clean catalog-style product photography with full product visibility, deep focus, soft diffused overhead lighting, gentle contact shadow, and disciplined negative space. The image should feel trustworthy, neutral, and marketplace-ready rather than decorative.
+Template purpose constraints: Clean product-hero photography with the product as the absolute protagonist. Background is determined by the selected style world — could be pure white, warm gray, soft gradient, material surface, or editorial negative space. Full product visibility, sharp focus, and generous negative space.
+Variant "Centered Catalog": use this composition variant. This plan's visual style is "干净货架主图", intentionally different from the other two plans in this generation record.
+StyleWorld: "杂志广告风". Editorial magazine-style commercial photography. Generous negative space, the product is placed like a curated art object. Bold typography with extreme size contrast between massive headlines and minimal supporting text. The overall mood is Apple-product-page level restraint, authority, and editorial confidence.
+Color palette and tonal direction: White or very light neutral background (#FFFFFF, #F7F7F7, #F2F4F7), product natural colors, dark charcoal text #111827, restrained gray support text #6B7280.
+Template palette guardrails: Determined by style world. For strict/platform mode: #FFFFFF or #F7F7F7 only. For expressive/editorial: very light warm gray #FAFAFA, soft gradient, or material surface tone. Product uses natural material colors. Text deep charcoal #111111.
+StyleWorld palette: Background: very light warm gray #FAFAFA to #F0F0F0, or muted sage #E8E8E0, or dusty rose #F5E6E0 depending on product tone. Product: natural material colors only. Text: deep charcoal #1A1A1A for headlines, medium gray #6B7280 for subtext. Accent: single technical blue #0066FF or terracotta #C67B5C used sparingly for one highlight element only.
+Composition, product placement, and layout: Layout type: premium_center_product_minimal_text. 产品居中作为绝对主角，完整展示无裁切；标题在上方或下方三分之一，2-3 个短标签在产品下方或侧面整齐排列；背景干净简洁，由所选风格世界决定具体色调（纯白、浅灰、渐变或材质台面）。
+Shared template constraints: Full product must remain visible with no cropped edges. One concise headline plus 2-3 short labels only, or no text at all. No fake data, no panels, no decorative frames in strict mode. In expressive mode, subtle geometric shapes or soft gradients allowed as background elements only.
+Visual complexity: simple. Information density: low.
+
+=== PRODUCT SUBJECT ===
+Product: "Carbide Drill Bit".
+
+
+=== MANDATORY ON-IMAGE TEXT ===
+ALL of the following English text MUST be rendered ON the image as real, readable typography.
+Text must be professional commercial typesetting — NOT placeholder space, NOT blurry, NOT garbled.
+
+HEADLINE (largest, boldest, most prominent element on the image):
+"PRECISION CUT EVERY TIME"
+
+HEADLINES (render as largest, boldest text — choose the highest-priority headline as the main visual anchor):
+  • "PRECISION CUT EVERY TIME" (P1)
+
+FEATURE POINTS (render EACH as a self-contained visual card/panel with title + description):
+  - Title: bold, slightly larger, dark or accent-colored text
+  - Description (body): clean readable weight, 1-2 lines beneath the title, explaining the benefit
+  - Style: dark semi-transparent panel, gradient card, or left-accent-border block
+  - If an iconHint is provided, place a simple geometric icon to the LEFT of the title
+  • "FAST CHIP"
+  • "LESS HEAT"
+  • "HIGH FEED"
+
+=== TEXT RENDERING REQUIREMENTS ===
+
+## HEADLINE RENDERING
+• ALL CAPS, bold sans-serif, largest text on the image
+• Positioned as the dominant visual anchor — upper third or center-left
+• Must have maximum contrast against background — use solid text, never outline-only
+• If multiple headlines exist, the highest-priority one is primary; others become secondary headlines at ~60% size
+
+## SUBHEADLINE RENDERING
+• Clean readable weight (medium, not bold), ~40-50% of headline size
+• Positioned directly under or beside the main headline with consistent vertical rhythm
+• Use a slightly muted color (e.g. secondary text color, not pure black/white)
+
+## CORE CLAIM RENDERING
+• Render as bold trust statements — large bold text blocks, certification-style badges, or guarantee callouts
+• Use accent color backgrounds or left-border accent strips for visual weight
+• These are persuasion elements, so make them visually distinct from neutral feature blocks
+
+## FEATURE POINT RENDERING
+• EACH feature point is a self-contained visual card/panel
+• Title: bold, slightly larger than description, positioned at top of the card
+• Description (body): clean readable weight, 1-2 lines beneath the title, explaining the BENEFIT (not just the feature name)
+• Style options: dark semi-transparent panel, gradient card, left-accent-border block, or icon+text layout
+• If an iconHint is provided, place a simple geometric icon to the LEFT of the title
+• Cards should have consistent spacing, padding, and rounded corners
+• Cards can slightly overlap the product image for depth, or sit in clean negative space
+
+## TECHNICAL POINT RENDERING
+• Render as precision/specification blocks — engineering-style typography
+• Use monospaced or clean sans-serif with tight letter-spacing
+• Style: clean rectangular panels with subtle borders, callout boxes, or inset specification badges
+• Place near the product or in a technical sidebar — avoid cluttering the main visual focus
+
+## COMPARISON LABEL RENDERING
+• Render as side-by-side column headers or contrast badges
+• Use contrasting accent colors for each side (e.g. blue vs orange, green vs red)
+• Bold uppercase or bold weight, placed above or within comparison panels
+• Visual separation: thin dividing line, different background tints, or side-by-side columns
+• For split-screen comparison: LEFT label = 'ORDINARY' or 'STANDARD' in cool gray (#8A9AAF). RIGHT label = 'OUR PRODUCT' or 'UPGRADED' in warm accent (#FFB347 or #4ADE80)
+• Each label must have a short descriptor beneath: LEFT = negative (e.g., 'Chip Welding / Poor Finish') in muted red-gray. RIGHT = positive (e.g., 'Smooth Finish / No Chip Welding') in warm white
+
+## APPLICATION LABEL RENDERING
+• Render as scene tags, use-case badges, or grid item titles
+• Pill-shaped badges, small cards, or labels overlaying scene imagery
+• Use-case imagery should visually depict the application context (e.g. factory floor, workshop, machinery)
+
+## BOTTOM INFO BAR RENDERING
+• Horizontal dark panel spanning the full width at the bottom edge
+• Evenly-spaced labels separated by thin vertical dividers
+• Typography: clean sans-serif, medium weight, white or light-colored text
+• Background: solid dark band (dark gray, navy, or black at ~80-90% opacity)
+• Each label is a concise value or specification — NOT a CTA button
+
+## GENERAL TYPOGRAPHY RULES
+• Text must NEVER float on empty background — every text block must have a designed background treatment
+• Background treatments: solid color blocks, gradient panels, geometric shapes, subtle dark overlays, frosted glass
+• Typography must look like professional commercial graphic design, not simple captions
+• Layer text with visual depth: headline overlaps nothing or sits on top, subtitles on panels, selling points in cards
+• Maintain consistent font family across all text — use 1-2 complementary typefaces maximum
+• Ensure ALL text is fully legible at intended viewing size — test contrast ratios
+
+=== LAYOUT ===
+Layout Type: premium_center_product_minimal_text
+Visual Density: clean
+Regions:
+  [hero_product] center / large (priority 1)
+  [headline_area] top / medium (priority 2)
+  [subheadline_area] bottom / small (priority 3)
+Text Elements:
+  [headline] "PRECISION CUT EVERY TIME" → position: top (priority 1)
+  [feature_title] "FAST CHIP" → position: top (priority 2)
+  [feature_title] "LESS HEAT" → position: bottom (priority 3)
+  [selling_point] "HIGH FEED" → position: top (priority 4)
+Icon System:
+  target: "PRECISION CUT EVERY TIME"
+  wind: "FAST CHIP"
+  temperature: "LESS HEAT"
+  chart: "HIGH FEED"
+Color Theme:
+  Primary: #0a0a0f
+  Secondary: #1e1e24
+  Background: #050508
+  Text: #f5f0e8
+  Accent: #c9a96e
+=== STYLE & QUALITY ===
+Photorealistic commercial product photography, professional studio quality, crisp edges, high resolution.
+Follow the visual style specified in the VISUAL STYLE AND COMPOSITION section above. Do NOT override it with generic defaults.
+NO fake logos, prices, certification marks, or platform branding.
+NO CTA buttons, Buy Now, Shop Now, price badges, discount badges, or shipping labels.
+NO watermark, NO "AI generated" mark, NO logo mark, NO signature, NO text overlay in any corner or edge of the image.
+The image must be completely clean — no corner badges, no small text labels, no generated-by marks, no copyright stamps.
+
+─── 6. 冲突审计 ───
+
+【冲突审计结果】
+  ⚠️  白色/纯白 vs 渐变/暗色 背景冲突: 同时出现'纯白背景'和'渐变/暗色背景'指示
+      匹配1: "pure white"
+      匹配2: "gradient"
+  ⚠️  产品完整展示 vs dramatic crop 冲突: 同时出现'产品完整展示'和'dramatic crop'
+      匹配1: "full product"
+      匹配2: "裁切"
+
+【Prompt 统计】
+  总字符数: 8902
+  总行数: 109
+  重复行比例: 0.0%
+  ⚠️ Prompt 过长 (8902 chars)，可能超出模型上下文或导致规则稀释
+
+【StyleWorld vs Old VisualStyle 影响检查】
+  是否包含旧 VisualStyle 标记: 是
+  是否包含 StyleWorld 标记: 是
+  ⚠️ 同时存在旧 VisualStyle 和 StyleWorld 标记，需确认优先级
+
+【StyleWorld Hints 注入位置】
+  StyleWorld 提示出现在字符位置: 879
+  VISUAL STYLE 区块起始位置: 0
+  ✅ StyleWorld 提示在 VISUAL STYLE 区块之后，属于追加注入
+
+─── 7. riskWarnings / avoid rules 汇总 ───
+riskWarnings:
+  1. Preserve original product structure
+  2. No fake specifications
+  3. 产品边缘不得裁切
+  4. 禁止生成虚假数据、规格框或测量注释
+  5. strict 模式下禁止任何非纯白/极浅灰的背景
+  6. Full product must remain visible with no cropped edges. One concise headline plus 2-3 short labels only, or no text at all. No fake data, no panels, no decorative frames in strict mode. In expressive mode, subtle geometric shapes or soft gradients allowed as background elements only.
+  7. Background must be one of: light_neutral, editorial_negative_space, soft_gradient.
+  8. Lighting must be one of: editorial_natural, soft_diffused.
+  9. Allowed background: light_neutral
+  10. Allowed background: editorial_negative_space
+  11. Allowed background: soft_gradient
+  12. Allowed lighting: editorial_natural
+  13. Allowed lighting: soft_diffused
+  14. Do NOT use backgrounds or lighting moods outside the "杂志广告风" style world.
+
+================================================================================
+D. 功能卖点说明图 (tpl-feature-explanation) — userGoal: 突出耐用锋利
+================================================================================
+
+─── 1. PlanBrief 核心字段 ───
+sourceType: system_template
+sourceId: tpl-feature-explanation
+styleStrategy.pool (legacy): [
+  'light_technical',
+  'dark_technical',
+  'clean_catalog',
+  'light_technical',
+  'workshop_lifestyle',
+  'clean_catalog',
+  'clean_catalog'
+]
+styleStrategy.styleWorldPool: [
+  'light_technical',
+  'dark_technical',
+  'gradient_modern_showcase',
+  'diagram_light',
+  'material_stage',
+  'editorial_product_ad',
+  'clean_catalog'
+]
+styleStrategy.recommendedCopyMode: feature_cards
+resolvedCreativeFreedom: balanced
+resolvedPrimaryStyleWorld: light_technical
+
+─── 2. StyleWorldPromptHints: 无 ───
+
+─── 3. applyTemplateRuleToPlan 之前 — mockPlan.visualDirection ───
+Professional studio lighting with crisp edge highlights
+mockPlan.colorDirection: Metallic silver tones with dark charcoal background
+
+─── 4. applyTemplateRuleToPlan 之后 — final visualDirection ───
+Dark engineering breakdown style with sharp product geometry, blue/cyan callout lines, technical grid texture, controlled rim accents, and structured inset/detail panels. It should look precise and analytical, not decorative.
+Template purpose constraints: Structured feature-explanation image. The product is the absolute hero at 40-65% of the frame. Information is organized in panels, orbital callouts, or benefit maps depending on layout. Background and panel style are determined by the selected style world — could be cool light gray, dark slate with glassmorphism, soft gradient, material surface, or clean white diagram.
+Variant "Product + Side Panels": use this composition variant. This plan's visual style is "深色工程解析", intentionally different from the other two plans in this generation record.
+final colorDirection: Dark slate #0F172A to #020617, panel #1E293B, text #F8FAFC, blue #3B82F6 and cyan #06B6D4 accents, silver support #94A3B8.
+Template palette guardrails: Determined by style world. Light technical: cool light gray #E8ECF0 to #F0F2F5, white panels, technical blue accent. Dark technical: dark slate #0F172A, panel #1E293B, cyan accent. Gradient modern: soft flowing gradient. Diagram light: pure white with friendly blue. Material stage: surface-driven palette.
+
+─── 5. 最终进入模型的完整 prompt（imageGenerationPrompt） ───
+=== VISUAL STYLE AND COMPOSITION (MANDATORY — OVERRIDE ALL DEFAULT STYLES) ===
+Photography style, lighting, and atmosphere: Dark engineering breakdown style with sharp product geometry, blue/cyan callout lines, technical grid texture, controlled rim accents, and structured inset/detail panels. It should look precise and analytical, not decorative.
+Template purpose constraints: Structured feature-explanation image. The product is the absolute hero at 40-65% of the frame. Information is organized in panels, orbital callouts, or benefit maps depending on layout. Background and panel style are determined by the selected style world — could be cool light gray, dark slate with glassmorphism, soft gradient, material surface, or clean white diagram.
+Variant "Product + Side Panels": use this composition variant. This plan's visual style is "深色工程解析", intentionally different from the other two plans in this generation record.
+Color palette and tonal direction: Dark slate #0F172A to #020617, panel #1E293B, text #F8FAFC, blue #3B82F6 and cyan #06B6D4 accents, silver support #94A3B8.
+Template palette guardrails: Determined by style world. Light technical: cool light gray #E8ECF0 to #F0F2F5, white panels, technical blue accent. Dark technical: dark slate #0F172A, panel #1E293B, cyan accent. Gradient modern: soft flowing gradient. Diagram light: pure white with friendly blue. Material stage: surface-driven palette.
+Composition, product placement, and layout: Layout type: hero_right_product_left_features. 产品一侧作为绝对视觉主角，信息为配角；另一侧垂直排列 3-4 个卖点；卖点之间用 generous spacing + subtle hairline divider 分隔。面板风格由 styleWorld 决定：可以是 glassmorphism、flat cards、rounded diagram panels 或 minimalist labels。
+Shared template constraints: Product full and sharp, clearly the largest single element. Use headline, 3-4 feature points with visual support (icons, shapes, color blocks, or connecting lines). No fake specs, no CAD-style thin blue annotation lines. Information density adjustable by copyMode.
+Visual complexity: medium. Information density: medium.
+
+=== PRODUCT SUBJECT ===
+Product: "Carbide Drill Bit".
+
+
+=== MANDATORY ON-IMAGE TEXT ===
+ALL of the following English text MUST be rendered ON the image as real, readable typography.
+Text must be professional commercial typesetting — NOT placeholder space, NOT blurry, NOT garbled.
+
+HEADLINE (largest, boldest, most prominent element on the image):
+"PRECISION CUT EVERY TIME"
+
+SUBTITLE (clearly readable beneath the headline):
+"Engineered for high-speed steel drilling with extended tool life"
+
+HEADLINES (render as largest, boldest text — choose the highest-priority headline as the main visual anchor):
+  • "PRECISION CUT EVERY TIME" (P1)
+
+SUBHEADLINES (render directly beneath or beside the main headline, slightly smaller but still prominent):
+  • "Engineered for high-speed steel drilling with extended tool life"
+
+FEATURE POINTS (render EACH as a self-contained visual card/panel with title + description):
+  - Title: bold, slightly larger, dark or accent-colored text
+  - Description (body): clean readable weight, 1-2 lines beneath the title, explaining the benefit
+  - Style: dark semi-transparent panel, gradient card, or left-accent-border block
+  - If an iconHint is provided, place a simple geometric icon to the LEFT of the title
+  • "FAST CHIP REMOVAL" | Optimized flute geometry clears chips rapidly
+  • "LESS HEAT BUILD-UP" | Advanced edge geometry reduces friction
+  • "HIGH FEED EFFICIENCY" | Supports aggressive feed rates
+  • "OPTIMIZED HELIX ANGLE" | 35-degree helix for smooth entry
+
+BOTTOM INFO BAR (render as a horizontal dark panel at the bottom edge of the image):
+  - Layout: evenly-spaced labels separated by thin vertical dividers
+  - Typography: clean sans-serif, medium weight, white or light-colored text
+  - Background: solid dark band (dark gray, navy, or black at ~80-90% opacity)
+  - Each label should be a concise value or specification (NOT a CTA button)
+  • "FAST CHIP REMOVAL"
+  • "LESS HEAT BUILD-UP"
+  • "HIGH FEED EFFICIENCY"
+
+=== TEXT RENDERING REQUIREMENTS ===
+
+## HEADLINE RENDERING
+• ALL CAPS, bold sans-serif, largest text on the image
+• Positioned as the dominant visual anchor — upper third or center-left
+• Must have maximum contrast against background — use solid text, never outline-only
+• If multiple headlines exist, the highest-priority one is primary; others become secondary headlines at ~60% size
+
+## SUBHEADLINE RENDERING
+• Clean readable weight (medium, not bold), ~40-50% of headline size
+• Positioned directly under or beside the main headline with consistent vertical rhythm
+• Use a slightly muted color (e.g. secondary text color, not pure black/white)
+
+## CORE CLAIM RENDERING
+• Render as bold trust statements — large bold text blocks, certification-style badges, or guarantee callouts
+• Use accent color backgrounds or left-border accent strips for visual weight
+• These are persuasion elements, so make them visually distinct from neutral feature blocks
+
+## FEATURE POINT RENDERING
+• EACH feature point is a self-contained visual card/panel
+• Title: bold, slightly larger than description, positioned at top of the card
+• Description (body): clean readable weight, 1-2 lines beneath the title, explaining the BENEFIT (not just the feature name)
+• Style options: dark semi-transparent panel, gradient card, left-accent-border block, or icon+text layout
+• If an iconHint is provided, place a simple geometric icon to the LEFT of the title
+• Cards should have consistent spacing, padding, and rounded corners
+• Cards can slightly overlap the product image for depth, or sit in clean negative space
+
+## TECHNICAL POINT RENDERING
+• Render as precision/specification blocks — engineering-style typography
+• Use monospaced or clean sans-serif with tight letter-spacing
+• Style: clean rectangular panels with subtle borders, callout boxes, or inset specification badges
+• Place near the product or in a technical sidebar — avoid cluttering the main visual focus
+
+## COMPARISON LABEL RENDERING
+• Render as side-by-side column headers or contrast badges
+• Use contrasting accent colors for each side (e.g. blue vs orange, green vs red)
+• Bold uppercase or bold weight, placed above or within comparison panels
+• Visual separation: thin dividing line, different background tints, or side-by-side columns
+• For split-screen comparison: LEFT label = 'ORDINARY' or 'STANDARD' in cool gray (#8A9AAF). RIGHT label = 'OUR PRODUCT' or 'UPGRADED' in warm accent (#FFB347 or #4ADE80)
+• Each label must have a short descriptor beneath: LEFT = negative (e.g., 'Chip Welding / Poor Finish') in muted red-gray. RIGHT = positive (e.g., 'Smooth Finish / No Chip Welding') in warm white
+
+## APPLICATION LABEL RENDERING
+• Render as scene tags, use-case badges, or grid item titles
+• Pill-shaped badges, small cards, or labels overlaying scene imagery
+• Use-case imagery should visually depict the application context (e.g. factory floor, workshop, machinery)
+
+## BOTTOM INFO BAR RENDERING
+• Horizontal dark panel spanning the full width at the bottom edge
+• Evenly-spaced labels separated by thin vertical dividers
+• Typography: clean sans-serif, medium weight, white or light-colored text
+• Background: solid dark band (dark gray, navy, or black at ~80-90% opacity)
+• Each label is a concise value or specification — NOT a CTA button
+
+## GENERAL TYPOGRAPHY RULES
+• Text must NEVER float on empty background — every text block must have a designed background treatment
+• Background treatments: solid color blocks, gradient panels, geometric shapes, subtle dark overlays, frosted glass
+• Typography must look like professional commercial graphic design, not simple captions
+• Layer text with visual depth: headline overlaps nothing or sits on top, subtitles on panels, selling points in cards
+• Maintain consistent font family across all text — use 1-2 complementary typefaces maximum
+• Ensure ALL text is fully legible at intended viewing size — test contrast ratios
+
+=== LAYOUT ===
+Layout Type: hero_right_product_left_features
+Visual Density: balanced
+Regions:
+  [headline_area] top-left / large (priority 1)
+  [feature_stack] left / medium (priority 2)
+  [hero_product] right / large (priority 3)
+Text Elements:
+  [headline] "PRECISION CUT EVERY TIME" → position: top-left (priority 1)
+  [subtitle] "Engineered for high-speed steel drilling with extended tool life" → position: top-left (priority 2)
+  [feature_title] "FAST CHIP REMOVAL / Optimized flute geometry clears chips rapidly" → position: left (priority 3)
+  [feature_title] "LESS HEAT BUILD-UP / Advanced edge geometry reduces friction" → position: left (priority 4)
+  [selling_point] "HIGH FEED EFFICIENCY / Supports aggressive feed rates" → position: left (priority 5)
+  [selling_point] "OPTIMIZED HELIX ANGLE / 35-degree helix for smooth entry" → position: bottom (priority 6)
+  [selling_point] "FAST CHIP REMOVAL" → position: right (priority 7)
+  [selling_point] "LESS HEAT BUILD-UP" → position: left (priority 8)
+  [selling_point] "HIGH FEED EFFICIENCY" → position: left (priority 9)
+Icon System:
+  target: "PRECISION CUT EVERY TIME"
+  speed: "Engineered for high-speed steel drilling with extended tool life"
+  wind: "FAST CHIP REMOVAL"
+  temperature: "LESS HEAT BUILD-UP"
+  chart: "HIGH FEED EFFICIENCY"
+  wind: "FAST CHIP REMOVAL"
+  temperature: "LESS HEAT BUILD-UP"
+  chart: "HIGH FEED EFFICIENCY"
+Color Theme:
+  Primary: #0a0a0f
+  Secondary: #1c1917
+  Background: #0a0a0f
+  Text: #ffffff
+  Accent: #dc2626
+=== STYLE & QUALITY ===
+Photorealistic commercial product photography, professional studio quality, crisp edges, high resolution.
+Follow the visual style specified in the VISUAL STYLE AND COMPOSITION section above. Do NOT override it with generic defaults.
+NO fake logos, prices, certification marks, or platform branding.
+NO CTA buttons, Buy Now, Shop Now, price badges, discount badges, or shipping labels.
+NO watermark, NO "AI generated" mark, NO logo mark, NO signature, NO text overlay in any corner or edge of the image.
+The image must be completely clean — no corner badges, no small text labels, no generated-by marks, no copyright stamps.
+
+─── 6. 冲突审计 ───
+
+【冲突审计结果】
+  ⚠️  白色/纯白 vs 渐变/暗色 背景冲突: 同时出现'纯白背景'和'渐变/暗色背景'指示
+      匹配1: "pure white"
+      匹配2: "Dark"
+
+【Prompt 统计】
+  总字符数: 10112
+  总行数: 129
+  重复行比例: 2.3%
+  ⚠️ Prompt 过长 (10112 chars)，可能超出模型上下文或导致规则稀释
+
+【StyleWorld vs Old VisualStyle 影响检查】
+  是否包含旧 VisualStyle 标记: 是
+  是否包含 StyleWorld 标记: 否
+  ⚠️ 仅有旧 VisualStyle，StyleWorld 未注入 prompt
+
+─── 7. riskWarnings / avoid rules 汇总 ───
+riskWarnings:
+  1. Preserve original product structure
+  2. No fake specifications
+  3. 禁止生成虚假数据表格、规格框或测量注释
+  4. 禁止用 CAD 式蓝色细线标注
+  5. Product full and sharp, clearly the largest single element. Use headline, 3-4 feature points with visual support (icons, shapes, color blocks, or connecting lines). No fake specs, no CAD-style thin blue annotation lines. Information density adjustable by copyMode.
+
+================================================================================
+E. 高端质感展示图 (tpl-premium-luxury) — userGoal: 高级感+电影感
+================================================================================
+
+─── 1. PlanBrief 核心字段 ───
+sourceType: system_template
+sourceId: tpl-premium-luxury
+styleStrategy.pool (legacy): [
+  'premium_black',
+  'workshop_lifestyle',
+  'premium_black',
+  'clean_catalog'
+]
+styleStrategy.styleWorldPool: [
+  'soft_premium',
+  'material_stage',
+  'minimal_no_text',
+  'editorial_product_ad'
+]
+styleStrategy.recommendedCopyMode: headline_only
+resolvedCreativeFreedom: expressive
+resolvedPrimaryStyleWorld: soft_premium
+
+─── 2. StyleWorldPromptHints（注入前） ───
+visualDirectionAddendum: StyleWorld: "柔和高级感". Soft premium product photography with warm gray, mist blue, cream, or camel backgrounds. The product is wrapped in gentle, even light with subtle warm fill. The mood is warm, restrained, and human — premium without coldness. Like a luxury skincare or audio product page.
+colorDirectionAddendum: StyleWorld palette: Background: warm gray #E5E5E0, mist blue #E8ECF0, cream #F5F0E8, or camel #D4C4A8. Text: deep espresso #2D2420 or charcoal #333333. Accent: antique gold #C5A059 or rose gold #B76E79 used as subtle highlight only.
+extraMandatoryRules: [
+  'Background must be one of: light_neutral, soft_gradient, warm_studio.',
+  'Lighting must be one of: soft_diffused, editorial_natural.'
+]
+extraAvoidRules: [
+  'Do NOT use backgrounds or lighting moods outside the "柔和高级感" style world.'
+]
+sceneHints: [
+  'Allowed background: light_neutral',
+  'Allowed background: soft_gradient',
+  'Allowed background: warm_studio'
+]
+lightingHints: [
+  'Allowed lighting: soft_diffused',
+  'Allowed lighting: editorial_natural'
+]
+
+─── 3. applyTemplateRuleToPlan 之前 — mockPlan.visualDirection ───
+Professional studio lighting with crisp edge highlights
+mockPlan.colorDirection: Metallic silver tones with dark charcoal background
+
+─── 4. applyTemplateRuleToPlan 之后 — final visualDirection ───
+Premium gallery-style product photography in deep black space with sculptural product treatment, generous negative space, dramatic rim light, satin reflection, and restrained typography. The product should feel heavy, precise, and valuable.
+Template purpose constraints: Premium product photography with sculptural product treatment, generous negative space, and dramatic lighting. Background is determined by style world — could be near-pure black void, soft warm gray, mist blue, wine red, brushed metal surface, or material stage. The product feels heavy, precise, and valuable.
+Variant "Gallery Center": use this composition variant. This plan's visual style is "高端黑底质感", intentionally different from the other two plans in this generation record.
+StyleWorld: "柔和高级感". Soft premium product photography with warm gray, mist blue, cream, or camel backgrounds. The product is wrapped in gentle, even light with subtle warm fill. The mood is warm, restrained, and human — premium without coldness. Like a luxury skincare or audio product page.
+final colorDirection: Near-black #0A0A0A to #111111, warm white #FFF8E7, champagne #F7E7CE or silver #C0C0C0 accents only, product natural material colors.
+Template palette guardrails: Determined by style world. Premium black: near-black #0A0A0A, champagne gold #F7E7CE, silver #C0C0C0. Soft premium: warm gray #E5E5E0, cream #F5F0E8, antique gold #C5A059. Material stage: concrete, brushed aluminum, or stone surface tones. Editorial: very light warm gray with deep charcoal text.
+StyleWorld palette: Background: warm gray #E5E5E0, mist blue #E8ECF0, cream #F5F0E8, or camel #D4C4A8. Text: deep espresso #2D2420 or charcoal #333333. Accent: antique gold #C5A059 or rose gold #B76E79 used as subtle highlight only.
+
+─── 5. 最终进入模型的完整 prompt（imageGenerationPrompt） ───
+=== VISUAL STYLE AND COMPOSITION (MANDATORY — OVERRIDE ALL DEFAULT STYLES) ===
+Photography style, lighting, and atmosphere: Premium gallery-style product photography in deep black space with sculptural product treatment, generous negative space, dramatic rim light, satin reflection, and restrained typography. The product should feel heavy, precise, and valuable.
+Template purpose constraints: Premium product photography with sculptural product treatment, generous negative space, and dramatic lighting. Background is determined by style world — could be near-pure black void, soft warm gray, mist blue, wine red, brushed metal surface, or material stage. The product feels heavy, precise, and valuable.
+Variant "Gallery Center": use this composition variant. This plan's visual style is "高端黑底质感", intentionally different from the other two plans in this generation record.
+StyleWorld: "柔和高级感". Soft premium product photography with warm gray, mist blue, cream, or camel backgrounds. The product is wrapped in gentle, even light with subtle warm fill. The mood is warm, restrained, and human — premium without coldness. Like a luxury skincare or audio product page.
+Color palette and tonal direction: Near-black #0A0A0A to #111111, warm white #FFF8E7, champagne #F7E7CE or silver #C0C0C0 accents only, product natural material colors.
+Template palette guardrails: Determined by style world. Premium black: near-black #0A0A0A, champagne gold #F7E7CE, silver #C0C0C0. Soft premium: warm gray #E5E5E0, cream #F5F0E8, antique gold #C5A059. Material stage: concrete, brushed aluminum, or stone surface tones. Editorial: very light warm gray with deep charcoal text.
+StyleWorld palette: Background: warm gray #E5E5E0, mist blue #E8ECF0, cream #F5F0E8, or camel #D4C4A8. Text: deep espresso #2D2420 or charcoal #333333. Accent: antique gold #C5A059 or rose gold #B76E79 used as subtle highlight only.
+Composition, product placement, and layout: Layout type: premium_center_product_minimal_text. 产品在中心略低于中点， generous negative space 环绕；标题漂浮在上三分之一（optional），字间距宽；背景由 styleWorld 决定 — 可以是深黑 void、雾蓝、酒红、金属灰、柔和渐变或材质台面。
+Shared template constraints: Headline optional. Product full and commanding with maximum negative space. No feature labels, bottom info, panels, or extra products in strict mode. In expressive mode, subtle background texture, gradient, or material surface allowed, but product remains the sole hero.
+Visual complexity: medium. Information density: low.
+
+=== PRODUCT SUBJECT ===
+Product: "Carbide Drill Bit".
+
+
+=== MANDATORY ON-IMAGE TEXT ===
+ALL of the following English text MUST be rendered ON the image as real, readable typography.
+Text must be professional commercial typesetting — NOT placeholder space, NOT blurry, NOT garbled.
+
+HEADLINE (largest, boldest, most prominent element on the image):
+"PRECISION CUT EVERY TIME"
+
+HEADLINES (render as largest, boldest text — choose the highest-priority headline as the main visual anchor):
+  • "PRECISION CUT EVERY TIME" (P1)
+
+=== TEXT RENDERING REQUIREMENTS ===
+
+## HEADLINE RENDERING
+• ALL CAPS, bold sans-serif, largest text on the image
+• Positioned as the dominant visual anchor — upper third or center-left
+• Must have maximum contrast against background — use solid text, never outline-only
+• If multiple headlines exist, the highest-priority one is primary; others become secondary headlines at ~60% size
+
+## SUBHEADLINE RENDERING
+• Clean readable weight (medium, not bold), ~40-50% of headline size
+• Positioned directly under or beside the main headline with consistent vertical rhythm
+• Use a slightly muted color (e.g. secondary text color, not pure black/white)
+
+## CORE CLAIM RENDERING
+• Render as bold trust statements — large bold text blocks, certification-style badges, or guarantee callouts
+• Use accent color backgrounds or left-border accent strips for visual weight
+• These are persuasion elements, so make them visually distinct from neutral feature blocks
+
+## FEATURE POINT RENDERING
+• EACH feature point is a self-contained visual card/panel
+• Title: bold, slightly larger than description, positioned at top of the card
+• Description (body): clean readable weight, 1-2 lines beneath the title, explaining the BENEFIT (not just the feature name)
+• Style options: dark semi-transparent panel, gradient card, left-accent-border block, or icon+text layout
+• If an iconHint is provided, place a simple geometric icon to the LEFT of the title
+• Cards should have consistent spacing, padding, and rounded corners
+• Cards can slightly overlap the product image for depth, or sit in clean negative space
+
+## TECHNICAL POINT RENDERING
+• Render as precision/specification blocks — engineering-style typography
+• Use monospaced or clean sans-serif with tight letter-spacing
+• Style: clean rectangular panels with subtle borders, callout boxes, or inset specification badges
+• Place near the product or in a technical sidebar — avoid cluttering the main visual focus
+
+## COMPARISON LABEL RENDERING
+• Render as side-by-side column headers or contrast badges
+• Use contrasting accent colors for each side (e.g. blue vs orange, green vs red)
+• Bold uppercase or bold weight, placed above or within comparison panels
+• Visual separation: thin dividing line, different background tints, or side-by-side columns
+• For split-screen comparison: LEFT label = 'ORDINARY' or 'STANDARD' in cool gray (#8A9AAF). RIGHT label = 'OUR PRODUCT' or 'UPGRADED' in warm accent (#FFB347 or #4ADE80)
+• Each label must have a short descriptor beneath: LEFT = negative (e.g., 'Chip Welding / Poor Finish') in muted red-gray. RIGHT = positive (e.g., 'Smooth Finish / No Chip Welding') in warm white
+
+## APPLICATION LABEL RENDERING
+• Render as scene tags, use-case badges, or grid item titles
+• Pill-shaped badges, small cards, or labels overlaying scene imagery
+• Use-case imagery should visually depict the application context (e.g. factory floor, workshop, machinery)
+
+## BOTTOM INFO BAR RENDERING
+• Horizontal dark panel spanning the full width at the bottom edge
+• Evenly-spaced labels separated by thin vertical dividers
+• Typography: clean sans-serif, medium weight, white or light-colored text
+• Background: solid dark band (dark gray, navy, or black at ~80-90% opacity)
+• Each label is a concise value or specification — NOT a CTA button
+
+## GENERAL TYPOGRAPHY RULES
+• Text must NEVER float on empty background — every text block must have a designed background treatment
+• Background treatments: solid color blocks, gradient panels, geometric shapes, subtle dark overlays, frosted glass
+• Typography must look like professional commercial graphic design, not simple captions
+• Layer text with visual depth: headline overlaps nothing or sits on top, subtitles on panels, selling points in cards
+• Maintain consistent font family across all text — use 1-2 complementary typefaces maximum
+• Ensure ALL text is fully legible at intended viewing size — test contrast ratios
+
+=== LAYOUT ===
+Layout Type: premium_center_product_minimal_text
+Visual Density: clean
+Regions:
+  [hero_product] center / large (priority 1)
+  [headline_area] top / medium (priority 2)
+  [subheadline_area] bottom / small (priority 3)
+Text Elements:
+  [headline] "PRECISION CUT EVERY TIME" → position: top (priority 1)
+Icon System:
+  target: "PRECISION CUT EVERY TIME"
+Color Theme:
+  Primary: #0a0a0f
+  Secondary: #1e1e24
+  Background: #050508
+  Text: #f5f0e8
+  Accent: #c9a96e
+=== STYLE & QUALITY ===
+Photorealistic commercial product photography, professional studio quality, crisp edges, high resolution.
+Follow the visual style specified in the VISUAL STYLE AND COMPOSITION section above. Do NOT override it with generic defaults.
+NO fake logos, prices, certification marks, or platform branding.
+NO CTA buttons, Buy Now, Shop Now, price badges, discount badges, or shipping labels.
+NO watermark, NO "AI generated" mark, NO logo mark, NO signature, NO text overlay in any corner or edge of the image.
+The image must be completely clean — no corner badges, no small text labels, no generated-by marks, no copyright stamps.
+
+─── 6. 冲突审计 ───
+
+【冲突审计结果】
+  ✅ 未检测到明显冲突
+
+【Prompt 统计】
+  总字符数: 8046
+  总行数: 95
+  重复行比例: 0.0%
+  ⚠️ Prompt 过长 (8046 chars)，可能超出模型上下文或导致规则稀释
+
+【StyleWorld vs Old VisualStyle 影响检查】
+  是否包含旧 VisualStyle 标记: 是
+  是否包含 StyleWorld 标记: 是
+  ⚠️ 同时存在旧 VisualStyle 和 StyleWorld 标记，需确认优先级
+
+【StyleWorld Hints 注入位置】
+  StyleWorld 提示出现在字符位置: 876
+  VISUAL STYLE 区块起始位置: 0
+  ✅ StyleWorld 提示在 VISUAL STYLE 区块之后，属于追加注入
+
+─── 7. riskWarnings / avoid rules 汇总 ───
+riskWarnings:
+  1. Preserve original product structure
+  2. No fake specifications
+  3. strict 模式下仅允许标题，禁止功能标签、底部信息、面板、粒子、生活场景、渐变或多产品
+  4. Headline optional. Product full and commanding with maximum negative space. No feature labels, bottom info, panels, or extra products in strict mode. In expressive mode, subtle background texture, gradient, or material surface allowed, but product remains the sole hero.
+  5. Background must be one of: light_neutral, soft_gradient, warm_studio.
+  6. Lighting must be one of: soft_diffused, editorial_natural.
+  7. Allowed background: light_neutral
+  8. Allowed background: soft_gradient
+  9. Allowed background: warm_studio
+  10. Allowed lighting: soft_diffused
+  11. Allowed lighting: editorial_natural
+  12. Do NOT use backgrounds or lighting moods outside the "柔和高级感" style world.
+
+================================================================================
+F. 三方案差异测试 (tpl-white-bg-hero, 同一输入，3 variants)
+================================================================================
+
+─── F1. variant 0 ───
+planName: Mock Plan · Centered Catalog
+visualDirection: Clean catalog-style product photography with full product visibility, deep focus, soft diffused overhead lighting, gentle contact shadow, and disciplined negative space. The image should feel trustwor...
+colorDirection: White or very light neutral background (#FFFFFF, #F7F7F7, #F2F4F7), product natural colors, dark charcoal text #111827, restrained gray support text #6B7280.
+Template palette guardrails: Determined by...
+riskWarnings count: 14
+prompt length: 8902 chars
+
+【冲突审计结果】
+  ⚠️  白色/纯白 vs 渐变/暗色 背景冲突: 同时出现'纯白背景'和'渐变/暗色背景'指示
+      匹配1: "pure white"
+      匹配2: "gradient"
+  ⚠️  产品完整展示 vs dramatic crop 冲突: 同时出现'产品完整展示'和'dramatic crop'
+      匹配1: "full product"
+      匹配2: "裁切"
+
+【Prompt 统计】
+  总字符数: 8902
+  总行数: 109
+  重复行比例: 0.0%
+  ⚠️ Prompt 过长 (8902 chars)，可能超出模型上下文或导致规则稀释
+
+【StyleWorld vs Old VisualStyle 影响检查】
+  是否包含旧 VisualStyle 标记: 是
+  是否包含 StyleWorld 标记: 是
+  ⚠️ 同时存在旧 VisualStyle 和 StyleWorld 标记，需确认优先级
+
+【StyleWorld Hints 注入位置】
+  StyleWorld 提示出现在字符位置: 879
+  VISUAL STYLE 区块起始位置: 0
+  ✅ StyleWorld 提示在 VISUAL STYLE 区块之后，属于追加注入
+
+─── F2. variant 1 ───
+planName: Mock Plan · Offset Thumbnail
+visualDirection: Light technical explainer style with full sharp product rendering, even studio light, subtle ground reflection, precise alignment, and clean information panels. The mood is engineered, readable, and c...
+colorDirection: Cool light gray background #E8ECF0 to #F4F6F8, white panels #FFFFFF, primary text #111827, secondary #475569, single technical accent #0066CC or #008080.
+Template palette guardrails: Determined by sty...
+riskWarnings count: 14
+prompt length: 8792 chars
+
+【冲突审计结果】
+  ⚠️  白色/纯白 vs 渐变/暗色 背景冲突: 同时出现'纯白背景'和'渐变/暗色背景'指示
+      匹配1: "pure white"
+      匹配2: "gradient"
+  ⚠️  产品完整展示 vs dramatic crop 冲突: 同时出现'产品完整展示'和'dramatic crop'
+      匹配1: "Full product"
+      匹配2: "crop"
+
+【Prompt 统计】
+  总字符数: 8792
+  总行数: 109
+  重复行比例: 0.0%
+  ⚠️ Prompt 过长 (8792 chars)，可能超出模型上下文或导致规则稀释
+
+【StyleWorld vs Old VisualStyle 影响检查】
+  是否包含旧 VisualStyle 标记: 是
+  是否包含 StyleWorld 标记: 是
+  ⚠️ 同时存在旧 VisualStyle 和 StyleWorld 标记，需确认优先级
+
+【StyleWorld Hints 注入位置】
+  StyleWorld 提示出现在字符位置: 824
+  VISUAL STYLE 区块起始位置: 0
+  ✅ StyleWorld 提示在 VISUAL STYLE 区块之后，属于追加注入
+
+─── F3. variant 2 ───
+planName: Mock Plan · Low Reflection
+visualDirection: Premium gallery-style product photography in deep black space with sculptural product treatment, generous negative space, dramatic rim light, satin reflection, and restrained typography. The product s...
+colorDirection: Near-black #0A0A0A to #111111, warm white #FFF8E7, champagne #F7E7CE or silver #C0C0C0 accents only, product natural material colors.
+Template palette guardrails: Determined by style world. For strict...
+riskWarnings count: 14
+prompt length: 8823 chars
+
+【冲突审计结果】
+  ⚠️  白色/纯白 vs 渐变/暗色 背景冲突: 同时出现'纯白背景'和'渐变/暗色背景'指示
+      匹配1: "pure white"
+      匹配2: "gradient"
+  ⚠️  产品完整展示 vs dramatic crop 冲突: 同时出现'产品完整展示'和'dramatic crop'
+      匹配1: "Full product"
+      匹配2: "crop"
+
+【Prompt 统计】
+  总字符数: 8823
+  总行数: 109
+  重复行比例: 0.0%
+  ⚠️ Prompt 过长 (8823 chars)，可能超出模型上下文或导致规则稀释
+
+【StyleWorld vs Old VisualStyle 影响检查】
+  是否包含旧 VisualStyle 标记: 是
+  是否包含 StyleWorld 标记: 是
+  ⚠️ 同时存在旧 VisualStyle 和 StyleWorld 标记，需确认优先级
+
+【StyleWorld Hints 注入位置】
+  StyleWorld 提示出现在字符位置: 858
+  VISUAL STYLE 区块起始位置: 0
+  ✅ StyleWorld 提示在 VISUAL STYLE 区块之后，属于追加注入
+
+Done.

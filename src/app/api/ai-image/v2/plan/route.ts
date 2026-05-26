@@ -243,7 +243,8 @@ export async function POST(request: NextRequest) {
           let plans = (result as CreativePlan[]).map((p) => normalizeCreativePlan(p));
           log(`normalize done in ${Date.now() - normalizeStart}ms`, { plans: plans.length });
           if (selectedTemplateId) {
-            plans = plans.map((plan, index) => applyTemplateRuleToPlan(plan, selectedTemplateId, index));
+            const resolvedPrimaryStyleWorld = planBrief?.resolvedPrimaryStyleWorld;
+            plans = plans.map((plan, index) => applyTemplateRuleToPlan(plan, selectedTemplateId, index, undefined, resolvedPrimaryStyleWorld));
           } else {
             plans.forEach((plan) => {
               plan.finalPrompt = plan.imageGenerationPrompt;
@@ -279,9 +280,10 @@ export async function POST(request: NextRequest) {
     };
 
     if (selectedTemplateId) {
+      const resolvedPrimaryStyleWorld = planBrief?.resolvedPrimaryStyleWorld;
       log(`request complete in ${Date.now() - routeStart}ms (mock path with template)`);
       return NextResponse.json({
-        data: plans.map((plan, index) => applyTemplateRuleToPlan(plan, selectedTemplateId, index)),
+        data: plans.map((plan, index) => applyTemplateRuleToPlan(plan, selectedTemplateId, index, undefined, resolvedPrimaryStyleWorld)),
         mode: "single",
         requestId,
         ...fallbackPayload,

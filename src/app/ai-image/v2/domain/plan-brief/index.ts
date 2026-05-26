@@ -5,6 +5,7 @@ export type {
   EmptyTemplateMode,
   EmptyTemplatePlanType,
   EmptyTemplatePlanConfig,
+  StyleWorldPromptHints,
 } from "./types";
 export {
   buildEmptyPlanBrief,
