@@ -27,4 +27,7 @@ export {
   getSavedTemplates,
   saveSavedTemplate,
   deleteSavedTemplate,
+  getSavedTemplatesFromServer,
+  saveSavedTemplateToServer,
+  migrateLocalSavedTemplatesToServer,
 } from "./user-templates";

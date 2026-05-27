@@ -7,10 +7,9 @@ import type { CreativePlan, V2DetailType, V2Session, V2SessionStatus, V2Workspac
 import type { PlanTemplate } from "@/lib/plan-templates/types";
 import {
   getSystemTemplates,
-  getSavedTemplates,
-  saveSavedTemplate,
-  savedTemplateToPlanTemplate,
-  planTemplateToSavedTemplate,
+  getSavedTemplatesFromServer,
+  migrateLocalSavedTemplatesToServer,
+  saveSavedTemplateToServer,
 } from "@/app/ai-image/v2/domain/templates";
 import { buildNoTextImagePrompt } from "../lib/noTextPrompt";
 
@@ -147,12 +146,34 @@ export function useV2Session() {
   const generateControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     setSystemTemplates(getSystemTemplates());
-    setUserTemplates(getSavedTemplates().map(savedTemplateToPlanTemplate));
+
+    void (async () => {
+      try {
+        const templates = await migrateLocalSavedTemplatesToServer();
+        if (!cancelled) setUserTemplates(templates);
+      } catch (error) {
+        console.error("[useV2Session] Failed to load user templates from server:", error);
+        if (!cancelled) setUserTemplates([]);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const refreshUserTemplates = useCallback(() => {
-    setUserTemplates(getSavedTemplates().map(savedTemplateToPlanTemplate));
+    void (async () => {
+      try {
+        const templates = await getSavedTemplatesFromServer();
+        setUserTemplates(templates);
+      } catch (error) {
+        console.error("[useV2Session] Failed to refresh user templates:", error);
+      }
+    })();
   }, []);
 
   useEffect(() => {
@@ -567,9 +588,16 @@ export function useV2Session() {
 
   const handleSaveTemplate = useCallback(
     (template: PlanTemplate) => {
-      saveSavedTemplate(planTemplateToSavedTemplate(template));
-      refreshUserTemplates();
-      toast.success(`模板「${template.name}」已保存`);
+      void (async () => {
+        try {
+          await saveSavedTemplateToServer(template);
+          refreshUserTemplates();
+          toast.success(`模板「${template.name}」已保存`);
+        } catch (error) {
+          console.error("[useV2Session] Failed to save template:", error);
+          toast.error("保存模板失败");
+        }
+      })();
     },
     [refreshUserTemplates]
   );

@@ -6,7 +6,8 @@ services:
       - "3002:3002"
     restart: unless-stopped
     env_file:
-      - .env.local
+      - .env
     volumes:
       - ./public/uploads:/app/public/uploads
+      - ./public/generated:/app/public/generated
       - ./prisma:/app/prisma

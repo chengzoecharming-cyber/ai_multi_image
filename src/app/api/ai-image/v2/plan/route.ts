@@ -225,9 +225,21 @@ export async function POST(request: NextRequest) {
       return briefPrompt ? { debug: base } : {};
     })();
 
-    // Try LLM (Volcano Engine / Kimi)
-    const apiKey = process.env.VOLCANO_API_KEY || process.env.KIMI_API_KEY || process.env.NEXT_PUBLIC_CHATGPT2API_KEY;
-    if (apiKey && apiKey !== "sk-your-kimi-key-here") {
+    // Try LLM (Volcano Engine / Kimi / chatgpt2api-compatible proxy)
+    //
+    // NOTE: llm-client.ts falls back to AUTH_KEY="chatgpt2api" when NEXT_PUBLIC_CHATGPT2API_KEY is unset.
+    // A prior merge added a stricter check here (requiring an explicit key), which causes the route to
+    // skip the real LLM path and always enter mock fallback on servers that rely on the default proxy key.
+    const proxyAuthKey = process.env.NEXT_PUBLIC_CHATGPT2API_KEY || "chatgpt2api";
+    const hasProxyUrl = Boolean(process.env.LLM_API_URL || process.env.NEXT_PUBLIC_CHATGPT2API_URL);
+    const apiKey =
+      process.env.VOLCANO_API_KEY ||
+      process.env.KIMI_API_KEY ||
+      (hasProxyUrl ? proxyAuthKey : undefined);
+
+    // Guard against common placeholder keys.
+    const isPlaceholderKey = apiKey === "sk-your-kimi-key-here";
+    if (apiKey && !isPlaceholderKey) {
       try {
         const imageStart = Date.now();
         const base64Image = await imageUrlToBase64(rawProductImageUrl);
@@ -260,7 +272,10 @@ export async function POST(request: NextRequest) {
         console.error(`[Plan][${requestId}] ⚠️ LLM FAILED — entering mock fallback. Reason: ${errMsg}`);
       }
     } else {
-      console.warn(`[Plan][${requestId}] ⚠️ NO LLM API KEY — entering mock fallback.`);
+      console.warn(
+        `[Plan][${requestId}] ⚠️ LLM not configured (missing key and no proxy url, or placeholder key) — entering mock fallback.`,
+        { hasProxyUrl, hasVolcanoKey: Boolean(process.env.VOLCANO_API_KEY), hasKimiKey: Boolean(process.env.KIMI_API_KEY) }
+      );
     }
 
     // ── Fallback: mock generation ──
