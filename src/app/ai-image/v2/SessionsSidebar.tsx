@@ -14,8 +14,8 @@ function deriveSessionStatus(session: V2Session): V2SessionStatus {
   if (session.lastError) return "failed";
   if (session.generatingImage) return "generating";
   if (session.step === "generating") return "planning";
+  if ((session.generatedImages?.length || 0) > 0) return "done";
   if ((session.singlePlans?.length || 0) > 0) {
-    if ((session.generatedImages?.length || 0) > 0) return "done";
     if (session.step === "plans" || session.step === "preview") return "needs_review";
   }
   return "draft";

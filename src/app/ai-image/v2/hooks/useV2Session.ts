@@ -60,6 +60,59 @@ function parseTaskResultImages(resultImageUrl?: string | null): string[] {
   }
 }
 
+function getSessionHistoryKey(session: V2Session): string | null {
+  const taskIds = (session.generatedImages || [])
+    .map((img) => img.taskId?.trim())
+    .filter((id): id is string => Boolean(id))
+    .sort();
+  if (taskIds.length > 0) {
+    return `task:${taskIds.join(",")}`;
+  }
+
+  const imageUrls = (session.generatedImages || [])
+    .map((img) => img.imageUrl?.trim())
+    .filter((url): url is string => Boolean(url))
+    .sort();
+  if (imageUrls.length > 0) {
+    return `img:${imageUrls.join(",")}`;
+  }
+
+  return null;
+}
+
+function mergeSessionsWithServerHistory(localSessions: V2Session[], serverSessions: V2Session[]): V2Session[] {
+  const merged = new Map<string, V2Session>();
+
+  for (const session of serverSessions) {
+    const key = getSessionHistoryKey(session) || session.id;
+    merged.set(key, session);
+  }
+
+  for (const session of localSessions) {
+    const key = getSessionHistoryKey(session);
+    if (!key) {
+      merged.set(`draft:${session.id}`, session);
+      continue;
+    }
+
+    const existing = merged.get(key);
+    if (!existing) {
+      merged.set(key, session);
+      continue;
+    }
+
+    const preferLocal =
+      !sessionHasOutput(existing) && sessionHasOutput(session)
+        ? true
+        : session.updatedAt > existing.updatedAt && !sessionHasOutput(existing);
+    if (preferLocal) {
+      merged.set(key, session);
+    }
+  }
+
+  return Array.from(merged.values()).sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
 async function loadServerHistorySessions(limit = 60): Promise<V2Session[]> {
   try {
     const res = await fetch(`/api/ai-image/tasks?limit=${limit}`);
@@ -283,13 +336,20 @@ export function useV2Session() {
     }
 
     void (async () => {
-      const shouldBackfillFromServer = !restoredLocalSessions || !restoredLocalSessions.some(sessionHasOutput);
-      if (!shouldBackfillFromServer) return;
-
       const serverHistory = await loadServerHistorySessions();
-      if (!cancelled && serverHistory.length > 0) {
-        setSessions(serverHistory);
-        setActiveSessionId(serverHistory[0].id);
+      const localSessions = restoredLocalSessions || [];
+      const mergedSessions = mergeSessionsWithServerHistory(localSessions, serverHistory);
+
+      if (!cancelled && mergedSessions.length > 0) {
+        const nextActiveId =
+          restoredLocalSessions &&
+          (loaded?.activeSessionId || localSessions[0]?.id) &&
+          mergedSessions.some((session) => session.id === (loaded?.activeSessionId || localSessions[0]?.id))
+            ? (loaded?.activeSessionId || localSessions[0]?.id)!
+            : mergedSessions[0].id;
+
+        setSessions(mergedSessions);
+        setActiveSessionId(nextActiveId);
         setWorkspaceTabState("product");
         return;
       }
