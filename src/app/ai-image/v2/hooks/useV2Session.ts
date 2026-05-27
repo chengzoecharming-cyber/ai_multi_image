@@ -40,6 +40,14 @@ function createPlanRequestId() {
   return `plan-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
+function sessionHasOutput(session: V2Session): boolean {
+  return (
+    (session.generatedImages?.length || 0) > 0 ||
+    (session.singlePlans?.length || 0) > 0 ||
+    (session.detail?.results?.length || 0) > 0
+  );
+}
+
 function parseTaskResultImages(resultImageUrl?: string | null): string[] {
   if (!resultImageUrl) return [];
   try {
@@ -235,41 +243,49 @@ export function useV2Session() {
 
   useEffect(() => {
     let cancelled = false;
+    let restoredLocalSessions: V2Session[] | null = null;
 
     const loaded = safeJsonParse<{ sessions: V2Session[]; activeSessionId: string | null }>(localStorage.getItem(SESSION_STORAGE_KEY));
     if (loaded?.sessions?.length) {
       const restored = loaded.sessions.map((s) => createEmptySession(s));
       setSessions(restored);
       setActiveSessionId(loaded.activeSessionId || loaded.sessions[0].id);
-      return;
+      restoredLocalSessions = restored;
     }
 
-    // Backward compat: migrate old group storage if present
-    const legacyGroups = safeJsonParse<{ groups: Array<{ slots: V2Session[]; activeSlotId: string | null }>; activeGroupId: string | null }>(
-      localStorage.getItem("ai_image_v2_sessions_v2_groups")
-    );
-    if (legacyGroups?.groups?.length) {
-      const flat: V2Session[] = [];
-      legacyGroups.groups.forEach((g) => {
-        (g.slots || []).forEach((s) => flat.push(createEmptySession({ ...s, groupId: null })));
-      });
-      if (flat.length) {
-        setSessions(flat);
-        setActiveSessionId(flat[0].id);
-        return;
+    if (!restoredLocalSessions) {
+      // Backward compat: migrate old group storage if present
+      const legacyGroups = safeJsonParse<{ groups: Array<{ slots: V2Session[]; activeSlotId: string | null }>; activeGroupId: string | null }>(
+        localStorage.getItem("ai_image_v2_sessions_v2_groups")
+      );
+      if (legacyGroups?.groups?.length) {
+        const flat: V2Session[] = [];
+        legacyGroups.groups.forEach((g) => {
+          (g.slots || []).forEach((s) => flat.push(createEmptySession({ ...s, groupId: null })));
+        });
+        if (flat.length) {
+          setSessions(flat);
+          setActiveSessionId(flat[0].id);
+          restoredLocalSessions = flat;
+        }
       }
     }
 
-    // Backward compat: migrate old sessions storage if present under previous key.
-    const legacy = safeJsonParse<{ sessions: V2Session[]; activeSessionId: string | null }>(localStorage.getItem("ai_image_v2_sessions_v1"));
-    if (legacy?.sessions?.length) {
-      const migrated = legacy.sessions.map((s) => createEmptySession({ ...s, groupId: null }));
-      setSessions(migrated);
-      setActiveSessionId(legacy.activeSessionId || migrated[0].id);
-      return;
+    if (!restoredLocalSessions) {
+      // Backward compat: migrate old sessions storage if present under previous key.
+      const legacy = safeJsonParse<{ sessions: V2Session[]; activeSessionId: string | null }>(localStorage.getItem("ai_image_v2_sessions_v1"));
+      if (legacy?.sessions?.length) {
+        const migrated = legacy.sessions.map((s) => createEmptySession({ ...s, groupId: null }));
+        setSessions(migrated);
+        setActiveSessionId(legacy.activeSessionId || migrated[0].id);
+        restoredLocalSessions = migrated;
+      }
     }
 
     void (async () => {
+      const shouldBackfillFromServer = !restoredLocalSessions || !restoredLocalSessions.some(sessionHasOutput);
+      if (!shouldBackfillFromServer) return;
+
       const serverHistory = await loadServerHistorySessions();
       if (!cancelled && serverHistory.length > 0) {
         setSessions(serverHistory);
