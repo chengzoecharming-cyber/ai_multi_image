@@ -15,6 +15,14 @@ import { buildNoTextImagePrompt } from "../lib/noTextPrompt";
 
 const SESSION_STORAGE_KEY = "ai_image_v2_sessions_v3";
 
+interface TaskHistoryItem {
+  id: string;
+  status: string;
+  userPrompt?: string | null;
+  resultImageUrl?: string | null;
+  createdAt: string;
+}
+
 function safeJsonParse<T>(raw: string | null): T | null {
   if (!raw) return null;
   try {
@@ -30,6 +38,55 @@ function nowTs() {
 
 function createPlanRequestId() {
   return `plan-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+function parseTaskResultImages(resultImageUrl?: string | null): string[] {
+  if (!resultImageUrl) return [];
+  try {
+    const parsed = JSON.parse(resultImageUrl);
+    if (Array.isArray(parsed)) return parsed.filter((u) => typeof u === "string");
+    if (typeof parsed === "string") return [parsed];
+    return [];
+  } catch {
+    return [resultImageUrl];
+  }
+}
+
+async function loadServerHistorySessions(limit = 60): Promise<V2Session[]> {
+  try {
+    const res = await fetch(`/api/ai-image/tasks?limit=${limit}`);
+    if (!res.ok) return [];
+    const json = (await res.json()) as { data?: TaskHistoryItem[] };
+    const tasks = Array.isArray(json?.data) ? json.data : [];
+    const completed = tasks.filter((t) => t.status === "completed");
+    const sessions = completed
+      .map((task) => {
+        const images = parseTaskResultImages(task.resultImageUrl);
+        if (images.length === 0) return null;
+        const ts = Number.isFinite(Date.parse(task.createdAt)) ? Date.parse(task.createdAt) : nowTs();
+        const session = createEmptySession({
+          id: `srv-${task.id}`,
+          createdAt: ts,
+          updatedAt: ts,
+          goal: (task.userPrompt || "").trim(),
+          step: "plans",
+          workspaceTab: "product",
+          generatedImages: images.map((imageUrl, idx) => ({
+            id: `${task.id}-${idx}`,
+            taskId: task.id,
+            tab: "product",
+            imageUrl,
+            createdAt: ts,
+          })),
+        });
+        return session;
+      })
+      .filter((s): s is V2Session => Boolean(s));
+    return sessions;
+  } catch (error) {
+    console.error("[useV2Session] Failed to load server history:", error);
+    return [];
+  }
 }
 
 function reconcileStep(seed?: Partial<V2Session>): Step {
@@ -177,6 +234,8 @@ export function useV2Session() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
     const loaded = safeJsonParse<{ sessions: V2Session[]; activeSessionId: string | null }>(localStorage.getItem(SESSION_STORAGE_KEY));
     if (loaded?.sessions?.length) {
       const restored = loaded.sessions.map((s) => createEmptySession(s));
@@ -210,15 +269,31 @@ export function useV2Session() {
       return;
     }
 
-    const seeded = createEmptySession({
-      productImageUrl: searchParams.get("productImageUrl"),
-      productReferenceImageUrl: searchParams.get("productImageUrl"),
-      goal: searchParams.get("goal") || "",
-      workspaceTab: "product",
-    });
-    setSessions([seeded]);
-    setActiveSessionId(seeded.id);
-    setWorkspaceTabState("product");
+    void (async () => {
+      const serverHistory = await loadServerHistorySessions();
+      if (!cancelled && serverHistory.length > 0) {
+        setSessions(serverHistory);
+        setActiveSessionId(serverHistory[0].id);
+        setWorkspaceTabState("product");
+        return;
+      }
+
+      const seeded = createEmptySession({
+        productImageUrl: searchParams.get("productImageUrl"),
+        productReferenceImageUrl: searchParams.get("productImageUrl"),
+        goal: searchParams.get("goal") || "",
+        workspaceTab: "product",
+      });
+      if (!cancelled) {
+        setSessions([seeded]);
+        setActiveSessionId(seeded.id);
+        setWorkspaceTabState("product");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [searchParams]);
 
   // ── Persist sessions to localStorage (with debounce) ──
