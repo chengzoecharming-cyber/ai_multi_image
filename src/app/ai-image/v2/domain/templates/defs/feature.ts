@@ -60,8 +60,6 @@ export const tplFeature: SystemTemplate = {
     defaultCreativeFreedom: "balanced",
     productScaleStrategy: "dominant",
     safetyRules: [
-      "禁止生成虚假数据表格、规格框或测量注释",
-      "禁止用 CAD 式蓝色细线标注",
       "每个卖点必须有视觉对应元素，不能是纯文字列表",
     ],
     conflictResolution:
@@ -83,10 +81,9 @@ export const tplFeature: SystemTemplate = {
   colorDirection:
     "Determined by style world. Light technical: cool light gray #E8ECF0 to #F0F2F5, white panels, technical blue accent. Dark technical: dark slate #0F172A, panel #1E293B, cyan accent. Gradient modern: soft flowing gradient. Diagram light: pure white with friendly blue. Material stage: surface-driven palette.",
   layoutNonNegotiables:
-    "Product full and sharp, clearly the largest single element. Use headline, 3-4 feature points with visual support (icons, shapes, color blocks, or connecting lines). No fake specs, no CAD-style thin blue annotation lines. Information density adjustable by copyMode.",
+    "Product full and sharp, clearly the largest single element. Use headline, feature points with visual support (icons, shapes, color blocks, or connecting lines). No fake specs, no CAD-style thin blue annotation lines. Information density adjustable by copyMode.",
   riskRules: [
-    "禁止生成虚假数据表格、规格框或测量注释",
-    "禁止用 CAD 式蓝色细线标注",
+    "每个卖点必须有视觉对应元素，不能是纯文字列表",
   ],
   allowedStyleIds: [
     "dark_technical",
@@ -95,49 +92,10 @@ export const tplFeature: SystemTemplate = {
     "premium_black",
   ],
   variants,
-
-  // ── 结构化规则（兼容层兜底） ──
-  mandatoryVisualRules: [
-    "标题区必须存在且作为视觉锚点：headline 是画面最高层级",
-    "产品必须是画面中最大的单一元素，是绝对视觉主角；信息面板/卖点是配角",
-    "每个卖点必须有视觉对应元素（图标/图形/色彩块/数字/连接线路径），不能是纯文字列表",
-    "卖点之间必须有视觉层次和分隔，但不依赖 flat 底色色块 — 靠 generous spacing + subtle hairline divider + 字体层级区分",
-    "背景必须有 subtle depth / texture，由 styleWorld 决定具体形式",
-    "产品必须有 subtle ground reflection 和 soft shadow，禁止悬浮",
-    "信息面板若有底色，禁止使用 flat opaque 色块或生硬直角 — glassmorphism、subtle shadow、rounded corners 优先",
-  ],
-  avoidRules: [
-    "禁止 plain text on plain background",
-    "禁止 CAD 式细蓝线标注或测量箭头",
-    "禁止假数据表格、规格框、尺寸数值",
-    "禁止所有文字堆在单一列中",
-    "禁止纯平 flat 背景无渐变/无纹理",
-    "禁止产品悬浮无阴影",
-    "禁止信息面板使用 flat opaque 色块、生硬直角或厚重 border",
-    "禁止每个信息模块都加底色色块",
-    "禁止信息密度过高导致拥挤",
-  ],
+  mandatoryVisualRules: [],
+  avoidRules: [],
   sceneRules: [],
-  lightingColorRules: [
-    "背景可深可浅，由具体产品和 styleWorld 决定",
-    "允许 cool accent 用于图标和 headline 强调，但必须与产品色调协调",
-    "避免 pastel 或 flat 无层次配色",
-    "产品照明必须专业：key light from upper-left + soft fill",
-    "允许 subtle specular highlights on product 增加金属/涂层质感",
-    "信息面板可使用 subtle glow 或 soft shadow 与背景区分",
-    "标题颜色应与产品或场景主色调呼应",
-  ],
-  productPlacementRules: [
-    "产品必须 large and commanding，是绝对主角",
-    "可带 dynamic angle（15-30° tilt）或 partial crop 增加张力",
-    "产品边缘必须清晰，不能和背景糊在一起",
-    "产品必须有 natural ground contact：subtle reflection + soft shadow",
-  ],
-  copyRules: [
-    "headline 必须存在且作为顶部视觉锚点",
-    "feature body text 必须解释卖点价值，不能只是重复标题",
-    "卖点标题 2-4 词 ALL CAPS，描述 8-15 词",
-    "NO comparison_labels, NO application_labels",
-    "信息层级之间必须有 generous spacing，优先 negative space 而非填满画面",
-  ],
+  lightingColorRules: [],
+  productPlacementRules: [],
+  copyRules: [],
 };
