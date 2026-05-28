@@ -16,6 +16,10 @@ interface HeroPlanContext {
   productName?: string;
 }
 
+const LLM_API_URL = process.env.LLM_API_URL || `${process.env.NEXT_PUBLIC_CHATGPT2API_URL || "http://localhost:3000/v1"}/chat/completions`;
+const LLM_MODEL = process.env.LLM_MODEL || "auto";
+const LLM_AUTH_KEY = process.env.VOLCANO_API_KEY || process.env.KIMI_API_KEY || process.env.NEXT_PUBLIC_CHATGPT2API_KEY || "chatgpt2api";
+
 function extractHeroContext(plan?: CreativePlan | null): HeroPlanContext | null {
   if (!plan) return null;
   return {
@@ -65,6 +69,9 @@ function buildDetailPrompt(args: {
     "Clean commercial look, realistic materials and lighting.",
     "If multiple reference images are provided, they describe the same product and should be jointly used as factual visual evidence.",
     "User free-text instructions are high priority. If the user text assigns semantic roles to images (e.g., dimension image, feature scene image), follow those assignments.",
+    "Priority for numeric specs: USER PROMPT explicit values > readable values on uploaded reference images > qualitative non-numeric labels.",
+    "If user prompt explicitly provides values/units, copy them exactly as-is. Do not rewrite decimals, units, symbols, or formatting.",
+    "If prompt does not provide values but reference image labels include readable values, copy those values exactly.",
     `Reference images available: ${args.referenceImageCount || 1}. Active reference index: ${args.activeReferenceIndex ?? 0}.`,
     "", // separator
     styleAnchor,
@@ -113,6 +120,46 @@ function buildDetailPrompt(args: {
   };
 
   return `${common}\n\n${base ? `Product: ${base}\n` : ""}${perType[args.type]}`.trim();
+}
+
+async function shouldRetrySpecFill(imageUrl: string): Promise<boolean> {
+  try {
+    const res = await fetch(LLM_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LLM_AUTH_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: LLM_MODEL,
+        messages: [
+          {
+            role: "system",
+            content:
+              'You are a strict image QA checker. Return JSON only: {"needsRetry": boolean, "reason": string}. needsRetry=true when spec/parameter fields are mostly empty placeholders (e.g., "-", "—", blank).',
+          },
+          {
+            role: "user",
+            content: [
+              { type: "image_url", image_url: { url: imageUrl } },
+              { type: "text", text: "Check if parameter/spec table fields are mostly placeholders or blank. If yes, set needsRetry=true." },
+            ],
+          },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0,
+        max_tokens: 200,
+      }),
+    });
+    if (!res.ok) return false;
+    const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+    const content = data?.choices?.[0]?.message?.content;
+    if (!content) return false;
+    const parsed = JSON.parse(content) as { needsRetry?: boolean };
+    return Boolean(parsed.needsRetry);
+  } catch {
+    return false;
+  }
 }
 
 function resolveUrl(origin: string, maybeUrl: unknown): string | null {
@@ -223,8 +270,41 @@ export async function POST(request: NextRequest) {
       }
 
       const fileName = `detail-${Date.now()}-${index}.png`;
-      const localUrl = await persistGeneratedImage(result.imageUrl, fileName, origin);
-      const effectiveUrl = localUrl || result.imageUrl;
+      let finalImageUrl = result.imageUrl;
+      let localUrl = await persistGeneratedImage(finalImageUrl, fileName, origin);
+      let effectiveUrl = localUrl || finalImageUrl;
+
+      // Post-check for spec pages: if fields are mostly placeholders, retry once with stricter fill guidance.
+      if (type === "spec") {
+        const inspectUrl = effectiveUrl.startsWith("/") ? `${origin}${effectiveUrl}` : effectiveUrl;
+        const needsRetry = await shouldRetrySpecFill(inspectUrl);
+        if (needsRetry) {
+          const retryPrompt = `${prompt}
+
+[MANDATORY SPEC FILL RETRY]
+- Do not leave spec rows blank or as '-' / '—' unless truly impossible.
+- If user prompt contains values, copy exactly as-is (highest priority).
+- Else, read values/labels from reference images and copy exactly.
+- Else, fill with concrete qualitative labels (e.g., "Custom", "By Drawing", "High Precision", "CNC Machined", "Metal Body").
+- Ensure most rows are meaningfully filled.`;
+          const retry = await provider.generate({
+            prompt: retryPrompt,
+            negativePrompt,
+            productImageUrl: activeRefUrl,
+            styleReferenceUrls: referenceUrls,
+            width,
+            height,
+            strictSize: true,
+            model: "default",
+            quality: "standard",
+          });
+          if (retry.success && retry.imageUrl) {
+            finalImageUrl = retry.imageUrl;
+            localUrl = await persistGeneratedImage(finalImageUrl, fileName, origin);
+            effectiveUrl = localUrl || finalImageUrl;
+          }
+        }
+      }
 
       await prisma.aiImageTask.update({
         where: { id: task.id },
