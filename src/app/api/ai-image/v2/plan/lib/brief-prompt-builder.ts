@@ -177,16 +177,14 @@ export function buildPromptFromBrief(
 **方案必须满足的基本要求：**
 1. 3 个方案必须是完全不同的功能定位（例如：搜索主图 / 详情卖点图 / 信息海报 — 但你可以根据产品特征调整这个组合）
 2. 每个方案必须有独特的视觉风格、构图逻辑和信息密度
-3. 产品必须占据合理画面比例（主图型 60-80%，信息型 40-55%）
-4. 所有画面文字使用简洁英文
 
-**参考方向（不强制，根据产品特征灵活选择）：**
-- 第一眼主图：超大产品+极简文字，有视觉侵略性，适合搜索结果缩略图
-- 卖点爆破图：产品+环绕信息卡片，3-4个核心优势清晰呈现
-- 高密度信息板：标题+产品+底部信息条，参数/优势/信任状一次给足
-- 微距特写： dramatic cropping + 局部放大，突出材质/刃口/表面纹理
-- 结构解析：爆炸图/分层展示，展示内部结构或工作原理
-- 对比论证： before/after 或 普通/升级 对比，突出优势
+**可选参考方向（不强制，仅启发）：**
+- 第一眼主图：产品主体突出，极简文案
+- 卖点爆破图：产品+信息卡片，展示核心优势
+- 高密度信息板：标题+产品+信息条，信息丰富
+- 微距特写：局部放大，突出材质纹理
+- 结构解析：爆炸图/分层展示
+- 对比论证：before/after 或 对比展示
 
 **视觉创意自由：**
 - 你可以自行决定产品的摆放角度、大小、是否倾斜、是否部分出界
@@ -194,12 +192,6 @@ export function buildPromptFromBrief(
 - 你可以自行决定文案密度：从极简大字到信息满载都可以
 - 你可以自行选择色彩方向：冷暖、明暗、单色系或多色系
 - 你可以自行决定是否使用图标、徽章、线条、色块等视觉元素
-
-**唯一禁止（必须遵守）：**
-- 禁止虚构技术参数、价格、品牌、认证
-- 禁止修改产品轮廓、比例、结构特征
-- 禁止产品与背景融为一体（必须有清晰分离）
-- 禁止 3 个方案使用相同的构图骨架（必须是 3 种不同逻辑）
 
 让这 3 个方案看起来像是为这个产品"量身定制"的设计，而不是套用同一套模板的 3 个皮肤。
 `.trim()
@@ -216,24 +208,8 @@ export function buildPromptFromBrief(
 `.trim()
     : "";
 
-  const minimalCopySkeleton = `
-空模板/自由生成时，仍需保证电商可用性，至少生成以下文案结构（不要只给几个泛词）：
-- headline: 2-6 个 ALL CAPS 英文词，必须指向可见特征或用户目标
-- subtitle: 1 句英文（8-20词），补充使用场景或核心价值
-- 3-4 个 feature_points: 每点包含 title(2-5词) + body(10-20词)，body 解释 WHY（不要堆“High Quality”）
-- 【方案 3 专属】bottom_info_bar: 核心参数条 + 信任徽章 + 价值主张，必须按视觉层级组织
-说明：不强制所有方案都有底部信息条。版式可以自由，但信息层级要清晰。
-`.trim();
-
-  const diversityAxes = `
-三方案差异轴（必须显式拉开，不要只是换颜色或换词）：
-- 风格轴：至少包含 3 种不同的风格取向（例如：clean catalog / bold promo / technical blueprint / premium dark / energetic dynamic 等），与商品类型匹配
-- 布局轴：至少 3 种不同构图（打破平衡的倾斜主视觉 / 环绕信息卡片 / 标题+产品+信息条海报式 等）
-- 信息轴：3 档不同信息密度（low → medium → rich），且都与电商转化直接相关
-`.trim();
-
   const perPlanDensityTargets = `
-为避免三个方案全部落到“中等/中密度”，你必须按以下目标输出：
+三方案信息密度目标（必须显式拉开差异，不要只是换颜色或换词）：
 - 方案 1（Hero）：informationDensity = low，visualComplexity = simple — 像搜索结果主图，大到不讲理，一眼抓住
 - 方案 2（Feature）：informationDensity = medium，visualComplexity = medium — 像详情页卖点图，信息丰富但层次分明
 - 方案 3（InfoDense）：informationDensity = rich，visualComplexity = complex — 像完整产品海报，参数/优势/信任状一次给足（禁止编造具体参数，可用占位标签）
@@ -416,10 +392,6 @@ ${userGoalText}${productContextText}${conflictText}
 4. visualDirection 必须具体详细：描述精确的光照角度、色温、表面反射、背景质感、氛围效果。
 5. layoutDirection 必须具体详细：描述精确的产品位置百分比、文字块大小、重叠关系、层级。
 6. colorDirection 必须包含精确色值（hex 或命名色），并描述颜色在画面中的过渡方式。
-
-${minimalCopySkeleton}
-
-${diversityAxes}
 
 ${perPlanDensityTargets}
 `.trim();
