@@ -762,7 +762,7 @@ export function SinglePlanCard({
           </div>
           <p className="text-sm font-medium text-gray-700 truncate">{plan.headline}</p>
           <div className="flex flex-wrap gap-1 mt-1">
-            {plan.sellingPoints.slice(0, 3).map((sp, i) => (
+            {(plan.sellingPoints || []).slice(0, 3).map((sp, i) => (
               <span key={i} className="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{sp}</span>
             ))}
           </div>
@@ -1396,7 +1396,7 @@ export function PromptPreviewPanel({
           <div>
             <Label className="text-[11px] text-gray-500">文案要点（可选）</Label>
             <div className="mt-1 flex flex-wrap gap-1.5">
-              {plan.sellingPoints.map((s, idx) => (
+              {(plan.sellingPoints || []).map((s, idx) => (
                 <span key={`${idx}-${s}`} className="text-[11px] px-2 py-1 rounded bg-gray-100 text-gray-700">
                   {s}
                 </span>
