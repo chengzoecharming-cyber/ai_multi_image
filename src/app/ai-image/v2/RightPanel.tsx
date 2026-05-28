@@ -649,6 +649,17 @@ export function RightPanel({
   }
 
   if (step === "plans") {
+    if (singlePlans.length === 0) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-10">
+          <p className="text-sm text-gray-500">当前会话没有可展示的方案</p>
+          <p className="text-xs text-gray-400 mt-2">请返回左侧重新生成方案</p>
+        </div>
+      );
+    }
+
+    const infoDialogPlan = infoPlan || singlePlans[0] || null;
+
     return (
       <>
         <PlanCardStack
@@ -665,15 +676,17 @@ export function RightPanel({
           onViewImage={onOpenPreview}
           onOpenInfo={setInfoPlan}
         />
-        <PlanInfoDialog
-          open={!!infoPlan}
-          onOpenChange={(open) => !open && setInfoPlan(null)}
-          plan={infoPlan || singlePlans[0]}
-          onPersist={(p) => {
-            onUpdateSingle(p);
-            setInfoPlan(null);
-          }}
-        />
+        {infoDialogPlan && (
+          <PlanInfoDialog
+            open={!!infoPlan}
+            onOpenChange={(open) => !open && setInfoPlan(null)}
+            plan={infoDialogPlan}
+            onPersist={(p) => {
+              onUpdateSingle(p);
+              setInfoPlan(null);
+            }}
+          />
+        )}
       </>
     );
   }
