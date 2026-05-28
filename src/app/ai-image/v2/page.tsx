@@ -1,10 +1,9 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useCallback } from "react";
 import { Wand2, Sparkles } from "lucide-react";
 import { useV2Session } from "./hooks/useV2Session";
 import { V2Header } from "./V2Header";
-import { WorkspaceSidebar } from "./WorkspaceSidebar";
 import { SessionsSidebar } from "./SessionsSidebar";
 import { LeftPanel } from "./LeftPanel";
 import { RightPanel } from "./RightPanel";
@@ -13,6 +12,7 @@ import { DetailRightPanel } from "./DetailRightPanel";
 import PlanTemplateLibraryDrawer from "@/components/template-library/PlanTemplateLibraryDrawer";
 import SaveAsTemplateDialog from "@/components/template-library/SaveAsTemplateDialog";
 import ImageGalleryDrawer from "./components/ImageGalleryDrawer";
+import type { GalleryApplyData } from "./components/ImageGalleryDrawer";
 
 function V2WorkbenchPageInner() {
   const {
@@ -65,6 +65,33 @@ function V2WorkbenchPageInner() {
 
   const [imageGalleryOpen, setImageGalleryOpen] = useState(false);
 
+  const handleApplyGallery = useCallback((data: GalleryApplyData) => {
+    const cfg = data.configSnapshot || {};
+    const width = Number.isFinite(cfg.width) ? Number(cfg.width) : 1024;
+    const height = Number.isFinite(cfg.height) ? Number(cfg.height) : 1024;
+    const provider = typeof cfg.provider === "string" ? cfg.provider : undefined;
+
+    const productImages = data.productImageUrl ? [data.productImageUrl] : [];
+    createNewSession({
+      workspaceTab: "product",
+      goal: data.userPrompt,
+      step: "plans",
+      productImageUrls: productImages,
+      outputWidth: width,
+      outputHeight: height,
+      provider,
+      generatedImages: [
+        {
+          id: `img-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          taskId: data.taskId,
+          tab: "product",
+          imageUrl: data.imageUrl,
+          createdAt: Date.now(),
+        },
+      ],
+    });
+  }, [createNewSession]);
+
   if (!activeSession) {
     return (
       <div className="flex flex-col h-screen bg-white overflow-hidden items-center justify-center">
@@ -84,16 +111,16 @@ function V2WorkbenchPageInner() {
       />
 
       <main className="flex-1 flex overflow-hidden">
-        <WorkspaceSidebar tab={tab} onChange={setWorkspaceTab} />
-
         <SessionsSidebar
           sessions={filteredSessions}
           totalCount={sessions.length}
           activeSessionId={activeSessionId}
+          workspaceTab={tab}
           onSelectSession={setActiveSessionId}
           onCreateSession={() => createNewSession({ workspaceTab: tab })}
           onDuplicateSession={duplicateSession}
           onDeleteSession={deleteSession}
+          onChangeWorkspaceTab={setWorkspaceTab}
         />
 
         {tab === "product" ? (
@@ -117,6 +144,7 @@ function V2WorkbenchPageInner() {
             fileInputRef={detailHeroFileInputRef}
             onUpload={handleUploadDetailHero}
             onUpdateSession={updateActiveSession}
+            onToggleDetailType={toggleDetailType}
             onGenerate={handleGenerateDetail}
           />
         )}
@@ -176,7 +204,8 @@ function V2WorkbenchPageInner() {
                   goal: activeSession.goal,
                   step: "input",
                   detail: {
-                    heroImageUrl: imageUrl,
+                    detailImageUrls: [imageUrl],
+                    activeDetailImageIndex: 0,
                     heroPlan: plan,
                     selectedTypes: ["detail", "multi_angle", "lifestyle", "feature", "comparison", "spec"],
                     generating: false,
@@ -252,6 +281,7 @@ function V2WorkbenchPageInner() {
       <ImageGalleryDrawer
         open={imageGalleryOpen}
         onClose={() => setImageGalleryOpen(false)}
+        onApply={handleApplyGallery}
       />
 
       {/* Save As Template Dialog */}

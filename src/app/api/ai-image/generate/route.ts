@@ -251,7 +251,8 @@ const providerName = body.provider || process.env.IMAGE_PROVIDER || "chatgpt2api
         imageUrl = imageUrl.replace("localhost:3000", "47.237.113.100:3000");
         console.log("[Generate] chatgpt2api imageUrl replaced:", imageUrl);
       }
-      const localImageUrl = providerName === "chatgpt2api" ? null : await persistImageLocally(task.id, imageUrl);
+      // Always persist to local static path if possible; provider-hosted URLs may expire.
+      const localImageUrl = await persistImageLocally(task.id, imageUrl);
       const effectiveImageUrl = localImageUrl || imageUrl;
 
       // Download image and convert to base64 for frontend copy/download (avoids CORS)

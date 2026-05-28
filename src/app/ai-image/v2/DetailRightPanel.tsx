@@ -1,6 +1,6 @@
 "use client";
 
-import { ImageIcon } from "lucide-react";
+import { ImageIcon, Loader2 } from "lucide-react";
 import type { V2DetailType, V2Session } from "./types";
 import { V2_DETAIL_TYPE_LABELS } from "./types";
 
@@ -10,7 +10,10 @@ function isDetailImage(img: { tab?: string; detailType?: V2DetailType }) {
 
 export function DetailRightPanel({ activeSession }: { activeSession: V2Session }) {
   const detail = activeSession.detail;
-  const heroUrl = detail?.heroImageUrl || null;
+  const detailImageUrls = detail?.detailImageUrls || [];
+  const activeDetailImageIndex = detail?.activeDetailImageIndex ?? 0;
+  const heroUrl = detailImageUrls[activeDetailImageIndex] || null;
+  const generating = detail?.generating || false;
 
   const detailImages = (activeSession.generatedImages || []).filter(isDetailImage);
 
@@ -32,13 +35,13 @@ export function DetailRightPanel({ activeSession }: { activeSession: V2Session }
           <div className="min-w-0">
             <div className="text-sm font-semibold text-gray-800">商详图（多页素材）</div>
             <div className="text-xs text-gray-400 truncate">
-              {heroUrl ? "已上传主图锚点，风格将保持一致" : "未上传主图锚点：请先上传主图"}
+              {heroUrl ? "已上传参考图，风格将保持一致" : "未上传参考图：请先上传主图或尺寸图"}
             </div>
           </div>
           {heroUrl && (
             <div className="ml-auto flex items-center gap-2">
               <div className="w-10 h-10 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
-                <img src={heroUrl} alt="主图" className="w-full h-full object-cover" />
+                <img src={heroUrl} alt="参考图" className="w-full h-full object-cover" />
               </div>
             </div>
           )}
@@ -46,11 +49,19 @@ export function DetailRightPanel({ activeSession }: { activeSession: V2Session }
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
-        {detailImages.length === 0 ? (
+        {generating ? (
+          <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
+            <div className="text-center">
+              <div className="text-sm font-medium text-gray-600">正在生成商详图...</div>
+              <div className="text-xs text-gray-400 mt-1">AI 正在根据参考图与描述生成配套素材</div>
+            </div>
+          </div>
+        ) : detailImages.length === 0 ? (
           <div className="h-full flex items-center justify-center text-gray-400">
             <div className="text-center">
               <div className="text-sm font-medium text-gray-500 mb-1">还没有生成商详素材图</div>
-              <div className="text-xs text-gray-400">选择主图与类型后点击「开始生成（多页）」</div>
+              <div className="text-xs text-gray-400">选择参考图与类型后点击「一键生成全套商详图」</div>
             </div>
           </div>
         ) : (

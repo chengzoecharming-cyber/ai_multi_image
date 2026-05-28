@@ -100,14 +100,68 @@ function mergeSessionsWithServerHistory(localSessions: V2Session[], serverSessio
       merged.set(key, session);
       continue;
     }
+    // Keep server history as baseline for generated outputs, but preserve richer
+    // local editing state (e.g. uploaded product images / references / goal text).
+    // Migrate deprecated single-image fields to arrays when present.
+    const sessionProductImages = session.productImageUrls?.length
+      ? session.productImageUrls
+      : session.productImageUrl
+        ? [session.productImageUrl]
+        : [];
+    const existingProductImages = existing.productImageUrls?.length
+      ? existing.productImageUrls
+      : existing.productImageUrl
+        ? [existing.productImageUrl]
+        : [];
+    const mergedProductImages = [...sessionProductImages, ...existingProductImages].filter((url, i, arr) => arr.indexOf(url) === i);
 
-    const preferLocal =
-      !sessionHasOutput(existing) && sessionHasOutput(session)
-        ? true
-        : session.updatedAt > existing.updatedAt && !sessionHasOutput(existing);
-    if (preferLocal) {
-      merged.set(key, session);
-    }
+    const sessionRefs = session.referenceImageUrls?.length
+      ? session.referenceImageUrls
+      : session.productReferenceImageUrl
+        ? [session.productReferenceImageUrl]
+        : [];
+    const existingRefs = existing.referenceImageUrls?.length
+      ? existing.referenceImageUrls
+      : existing.productReferenceImageUrl
+        ? [existing.productReferenceImageUrl]
+        : [];
+    const mergedRefs = [...new Set([...sessionRefs, ...existingRefs])];
+
+    const sessionDetailImages = session.detail?.detailImageUrls?.length
+      ? session.detail.detailImageUrls
+      : session.detail?.heroImageUrl
+        ? [session.detail.heroImageUrl]
+        : [];
+    const existingDetailImages = existing.detail?.detailImageUrls?.length
+      ? existing.detail.detailImageUrls
+      : existing.detail?.heroImageUrl
+        ? [existing.detail.heroImageUrl]
+        : [];
+    const mergedDetailImages = [...sessionDetailImages, ...existingDetailImages].filter((url, i, arr) => arr.indexOf(url) === i);
+
+    const mergedSession: V2Session = {
+      ...existing,
+      ...session,
+      productImageUrls: mergedProductImages,
+      activeProductImageIndex: session.activeProductImageIndex ?? existing.activeProductImageIndex ?? 0,
+      referenceImageUrls: mergedRefs,
+      goal: (session.goal && session.goal.trim()) ? session.goal : (existing.goal || ""),
+      generatedImages:
+        (existing.generatedImages && existing.generatedImages.length > 0)
+          ? existing.generatedImages
+          : (session.generatedImages || []),
+      singlePlans:
+        (session.singlePlans && session.singlePlans.length > 0)
+          ? session.singlePlans
+          : (existing.singlePlans || []),
+      detail: {
+        ...(session.detail || existing.detail || { selectedTypes: [], generating: false, results: [], lastError: null }),
+        detailImageUrls: mergedDetailImages,
+        activeDetailImageIndex: session.detail?.activeDetailImageIndex ?? existing.detail?.activeDetailImageIndex ?? 0,
+      },
+      updatedAt: Math.max(existing.updatedAt || 0, session.updatedAt || 0),
+    };
+    merged.set(key, mergedSession);
   }
 
   return Array.from(merged.values()).sort((a, b) => b.updatedAt - a.updatedAt);
@@ -165,6 +219,19 @@ function reconcileStep(seed?: Partial<V2Session>): Step {
 
 function createEmptySession(seed?: Partial<V2Session>): V2Session {
   const ts = nowTs();
+
+  // Migrate deprecated single-image fields to arrays if present.
+  const migratedProductImages = seed?.productImageUrls?.length
+    ? seed.productImageUrls
+    : seed?.productImageUrl
+      ? [seed.productImageUrl]
+      : [];
+  const migratedDetailImages = seed?.detail?.detailImageUrls?.length
+    ? seed.detail.detailImageUrls
+    : seed?.detail?.heroImageUrl
+      ? [seed.detail.heroImageUrl]
+      : [];
+
   const base: V2Session = {
     id: seed?.id || globalThis.crypto?.randomUUID?.() || `sess-${ts}-${Math.random().toString(36).slice(2, 6)}`,
     title: seed?.title,
@@ -178,15 +245,15 @@ function createEmptySession(seed?: Partial<V2Session>): V2Session {
     status: seed?.status,
     lastError: seed?.lastError ?? null,
 
-    productImageUrl: seed?.productImageUrl ?? null,
-    productReferenceImageUrl: seed?.productReferenceImageUrl ?? null,
+    productImageUrls: migratedProductImages,
+    activeProductImageIndex: seed?.activeProductImageIndex ?? 0,
     referenceImageUrls: seed?.referenceImageUrls ?? [],
     goal: seed?.goal ?? "",
 
     outputWidth: Number.isFinite(seed?.outputWidth) ? Number(seed?.outputWidth) : 1920,
     outputHeight: Number.isFinite(seed?.outputHeight) ? Number(seed?.outputHeight) : 1920,
 
-provider: seed?.provider || process.env.NEXT_PUBLIC_DEFAULT_IMAGE_PROVIDER || "chatgpt2api",
+    provider: seed?.provider || process.env.NEXT_PUBLIC_DEFAULT_IMAGE_PROVIDER || "chatgpt2api",
     selectedTemplateId: seed?.selectedTemplateId ?? null,
 
     singlePlans: seed?.singlePlans ?? [],
@@ -202,9 +269,13 @@ provider: seed?.provider || process.env.NEXT_PUBLIC_DEFAULT_IMAGE_PROVIDER || "c
     generatedImages: seed?.generatedImages ?? [],
 
     detail: {
-      ...(seed?.detail || { heroImageUrl: null, selectedTypes: [], generating: false, results: [], lastError: null }),
-      // Reset transient generation flag on restore.
+      detailImageUrls: migratedDetailImages,
+      activeDetailImageIndex: seed?.detail?.activeDetailImageIndex ?? 0,
+      heroPlan: seed?.detail?.heroPlan ?? null,
+      selectedTypes: seed?.detail?.selectedTypes ?? [],
       generating: false,
+      results: seed?.detail?.results ?? [],
+      lastError: seed?.detail?.lastError ?? null,
     },
 
     // deprecated (kept for old storage)
@@ -355,8 +426,7 @@ export function useV2Session() {
       }
 
       const seeded = createEmptySession({
-        productImageUrl: searchParams.get("productImageUrl"),
-        productReferenceImageUrl: searchParams.get("productImageUrl"),
+        productImageUrls: searchParams.get("productImageUrl") ? [searchParams.get("productImageUrl")!] : [],
         goal: searchParams.get("goal") || "",
         workspaceTab: "product",
       });
@@ -529,24 +599,34 @@ export function useV2Session() {
   const handleUploadProductImage = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       if (!activeSession) return;
-      const file = e.target.files?.[0];
-      if (!file) return;
-      const formData = new FormData();
-      formData.append("file", file);
+      const files = Array.from(e.target.files || []);
+      if (files.length === 0) return;
+      const uploadedUrls: string[] = [];
       try {
-        const res = await fetch("/api/upload", { method: "POST", body: formData });
-        const data = await res.json();
-        if (res.ok && data.data?.url) {
-          updateActiveSession((s) => ({
-            ...s,
-            productImageUrl: data.data.url,
-            productReferenceImageUrl: data.data.url,
-            lastError: null,
-            step: "input",
-          }));
-          toast.success("商品图上传成功");
-        } else {
-          toast.error(data.error || "上传失败");
+        for (const file of files) {
+          const formData = new FormData();
+          formData.append("file", file);
+          const res = await fetch("/api/upload", { method: "POST", body: formData });
+          const data = await res.json();
+          if (res.ok && data.data?.url) {
+            uploadedUrls.push(data.data.url);
+          } else {
+            toast.error(data.error || `上传失败: ${file.name}`);
+          }
+        }
+        if (uploadedUrls.length > 0) {
+          updateActiveSession((s) => {
+            const prev = s.productImageUrls || [];
+            const nextUrls = [...prev, ...uploadedUrls];
+            return {
+              ...s,
+              productImageUrls: nextUrls,
+              activeProductImageIndex: nextUrls.length - 1,
+              lastError: null,
+              step: "input",
+            };
+          });
+          toast.success(`已上传 ${uploadedUrls.length} 张商品图`);
         }
       } catch {
         toast.error("上传失败，请重试");
@@ -556,28 +636,39 @@ export function useV2Session() {
     [activeSession, updateActiveSession]
   );
 
-  const handleUploadDetailHero = useCallback(
+  const handleUploadDetailImage = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       if (!activeSession) return;
-      const file = e.target.files?.[0];
-      if (!file) return;
-      const formData = new FormData();
-      formData.append("file", file);
+      const files = Array.from(e.target.files || []);
+      if (files.length === 0) return;
+      const uploadedUrls: string[] = [];
       try {
-        const res = await fetch("/api/upload", { method: "POST", body: formData });
-        const data = await res.json();
-        if (res.ok && data.data?.url) {
-          updateActiveSession((s) => ({
-            ...s,
-            detail: {
-              ...(s.detail || { heroImageUrl: null, selectedTypes: [], generating: false, results: [], lastError: null }),
-              heroImageUrl: data.data.url,
-              lastError: null,
-            },
-          }));
-          toast.success("主图上传成功");
-        } else {
-          toast.error(data.error || "上传失败");
+        for (const file of files) {
+          const formData = new FormData();
+          formData.append("file", file);
+          const res = await fetch("/api/upload", { method: "POST", body: formData });
+          const data = await res.json();
+          if (res.ok && data.data?.url) {
+            uploadedUrls.push(data.data.url);
+          } else {
+            toast.error(data.error || `上传失败: ${file.name}`);
+          }
+        }
+        if (uploadedUrls.length > 0) {
+          updateActiveSession((s) => {
+            const prev = s.detail?.detailImageUrls || [];
+            const nextUrls = [...prev, ...uploadedUrls];
+            return {
+              ...s,
+              detail: {
+                ...(s.detail || { selectedTypes: [], generating: false, results: [], lastError: null }),
+                detailImageUrls: nextUrls,
+                activeDetailImageIndex: nextUrls.length - 1,
+                lastError: null,
+              },
+            };
+          });
+          toast.success(`已上传 ${uploadedUrls.length} 张参考图`);
         }
       } catch {
         toast.error("上传失败，请重试");
@@ -633,7 +724,8 @@ export function useV2Session() {
 
   const handleGeneratePlan = useCallback(async () => {
     if (!activeSession) return;
-    if (!activeSession.productImageUrl) {
+    const activeProductImage = activeSession.productImageUrls[activeSession.activeProductImageIndex ?? 0];
+    if (!activeProductImage) {
       toast.error("请先上传商品图");
       return;
     }
@@ -659,8 +751,8 @@ export function useV2Session() {
 
     try {
       const payload: Record<string, unknown> = {
-        rawProductImageUrl: activeSession.productImageUrl,
-        productReferenceImageUrl: activeSession.productReferenceImageUrl,
+        rawProductImageUrl: activeProductImage,
+        productReferenceImageUrl: activeSession.productImageUrls[0] || activeProductImage,
         userGoal: activeSession.goal.trim(),
         mode: "single",
         clientRequestId,
@@ -772,7 +864,8 @@ export function useV2Session() {
 
   const handleGenerateImage = useCallback(
     async (plan: CreativePlan) => {
-      if (!activeSession?.productImageUrl) {
+      const activeProductImage = activeSession?.productImageUrls?.[activeSession?.activeProductImageIndex ?? 0];
+      if (!activeProductImage) {
         toast.error("请先上传商品图");
         return;
       }
@@ -784,11 +877,11 @@ export function useV2Session() {
       try {
         const isChatGPT2API = activeSession.provider === "chatgpt2api";
 
-        // ChatGPT2API 只支持单张参考图（productImageUrl），不支持 styleReferenceUrls
+        // ChatGPT2API 只支持单张参考图，不支持 styleReferenceUrls
         const styleRefs = isChatGPT2API
           ? []
           : [
-              ...(activeSession.productReferenceImageUrl ? [activeSession.productReferenceImageUrl] : []),
+              ...(activeSession.productImageUrls[0] ? [activeSession.productImageUrls[0]] : []),
               ...(activeSession.referenceImageUrls || []),
             ];
 
@@ -807,7 +900,7 @@ export function useV2Session() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             promptContent,
-            productImageUrl: activeSession.productImageUrl,
+            productImageUrl: activeProductImage,
             styleReferenceUrls: styleRefs,
             // Allow on-image copy in V2 by default; keep only watermark/logo bans.
             negativePrompt: negativePromptBase,
@@ -875,7 +968,7 @@ export function useV2Session() {
               },
               ...s.generatedImages,
             ],
-            productReferenceImageUrl: s.productReferenceImageUrl || imageUrl,
+            productImageUrls: s.productImageUrls.includes(imageUrl) ? s.productImageUrls : [imageUrl, ...s.productImageUrls],
           }));
           toast.success("图片生成成功");
         } else {
@@ -909,7 +1002,7 @@ export function useV2Session() {
   const toggleDetailType = useCallback(
     (type: V2DetailType) => {
       updateActiveSession((s) => {
-        const prev = s.detail || { heroImageUrl: null, selectedTypes: [], generating: false, results: [], lastError: null };
+        const prev = s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: false, results: [], lastError: null };
         const exists = prev.selectedTypes.includes(type);
         const nextSelected = exists ? prev.selectedTypes.filter((t) => t !== type) : [...prev.selectedTypes, type];
         return { ...s, detail: { ...prev, selectedTypes: nextSelected, lastError: null } };
@@ -921,10 +1014,10 @@ export function useV2Session() {
   const handleGenerateDetail = useCallback(async () => {
     if (!activeSession) return;
     const detail = activeSession.detail;
-    const heroImageUrl = detail?.heroImageUrl || null;
+    const activeDetailImage = detail?.detailImageUrls?.[detail?.activeDetailImageIndex ?? 0] || null;
     const selectedTypes = detail?.selectedTypes || [];
-    if (!heroImageUrl) {
-      toast.error("请先上传主图");
+    if (!activeDetailImage) {
+      toast.error("请先上传参考图");
       return;
     }
     if (!activeSession.goal.trim() || activeSession.goal.trim().length < 3) {
@@ -939,7 +1032,7 @@ export function useV2Session() {
     updateActiveSession((s) => ({
       ...s,
       detail: {
-        ...(s.detail || { heroImageUrl: null, selectedTypes: [], generating: false, results: [], lastError: null }),
+        ...(s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: false, results: [], lastError: null }),
         generating: true,
         lastError: null,
       },
@@ -951,7 +1044,7 @@ export function useV2Session() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          heroImageUrl,
+          heroImageUrl: activeDetailImage,
           productDescription: activeSession.goal,
           selectedTypes,
           provider: activeSession.provider,
@@ -965,7 +1058,7 @@ export function useV2Session() {
         toast.error(msg);
         updateActiveSession((s) => ({
           ...s,
-          detail: { ...(s.detail as any), generating: false, lastError: msg },
+          detail: { ...(s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: false, results: [], lastError: null }), generating: false, lastError: msg },
         }));
         return;
       }
@@ -975,7 +1068,7 @@ export function useV2Session() {
         : [];
       const now = nowTs();
       updateActiveSession((s) => {
-        const prevDetail = s.detail || { heroImageUrl: null, selectedTypes: [], generating: false, results: [], lastError: null };
+        const prevDetail = s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: false, results: [], lastError: null };
         const newImages = pages
           .filter((p) => p?.imageUrl && p?.type)
           .map((p) => {
@@ -1011,7 +1104,7 @@ export function useV2Session() {
       toast.error("网络错误，请重试");
       updateActiveSession((s) => ({
         ...s,
-        detail: { ...(s.detail as any), generating: false, lastError: msg },
+        detail: { ...(s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: false, results: [], lastError: null }), generating: false, lastError: msg },
       }));
     }
   }, [activeSession, updateActiveSession]);
@@ -1053,7 +1146,7 @@ export function useV2Session() {
     selectedTemplate,
 
     handleUploadProductImage,
-    handleUploadDetailHero,
+    handleUploadDetailHero: handleUploadDetailImage,
     handleUploadReferenceImage,
     handleRemoveReferenceImage,
     handleGenerate: handleGeneratePlan,

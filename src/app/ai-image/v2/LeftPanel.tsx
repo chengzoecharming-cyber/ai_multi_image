@@ -45,7 +45,9 @@ export function LeftPanel({
   if (!activeSession) return null;
 
   const step: Step = activeSession.step;
-  const productImageUrl = activeSession.productImageUrl;
+  const productImageUrls = activeSession.productImageUrls || [];
+  const activeProductImageIndex = activeSession.activeProductImageIndex ?? 0;
+  const activeProductImage = productImageUrls[activeProductImageIndex] || null;
   const referenceImageUrls = activeSession.referenceImageUrls || [];
   const goal = activeSession.goal;
   const outputWidth = activeSession.outputWidth;
@@ -115,35 +117,92 @@ export function LeftPanel({
           )}
         </div>
 
-        {/* Product Image — max 280px */}
+        {/* Product Images — Taobao-style: thumbnail strip left + preview right */}
         <div className="space-y-2">
           <Label className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
             <ImageIcon className="w-3 h-3 text-gray-400" />商品图
           </Label>
-          <input ref={fileInputRef} type="file" accept="image/jpeg,image/jpg,image/png,image/webp" className="hidden" onChange={onUpload} />
-          {productImageUrl ? (
-            <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-[#F5F6F8] group max-w-[280px]">
-              <img src={productImageUrl} alt="商品图" className="w-full max-w-[280px] aspect-square object-contain" />
-              <button onClick={() => onUpdateSession((s) => ({ ...s, productImageUrl: null, productReferenceImageUrl: null, lastError: null }))} className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                <X className="w-3.5 h-3.5" />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/jpg,image/png,image/webp"
+            multiple
+            className="hidden"
+            onChange={onUpload}
+          />
+          <div className="flex gap-2">
+            {/* Thumbnail strip */}
+            <div className="flex flex-col gap-2 shrink-0">
+              {productImageUrls.map((url, idx) => (
+                <div
+                  key={url + idx}
+                  className={cn(
+                    "relative w-12 h-12 rounded-lg overflow-hidden border cursor-pointer group",
+                    idx === activeProductImageIndex
+                      ? "border-indigo-400 ring-1 ring-indigo-400"
+                      : "border-gray-200 hover:border-indigo-300"
+                  )}
+                  onClick={() => onUpdateSession((s) => ({ ...s, activeProductImageIndex: idx }))}
+                  title="点击查看大图"
+                >
+                  <img src={url} alt={`商品图 ${idx + 1}`} className="w-full h-full object-cover" />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onUpdateSession((s) => {
+                        const next = s.productImageUrls.filter((_, i) => i !== idx);
+                        return {
+                          ...s,
+                          productImageUrls: next,
+                          activeProductImageIndex: Math.min(s.activeProductImageIndex ?? 0, Math.max(0, next.length - 1)),
+                          lastError: null,
+                        };
+                      });
+                    }}
+                    className="absolute top-0 right-0 p-0.5 rounded-bl bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="删除"
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="w-12 h-12 rounded-lg border-2 border-dashed border-gray-300 hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors flex items-center justify-center text-gray-400 shrink-0"
+                title="添加商品图"
+              >
+                <Plus className="w-5 h-5" />
               </button>
             </div>
-          ) : (
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full flex flex-col items-center justify-center gap-2 aspect-square rounded-xl border-2 border-dashed border-gray-300 hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors"
-            >
-              <Upload className="w-8 h-8 text-gray-400" />
-              <span className="text-sm text-gray-500">点击上传商品图</span>
-              <span className="text-xs text-gray-400">jpg、png、webp，最大 10MB</span>
-            </button>
-          )}
+
+            {/* Large preview */}
+            <div className="flex-1 min-w-0">
+              {activeProductImage ? (
+                <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-[#F5F6F8]">
+                  <img
+                    src={activeProductImage}
+                    alt="商品图预览"
+                    className="w-full aspect-square object-contain"
+                  />
+                </div>
+              ) : (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full flex flex-col items-center justify-center gap-1.5 aspect-square rounded-xl border-2 border-dashed border-gray-300 hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors"
+                >
+                  <Upload className="w-6 h-6 text-gray-400" />
+                  <span className="text-xs text-gray-500">点击上传</span>
+                </button>
+              )}
+            </div>
+          </div>
+          <p className="text-xs text-gray-400">支持 jpg、png、webp，最大 10MB。可上传多张同一商品的不同形式图。</p>
         </div>
 
         {/* Goal */}
         <div className="space-y-2">
           <Label className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
-            <Lightbulb className="w-3 h-3 text-gray-400" />制图目标
+            <Lightbulb className="w-3 h-3 text-gray-400" />prompt
           </Label>
           <Textarea
             value={goal}
@@ -158,7 +217,7 @@ export function LeftPanel({
         {/* Provider Selection */}
         <div className="space-y-2">
           <Label className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
-            <Server className="w-3 h-3 text-gray-400" />生成后端
+            <Server className="w-3 h-3 text-gray-400" />选择模型
           </Label>
           <div className="grid grid-cols-2 gap-2">
             {[
@@ -368,7 +427,7 @@ export function LeftPanel({
         ) : (
           <Button
             onClick={onGenerate}
-            disabled={!productImageUrl || !goal.trim()}
+            disabled={!activeProductImage || !goal.trim()}
             className="w-full h-10 bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white border-0 shadow-lg shadow-indigo-200"
           >
             <Sparkles className="w-4 h-4 mr-2" />AI 生成方案

@@ -1,8 +1,19 @@
 "use client";
 
-import { LayoutGrid, Plus, Clock, AlertCircle, MoreHorizontal, Copy, Trash2 } from "lucide-react";
+import {
+  LayoutGrid,
+  Plus,
+  Clock,
+  AlertCircle,
+  MoreHorizontal,
+  Copy,
+  Trash2,
+  Image as ImageLucide,
+  Layers as LayersLucide,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { V2Session, V2SessionStatus } from "./types";
+import { cn } from "@/lib/utils";
+import type { V2Session, V2SessionStatus, V2WorkspaceTab } from "./types";
 
 function deriveSessionStatus(session: V2Session): V2SessionStatus {
   if ((session.workspaceTab || "product") === "detail") {
@@ -29,18 +40,22 @@ export function SessionsSidebar({
   sessions,
   totalCount,
   activeSessionId,
+  workspaceTab,
   onSelectSession,
   onCreateSession,
   onDuplicateSession,
   onDeleteSession,
+  onChangeWorkspaceTab,
 }: {
   sessions: V2Session[];
   totalCount: number;
   activeSessionId: string | null;
+  workspaceTab: V2WorkspaceTab;
   onSelectSession: (sessionId: string) => void;
   onCreateSession: () => void;
   onDuplicateSession: (sessionId: string) => void;
   onDeleteSession: (sessionId: string) => void;
+  onChangeWorkspaceTab: (tab: V2WorkspaceTab) => void;
 }) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -92,37 +107,88 @@ export function SessionsSidebar({
 
   const list = sessions;
 
+  const tabItemBase =
+    "flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors";
+  const tabActive = "bg-indigo-50 text-indigo-700";
+  const tabIdle = "text-gray-500 hover:bg-gray-50 hover:text-gray-700";
+
   return (
     <aside
       ref={rootRef}
       style={{ width }}
-      className="relative h-full border-r border-gray-200 bg-white overflow-y-auto shrink-0"
+      className="relative h-full border-r border-gray-200 bg-white overflow-y-auto shrink-0 flex flex-col"
     >
       <div
         onMouseDown={startDrag}
         className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 hover:bg-indigo-300/50 transition-colors"
       />
 
-      <div className="p-3 flex items-center justify-between gap-2 border-b border-gray-100">
-        <div className="flex items-center gap-2 min-w-0">
+      {/* Tab header with hint style */}
+      <div className="p-3 border-b border-gray-100 space-y-2">
+        <div className="flex items-center gap-2">
           <LayoutGrid className="w-4 h-4 text-indigo-600 shrink-0" />
           {!isCollapsed && (
             <div className="flex items-center gap-1">
-              <span className="text-sm font-semibold text-gray-800 truncate">记录</span>
-              <span className="text-[10px] text-gray-400" title={`当前工作区 ${list.length} 条 / 共 ${totalCount} 条`}>
+              <span className="text-xs text-gray-400">记录</span>
+              <span
+                className="text-[10px] text-gray-300"
+                title={`当前工作区 ${list.length} 条 / 共 ${totalCount} 条`}
+              >
                 {list.length}/{totalCount}
               </span>
             </div>
           )}
         </div>
-        <button
-          onClick={onCreateSession}
-          className="inline-flex items-center justify-center w-7 h-7 rounded-md hover:bg-gray-100 text-gray-600 shrink-0"
-          title="新增记录"
-        >
-          <Plus className="w-4 h-4" />
-        </button>
+
+        {/* Workspace tabs inline */}
+        {!isCollapsed && (
+          <div className="flex gap-1">
+            <button
+              type="button"
+              onClick={() => onChangeWorkspaceTab("product")}
+              className={cn(tabItemBase, workspaceTab === "product" ? tabActive : tabIdle)}
+              title="商品图"
+            >
+              <ImageLucide className="w-3.5 h-3.5" />
+              商品图
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangeWorkspaceTab("detail")}
+              className={cn(tabItemBase, workspaceTab === "detail" ? tabActive : tabIdle)}
+              title="商详图"
+            >
+              <LayersLucide className="w-3.5 h-3.5" />
+              商详图
+            </button>
+          </div>
+        )}
+
+        {/* Small create button below tabs */}
+        {!isCollapsed && (
+          <button
+            onClick={onCreateSession}
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-600 text-[11px] font-medium transition-colors"
+            title="新增记录"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            新增记录
+          </button>
+        )}
       </div>
+
+      {/* Collapsed create button (icon only) */}
+      {isCollapsed && (
+        <div className="p-2 flex justify-center border-b border-gray-100">
+          <button
+            onClick={onCreateSession}
+            className="inline-flex items-center justify-center w-7 h-7 rounded-md hover:bg-gray-100 text-gray-600 shrink-0"
+            title="新增记录"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       <div className="p-2 space-y-1">
         {list.map((s) => {
@@ -175,8 +241,8 @@ export function SessionsSidebar({
                     {!isCollapsed && (
                       <div className="text-xs text-gray-400 truncate">
                         {(s.workspaceTab || "product") === "detail"
-                          ? (s.detail?.heroImageUrl ? "已上传主图" : "未上传主图")
-                          : (s.productImageUrl ? "已上传商品图" : "未上传商品图")}
+                          ? (s.detail?.detailImageUrls?.length ? "已上传参考图" : "未上传参考图")
+                          : (s.productImageUrls?.length ? "已上传商品图" : "未上传商品图")}
                       </div>
                     )}
                   </div>

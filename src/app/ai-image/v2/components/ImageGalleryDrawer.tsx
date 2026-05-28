@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { X, Download, Copy, ImageIcon, Loader2 } from "lucide-react";
+import { X, Download, ImageIcon, Loader2, ArrowRightLeft } from "lucide-react";
 import { toast } from "sonner";
 
 interface TaskItem {
@@ -10,11 +10,25 @@ interface TaskItem {
   resultImageUrl: string | null;
   createdAt: string;
   userPrompt: string | null;
+  promptSnapshot: string | null;
+  referenceImagesSnapshot: string | null;
+  configSnapshot: string | null;
+  negativePromptSnapshot: string | null;
+}
+
+export interface GalleryApplyData {
+  taskId: string;
+  imageUrl: string;
+  userPrompt: string;
+  productImageUrl: string | null;
+  promptSnapshot: string;
+  configSnapshot: Record<string, unknown>;
 }
 
 interface ImageGalleryDrawerProps {
   open: boolean;
   onClose: () => void;
+  onApply?: (data: GalleryApplyData) => void;
 }
 
 function formatDateLabel(iso: string): string {
@@ -38,7 +52,16 @@ function parseResultImages(resultImageUrl?: string | null): string[] {
   }
 }
 
-export default function ImageGalleryDrawer({ open, onClose }: ImageGalleryDrawerProps) {
+function safeJsonParse<T>(raw: string | null): T | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+export default function ImageGalleryDrawer({ open, onClose, onApply }: ImageGalleryDrawerProps) {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -66,6 +89,9 @@ export default function ImageGalleryDrawer({ open, onClose }: ImageGalleryDrawer
           taskId: task.id,
           createdAt: task.createdAt,
           userPrompt: task.userPrompt,
+          promptSnapshot: task.promptSnapshot,
+          referenceImagesSnapshot: task.referenceImagesSnapshot,
+          configSnapshot: task.configSnapshot,
         }))
       )
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -78,21 +104,6 @@ export default function ImageGalleryDrawer({ open, onClose }: ImageGalleryDrawer
     }
     return groups;
   }, [tasks]);
-
-  const handleCopy = async (url: string) => {
-    try {
-      const res = await fetch(url);
-      const blob = await res.blob();
-      if (navigator.clipboard && navigator.clipboard.write) {
-        await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
-        toast.success("图片已复制到剪贴板");
-      } else {
-        toast.error("当前浏览器不支持复制图片");
-      }
-    } catch {
-      toast.error("复制失败，可能受跨域限制");
-    }
-  };
 
   const handleDownload = async (url: string) => {
     try {
@@ -110,6 +121,31 @@ export default function ImageGalleryDrawer({ open, onClose }: ImageGalleryDrawer
     } catch {
       toast.error("下载失败，可能受跨域限制");
     }
+  };
+
+  const handleApply = (item: {
+    url: string;
+    taskId: string;
+    userPrompt: string | null;
+    promptSnapshot: string | null;
+    referenceImagesSnapshot: string | null;
+    configSnapshot: string | null;
+  }) => {
+    if (!onApply) return;
+    const refs = safeJsonParse<{ productImageUrl?: string | null; styleReferenceUrls?: string[] }>(
+      item.referenceImagesSnapshot
+    );
+    const config = safeJsonParse<Record<string, unknown>>(item.configSnapshot) || {};
+    onApply({
+      taskId: item.taskId,
+      imageUrl: item.url,
+      userPrompt: item.userPrompt || "",
+      productImageUrl: refs?.productImageUrl || null,
+      promptSnapshot: item.promptSnapshot || "",
+      configSnapshot: config,
+    });
+    onClose();
+    toast.success("已应用至新会话");
   };
 
   if (!open) return null;
@@ -171,11 +207,11 @@ export default function ImageGalleryDrawer({ open, onClose }: ImageGalleryDrawer
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleCopy(img.url);
+                            handleApply(img);
                           }}
-                          className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-white/90 hover:bg-white text-gray-800 text-[11px] font-medium rounded-md transition-colors"
+                          className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-indigo-500/90 hover:bg-indigo-500 text-white text-[11px] font-medium rounded-md transition-colors"
                         >
-                          <Copy className="w-3 h-3" />复制
+                          <ArrowRightLeft className="w-3 h-3" />应用
                         </button>
                         <button
                           onClick={(e) => {

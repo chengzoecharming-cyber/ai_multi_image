@@ -229,12 +229,17 @@ export interface V2GeneratedImage {
 }
 
 export interface V2DetailState {
-  heroImageUrl: string | null;
+  /** 商详参考图列表（主图、尺寸图、材质图等） */
+  detailImageUrls: string[];
+  activeDetailImageIndex: number;
   heroPlan?: CreativePlan | null;
   selectedTypes: V2DetailType[];
   generating: boolean;
   results: Array<{ type: V2DetailType; imageId: string }>;
   lastError?: string | null;
+
+  /** @deprecated use detailImageUrls */
+  heroImageUrl?: string | null;
 }
 
 export interface V2Session {
@@ -251,10 +256,11 @@ export interface V2Session {
   status?: V2SessionStatus;
   lastError?: string | null;
 
-  productImageUrl: string | null;
-  // optional: used as a style reference for product tab generations
-  productReferenceImageUrl: string | null;
-  // user-uploaded style reference images (up to 3)
+  /** 商品图列表（主图 + 多角度/形式图） */
+  productImageUrls: string[];
+  activeProductImageIndex: number;
+
+  /** 风格参考图（非商品图，用于风格迁移） */
   referenceImageUrls: string[];
   goal: string;
 
@@ -282,6 +288,10 @@ export interface V2Session {
   // ============================================================
   // Deprecated fields (kept for storage migration)
   // ============================================================
+  /** @deprecated use productImageUrls */
+  productImageUrl?: string | null;
+  /** @deprecated use productImageUrls[0] */
+  productReferenceImageUrl?: string | null;
   groupId?: string | null;
 }
 
