@@ -60,18 +60,11 @@ Core rules:
 8. Every plan must be visually different: different layout, background, copy style, and visual rhythm.
 9. Use product-specific language. A cutting tool, fastener, bearing, or machined part should NOT receive the same generic selling points.
 
-Copy richness requirement:
-Each CreativePlan must contain AT MINIMUM 10 copyBlocks, ideally 12-16.
-A "thin" plan with only a headline + 3 short words is UNACCEPTABLE.
-
-Required copyBlocks per plan:
-- 1 headline (2-6 impactful ALL CAPS words)
-- 1 subheadline (8-20 words, adds context and credibility)
-- 1 core_claim (a bold one-line statement of value)
-- 3-4 feature_points (each: title 2-5 words + body 10-20 words explaining the BENEFIT)
-- 2-3 technical_points OR application_labels (each with title + body)
-- 3 bottom_info items (short punchy phrases for the bottom info bar)
-- 1-2 additional blocks: comparison_labels, badges, or extra feature_points
+Copy freedom requirement:
+- Plans are for human review, not final rigid production layout.
+- Copy structure is FLEXIBLE: use only the amount and type of text that best serves the user's goal.
+- Selling points are OPTIONAL. Technical notes, scene labels, short explanatory text, or even very minimal copy are all acceptable.
+- Do not force bottom info bars or fixed card counts unless user explicitly asks for that style.
 
 Good copyBlock examples (feature_point with title + body):
 {
@@ -156,11 +149,10 @@ Background rules:
 Layout and visual design rules:
 - Text elements must be arranged with CLEAR VISUAL HIERARCHY and DESIGN SENSE.
 - Do NOT simply stack text blocks in a column — use grids, cards, floating panels, integrated typography.
-- Feature points should use ICON BADGES (circular icons with symbols) or ACCENT BARS.
-- Headlines can use GRADIENT TEXT, METALLIC TEXT, or OUTLINE TEXT.
-- Technical specs should use BIG BOLD NUMBERS with units.
-- Bottom info should be a HORIZONTAL BAR with separators.
-- Badges should be CORNER RIBBONS or OVERLAPPING TAGS.
+- Feature points can use icon badges or accent bars when appropriate, but are optional.
+- Headlines can use gradient, metallic, or outline treatment when it fits.
+- Technical specs may use bold labels when needed, but avoid fake numeric claims.
+- Bottom info bars and badges are optional design devices, not mandatory.
 - Product placement should vary by layout: centered hero, left-aligned with right text, floating with side panels, etc.
 
 The 3 plans must use DIFFERENT archetypes. Example distribution:
@@ -168,42 +160,42 @@ The 3 plans must use DIFFERENT archetypes. Example distribution:
 2. premium_showcase or technical_breakdown — refined or technical, detail callouts, spec numbers.
 3. comparison_story, application_scene, or multi_panel_info — clearly different structure, grid layout or split screen.
 
-Each archetype has specific layout requirements:
+Each archetype has flexible layout guidance:
 
 hero_feature:
-- 1 headline + 1 subheadline + 1 core_claim + 3-4 feature_points + 3 bottom_info
 - Product hero shot, strong lighting, strong edge highlights
-- layoutType: hero_left_text_right_product, hero_right_product_left_features, diagonal_product_with_side_features
+- Optional copy from no_text/headline_only up to feature-rich
+- layoutType candidates: hero_left_text_right_product, hero_right_product_left_features, diagonal_product_with_side_features
 
 technical_breakdown:
-- 1 headline + 1 subheadline + 2-3 technical_points + 2-3 feature_points + 3 bottom_info
 - Product body + detail callouts
-- layoutType: technical_callout_with_insets, exploded_layer_explanation
+- Optional copy: short labels or deeper technical explanations
+- layoutType candidates: technical_callout_with_insets, exploded_layer_explanation
 
 comparison_story:
-- 1 headline + 1 subheadline + 2 comparison_labels + 3-4 feature_points
 - Split screen or side-by-side comparison
-- layoutType: comparison_two_columns
+- Copy can be minimal labels or richer explanatory blocks
+- layoutType candidate: comparison_two_columns
 
 application_scene:
-- 1 headline + 1 subheadline + 1 core_claim + 3-4 application_labels + 3 bottom_info
 - Product in credible industrial context
-- layoutType: four_panel_application_grid
+- Copy can be scene labels, process notes, or minimal headline-only
+- layoutType candidate: four_panel_application_grid
 
 multi_panel_info:
-- 1 headline + 1 subheadline + 4-6 feature_points + 3 bottom_info
 - Multi-block layout: 4-panel grid, 3-column features
-- layoutType: four_panel_application_grid, large_headline_with_bottom_info_bar
+- Copy density can range from concise to rich
+- layoutType candidates: four_panel_application_grid, large_headline_with_bottom_info_bar
 
 premium_showcase:
-- 1 headline + 1 subheadline + 1 core_claim + 2 feature_points
 - Minimal text, generous negative space, deep dark background
-- layoutType: premium_center_product_minimal_text
+- Headline is optional
+- layoutType candidate: premium_center_product_minimal_text
 
 promo_sales:
-- 1 headline + 1 subheadline + 1 core_claim + 3-4 feature_points + 3 bottom_info
 - Large bold headline, high contrast color blocks
-- layoutType: top_headline_bottom_feature_bar, large_headline_with_bottom_info_bar
+- Copy structure is flexible; no forced block count
+- layoutType candidates: top_headline_bottom_feature_bar, large_headline_with_bottom_info_bar
 
 Output JSON shape:
 {

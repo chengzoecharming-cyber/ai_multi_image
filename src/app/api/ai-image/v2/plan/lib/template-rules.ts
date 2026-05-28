@@ -11,6 +11,7 @@ import { DEFAULT_THREE_PLAN_STYLE_IDS, getVisualStyleProfile } from "@/app/ai-im
 import { getSystemTemplateProfile } from "@/app/ai-image/v2/domain/templates";
 import type { SystemTemplate, CopyProfile as DomainCopyProfile } from "@/app/ai-image/v2/domain/templates";
 import type { StyleWorldPromptHints } from "@/app/ai-image/v2/domain/plan-brief";
+import { getVisualStyleFallbackForStyleWorld } from "@/app/ai-image/v2/domain/plan-brief/style-world-adapter";
 import { buildLayoutOverlay } from "./layout-overlay";
 import { buildImageGenerationPrompt, buildPlanSummaryPrompt } from "./prompt-builders";
 
@@ -98,12 +99,12 @@ STRUCTURED TEMPLATE RULES — MUST FOLLOW:
 - imageType: ${rule.imageType}
 - visualComplexity: ${rule.visualComplexity}
 - informationDensity: ${rule.informationDensity}
-- copyProfile: ${rule.copyProfile}
+- copyProfile: ${rule.copyProfile} (guidance only, not fixed block recipe)
 - shared template constraints: ${rule.visualIdentity}
 - non-negotiable layout rules: ${rule.layoutNonNegotiables}
 - style rule: the 3 plans must use DIFFERENT visual styles from this allowed style set.
 ${styles}
-- variation rule: each plan must use a different layout/composition variant below.
+- variation rule: each plan should use a different layout/composition variant below while keeping review flexibility.
 ${variants}
 `.trim();
 }
@@ -124,102 +125,26 @@ function block(id: string, title: string, role: CopyBlock["role"], priority: num
   };
 }
 
-function chooseExisting(blocks: CopyBlock[], roles: CopyBlock["role"][], limit: number): CopyBlock[] {
-  return blocks.filter((item) => roles.includes(item.role)).slice(0, limit);
-}
-
-function safeFeatureBlocks(plan: CreativePlan, limit: number): CopyBlock[] {
-  const source = chooseExisting(plan.copyBlocks || [], ["feature_point", "technical_point", "application_label"], limit);
-  if (source.length > 0) {
-    return source.map((item, index) => ({
-      ...item,
-      id: item.id || `cb-feature-${index}`,
-      role: "feature_point",
-      priority: index + 2,
-    }));
+function enforceCopyProfile(plan: CreativePlan, _profile: CopyProfile): CopyBlock[] {
+  const existing = Array.isArray(plan.copyBlocks) ? plan.copyBlocks.filter((b) => b?.title?.trim()) : [];
+  if (existing.length > 0) {
+    return existing
+      .slice()
+      .sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999))
+      .map((item, index) => ({
+        ...item,
+        id: item.id || `cb-${index + 1}`,
+        priority: Number.isFinite(item.priority) ? item.priority : index + 1,
+      }));
   }
 
-  return (plan.sellingPoints || []).slice(0, limit).map((point, index) =>
-    block(`cb-feature-${index}`, point.split("/")[0], "feature_point", index + 2, point.includes("/") ? point.split("/").slice(1).join("/").trim() : undefined)
-  );
-}
+  const headline = plan.headline?.trim() ? block("cb-headline", plan.headline, "headline", 1) : undefined;
+  const subtitle = plan.subtitle?.trim() ? block("cb-subheadline", plan.subtitle, "subheadline", 2) : undefined;
+  const noteBlocks = (plan.sellingPoints || [])
+    .slice(0, 6)
+    .map((note, index) => block(`cb-note-${index + 1}`, note, "feature_point", index + 3));
 
-function enforceCopyProfile(plan: CreativePlan, profile: CopyProfile): CopyBlock[] {
-  const headline = block("cb-headline", plan.headline, "headline", 1);
-  const subtitle = plan.subtitle ? block("cb-subheadline", plan.subtitle, "subheadline", 2) : undefined;
-
-  switch (profile) {
-    case "headline_only":
-      return [headline];
-    case "headline_labels": {
-      const labels = safeFeatureBlocks(plan, 3).map((item, index) => ({
-        ...item,
-        id: `cb-label-${index}`,
-        title: item.title.split(/\s+/).slice(0, 2).join(" "),
-        body: undefined,
-        role: "feature_point" as const,
-        priority: index + 2,
-      }));
-      return [headline, ...labels];
-    }
-    case "comparison_medium": {
-      const features = safeFeatureBlocks(plan, 4).map((item, index) => ({ ...item, priority: index + 5 }));
-      const bottom = features.slice(0, 3).map((item, index) => block(`cb-bottom-${index}`, item.title, "bottom_info", index + 9));
-      return [
-        headline,
-        ...(subtitle ? [subtitle] : []),
-        block("cb-vs-left", "ORDINARY", "comparison_label", 3),
-        block("cb-vs-right", "OUR PRODUCT", "comparison_label", 4),
-        ...features,
-        ...bottom,
-      ];
-    }
-    case "application_medium": {
-      const apps = safeFeatureBlocks(plan, 3).map((item, index) => ({
-        ...item,
-        role: "application_label" as const,
-        body: item.body || item.subtitle || "Built for real workshop use.",
-        priority: index + 3,
-      }));
-      const bottom = apps.slice(0, 3).map((item, index) => block(`cb-bottom-${index}`, item.title, "bottom_info", index + 7));
-      return [headline, ...apps, ...bottom];
-    }
-    case "technical_medium": {
-      const tech = safeFeatureBlocks(plan, 4).map((item, index) => ({
-        ...item,
-        role: "technical_point" as const,
-        body: item.body || item.subtitle || "Placeholder-style structural label only.",
-        priority: index + 3,
-      }));
-      const bottom = tech.slice(0, 3).map((item, index) => block(`cb-bottom-${index}`, item.title, "bottom_info", index + 8));
-      return [headline, ...(subtitle ? [subtitle] : []), ...tech, ...bottom];
-    }
-    case "bundle_medium":
-    case "feature_medium": {
-      const features = safeFeatureBlocks(plan, 4).map((item, index) => ({
-        ...item,
-        body: item.body || item.subtitle || "Clear product benefit for quick e-commerce scanning.",
-        priority: index + 3,
-      }));
-      const bottom = features.slice(0, 3).map((item, index) => block(`cb-bottom-${index}`, item.title, "bottom_info", index + 8));
-      return [headline, ...(subtitle ? [subtitle] : []), ...features, ...bottom];
-    }
-    case "promo_rich": {
-      const features = safeFeatureBlocks(plan, 4).map((item, index) => ({
-        ...item,
-        body: item.body || item.subtitle || "Fast, punchy benefit copy for a high-impact sales visual.",
-        priority: index + 4,
-      }));
-      const bottom = features.slice(0, 3).map((item, index) => block(`cb-bottom-${index}`, item.title, "bottom_info", index + 9));
-      return [
-        headline,
-        ...(subtitle ? [subtitle] : []),
-        block("cb-claim", "BUILT TO PERFORM", "core_claim", 3),
-        ...features,
-        ...bottom,
-      ];
-    }
-  }
+  return [headline, subtitle, ...noteBlocks].filter(Boolean) as CopyBlock[];
 }
 
 /**
@@ -297,8 +222,7 @@ export function applyTemplateRuleToPlan(
     // 如果有 resolvedPrimaryStyleWorld，使用其 fallback；否则用默认
     let styleId: import("@/app/ai-image/v2/plan-taxonomy").VisualStyleId;
     if (resolvedPrimaryStyleWorld) {
-      const { getVisualStyleFallbackForStyleWorld } = require("@/app/ai-image/v2/domain/plan-brief/style-world-adapter");
-      styleId = getVisualStyleFallbackForStyleWorld(resolvedPrimaryStyleWorld as any);
+      styleId = getVisualStyleFallbackForStyleWorld(resolvedPrimaryStyleWorld as import("@/app/ai-image/v2/domain/style-worlds").StyleWorldId);
     } else {
       styleId = DEFAULT_THREE_PLAN_STYLE_IDS[variantIndex % DEFAULT_THREE_PLAN_STYLE_IDS.length];
     }
@@ -329,9 +253,12 @@ export function applyTemplateRuleToPlan(
   const variant = rule.variants[variantIndex % rule.variants.length];
   const style = getVisualStyleProfile(rule.styleIds[variantIndex % rule.styleIds.length]);
   const copyBlocks = enforceCopyProfile(plan, rule.copyProfile);
-  const sellingPoints = copyBlocks
-    .filter((item) => item.role !== "headline" && item.role !== "subheadline")
-    .map((item) => item.body ? `${item.title} / ${item.body}` : item.title);
+  const sellingPoints = (plan.sellingPoints || []).length > 0
+    ? [...(plan.sellingPoints || [])]
+    : copyBlocks
+      .filter((item) => item.role !== "headline" && item.role !== "subheadline")
+      .map((item) => item.body ? `${item.title} / ${item.body}` : item.title)
+      .slice(0, 6);
 
   // v2.1: 当 styleWorldHints 存在时，旧 VisualStyle 降级为 context，不强约束
   const hasHints = !!styleWorldHints;
@@ -359,7 +286,7 @@ export function applyTemplateRuleToPlan(
     planArchetype: rule.archetype,
     templateId: rule.id,
     imageType: rule.imageType,
-    subtitle: rule.copyProfile === "headline_only" || rule.copyProfile === "headline_labels" ? undefined : plan.subtitle,
+    subtitle: plan.subtitle,
     copyBlocks,
     sellingPoints,
     visualDirection,

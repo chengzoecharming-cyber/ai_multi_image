@@ -94,7 +94,7 @@ export const IMAGE_TYPE_TO_DEFAULT_COPY_DENSITY: Record<ImageTypeId, CopyDensity
 /**
  * 商详图素材类型 -> 图片用途映射。
  *
- * key 为 detail / multi_angle / lifestyle / feature。
+ * key 为 detail / multi_angle / lifestyle / feature / comparison / spec。
  *
  * 显式定义，不依赖 detail-assets/presets，避免循环依赖。
  */
@@ -103,4 +103,6 @@ export const DETAIL_ASSET_TO_IMAGE_TYPE: Record<string, ImageTypeId> = {
   multi_angle: "product_showcase",
   lifestyle: "lifestyle_scene",
   feature: "feature_showcase",
+  comparison: "comparison_chart",
+  spec: "spec_info",
 };

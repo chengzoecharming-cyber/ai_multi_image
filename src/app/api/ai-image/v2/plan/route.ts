@@ -70,55 +70,8 @@ function ensurePlanSkeleton(plans: CreativePlan[]): CreativePlan[] {
       result.splice(insertIdx, 0, { id: "cb-subheadline", title: sanitizeRiskyCopy(subtitle), role: "subheadline", priority: 2 });
     }
 
-    // Ensure at least 3 feature_points exist (only ADD missing ones, keep existing)
-    const existingFeatures = result.filter((b) => b.role === "feature_point");
-    if (existingFeatures.length < 3) {
-      const features = (plan.productAnalysis?.visibleFeatures || [])
-        .map((f) => f.toLowerCase())
-        .filter(Boolean);
-
-      const candidates: string[] = [];
-      if (features.some((f) => f.includes("hole"))) candidates.push("PRECISION HOLE PATTERN");
-      if (features.some((f) => f.includes("edge") || f.includes("chamfer"))) candidates.push("CLEAN MACHINED EDGES");
-      if (features.some((f) => f.includes("surface") || f.includes("finish"))) candidates.push("SMOOTH SURFACE FINISH");
-      if (features.some((f) => f.includes("thread"))) candidates.push("PRECISE THREAD DESIGN");
-      if (features.some((f) => f.includes("coating"))) candidates.push("ADVANCED COATING");
-      candidates.push("CONSISTENT FIT", "MACHINED ACCURACY", "DURABLE CONSTRUCTION");
-
-      const needed = 3 - existingFeatures.length;
-      for (let i = 0; i < needed && i < candidates.length; i++) {
-        const title = toUpperWords(candidates[i]);
-        const body = sanitizeRiskyCopy(
-          i === 0
-            ? "Highlights visible structure for clean assembly and consistent fit."
-            : i === 1
-              ? "Emphasizes machining accuracy and stable alignment in everyday use."
-              : "Clean surface finish supports smooth contact and a refined look."
-        );
-        result.push({
-          id: `cb-feature-auto-${i}`,
-          title,
-          body,
-          role: "feature_point",
-          priority: 10 + i,
-        });
-      }
-    }
-
-    // Ensure at least 3 bottom_info items exist (only ADD missing ones)
-    const existingBottom = result.filter((b) => b.role === "bottom_info");
-    if (existingBottom.length < 3) {
-      const defaults = ["FREE SHIPPING", "2-YEAR WARRANTY", "ISO CERTIFIED"];
-      const needed = 3 - existingBottom.length;
-      for (let i = 0; i < needed; i++) {
-        result.push({
-          id: `cb-bottom-auto-${i}`,
-          title: defaults[i],
-          role: "bottom_info",
-          priority: 50 + i,
-        });
-      }
-    }
+    // Non-template mode should stay open and review-first:
+    // do not auto-inject feature points or bottom bars.
 
     plan.copyBlocks = result;
     return plan;

@@ -244,12 +244,49 @@ const EMPTY_DEFAULT_STYLE_WORLDS: StyleWorldId[] = [
 function assignEmptyStyleWorlds(
   _inferredMode: EmptyTemplateMode
 ): { styleWorldId: StyleWorldId; copyMode: string }[] {
-  // 固定分配 3 个差异明显的组合（不依赖 mode，因为 styleWorld 本身已含背景/灯光差异）
+  // 分配 3 个差异明显的组合，且允许极简无卖点方案。
   return [
     { styleWorldId: "editorial_product_ad", copyMode: "headline_only" },
     { styleWorldId: "gradient_modern_showcase", copyMode: "feature_cards" },
-    { styleWorldId: "material_stage", copyMode: "headline_labels" },
+    { styleWorldId: "material_stage", copyMode: "no_text" },
   ];
+}
+
+function hashStringSeed(input: string): number {
+  let h = 0;
+  for (let i = 0; i < input.length; i++) {
+    h = (h << 5) - h + input.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h);
+}
+
+function pickEmptyLayoutDirections(userGoal: string, mode: EmptyTemplateMode) {
+  const seed = hashStringSeed(`${mode}::${userGoal || "default"}`);
+  const pools = [
+    [
+      "premium_center_product_minimal_text",
+      "diagonal_product_with_side_features",
+      "technical_callout_with_insets",
+    ],
+    [
+      "hero_left_text_right_product",
+      "four_panel_application_grid",
+      "exploded_layer_explanation",
+    ],
+    [
+      "premium_center_product_minimal_text",
+      "hero_right_product_left_features",
+      "large_headline_with_bottom_info_bar",
+    ],
+    [
+      "diagonal_product_with_side_features",
+      "comparison_two_columns",
+      "four_panel_application_grid",
+    ],
+  ] as const;
+
+  return pools[seed % pools.length];
 }
 
 export function buildEmptyPlanBrief(
@@ -260,22 +297,24 @@ export function buildEmptyPlanBrief(
 
   const assigned = assignEmptyStyleWorlds(inferredMode);
 
+  const [layoutA, layoutB, layoutC] = pickEmptyLayoutDirections(userGoal || "", inferredMode);
+
   // 方案方向参考：不强制绑定，作为 LLM 的参考池
   const suggestedPlanDirections = [
     {
       type: "platform_hero" as EmptyTemplatePlanType,
-      description: "第一眼主图：产品占画面 65-80%，打破对称，有侵略性张力。风格为杂志广告级大留白，产品像艺术品般摆放。",
-      layoutType: "premium_center_product_minimal_text",
+      description: "方向A（可极简）：第一眼主图，强调视觉冲击与产品主体。允许仅标题、仅短说明、或完全无卖点文案。",
+      layoutType: layoutA,
     },
     {
       type: "feature_showcase" as EmptyTemplatePlanType,
-      description: "卖点爆破图：产品+环绕信息卡片，3-4个卖点以现代渐变背景+几何区块组织，层次分明，年轻科技风。",
-      layoutType: "hero_right_product_left_features",
+      description: "方向B（说明优先）：可用卖点、技术说明或场景注释，不强制固定条数或固定底栏。",
+      layoutType: layoutB,
     },
     {
       type: "info_dense" as EmptyTemplatePlanType,
-      description: "高密度信息板：产品置于真实材质台面（石材/金属/亚克力），标题+卖点+底部信息条全开，真实空间感。",
-      layoutType: "large_headline_with_bottom_info_bar",
+      description: "方向C（自由组合）：允许高信息密度，也允许轻量信息；核心是表达清楚、便于用户 review。",
+      layoutType: layoutC,
     },
   ];
 

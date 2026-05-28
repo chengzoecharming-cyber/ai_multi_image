@@ -230,6 +230,7 @@ export interface V2GeneratedImage {
 
 export interface V2DetailState {
   heroImageUrl: string | null;
+  heroPlan?: CreativePlan | null;
   selectedTypes: V2DetailType[];
   generating: boolean;
   results: Array<{ type: V2DetailType; imageId: string }>;

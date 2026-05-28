@@ -1,7 +1,10 @@
 "use client";
 
 import { RefObject } from "react";
-import { ImageIcon, Upload, Sparkles, Aperture, Focus, Layers, Box, FileText, LayoutGrid } from "lucide-react";
+import {
+  ImageIcon, Upload, Sparkles, Aperture, Focus, Layers, Box,
+  FileText, LayoutGrid, Scale, Ruler,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -14,14 +17,12 @@ export function DetailLeftPanel({
   fileInputRef,
   onUpload,
   onUpdateSession,
-  onToggleType,
   onGenerate,
 }: {
   activeSession: V2Session | undefined;
   fileInputRef: RefObject<HTMLInputElement | null>;
   onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onUpdateSession: (updater: (s: V2Session) => V2Session) => void;
-  onToggleType: (type: V2DetailType) => void;
   onGenerate: () => void;
 }) {
   if (!activeSession) return null;
@@ -31,11 +32,14 @@ export function DetailLeftPanel({
   const heroImageUrl = detail?.heroImageUrl || null;
   const selectedTypes = detail?.selectedTypes || [];
   const generating = detail?.generating || false;
+
   const iconMap: Record<V2DetailType, { icon: typeof Box; bg: string; fg: string }> = {
     detail: { icon: Focus, bg: "bg-indigo-50", fg: "text-indigo-600" },
     multi_angle: { icon: Layers, bg: "bg-violet-50", fg: "text-violet-600" },
     lifestyle: { icon: Aperture, bg: "bg-amber-50", fg: "text-amber-600" },
     feature: { icon: Box, bg: "bg-emerald-50", fg: "text-emerald-600" },
+    comparison: { icon: Scale, bg: "bg-rose-50", fg: "text-rose-600" },
+    spec: { icon: Ruler, bg: "bg-sky-50", fg: "text-sky-600" },
   };
 
   return (
@@ -44,7 +48,7 @@ export function DetailLeftPanel({
         <div className="space-y-2">
           <Label className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
             <ImageIcon className="w-3 h-3 text-gray-400" />
-            主图上传
+            主图锚点
           </Label>
 
           <input
@@ -73,7 +77,7 @@ export function DetailLeftPanel({
         <div className="space-y-2">
           <Label className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
             <FileText className="w-3 h-3 text-gray-400" />
-            商品描述（组内统一）
+            商品描述
           </Label>
           <Textarea
             value={productDescription}
@@ -87,47 +91,41 @@ export function DetailLeftPanel({
         <div className="space-y-2">
           <Label className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
             <LayoutGrid className="w-3 h-3 text-gray-400" />
-            选择生成素材图类型
+            即将生成的素材类型
           </Label>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {(Object.keys(V2_DETAIL_TYPE_LABELS) as V2DetailType[]).map((t) => {
-              const checked = selectedTypes.includes(t);
               const meta = iconMap[t];
               const Icon = meta.icon;
               return (
-                <button
+                <div
                   key={t}
-                  type="button"
-                  onClick={() => onToggleType(t)}
-                  className={cn(
-                    "flex flex-col items-center justify-center gap-1.5 p-0 transition-colors"
-                  )}
+                  className="flex flex-col items-center justify-center gap-1.5 p-0 transition-colors"
                 >
                   <div
                     style={{ width: 66, height: 66 }}
                     className={cn(
                       "rounded-xl flex items-center justify-center border border-transparent",
-                      meta.bg,
-                      checked && "border-[0.5px] border-indigo-500"
+                      meta.bg
                     )}
                   >
                     <Icon className={cn("w-7 h-7", meta.fg)} />
                   </div>
-                  <div className={cn("text-[11px] leading-tight text-center", checked ? "text-indigo-800" : "text-gray-700")}>
+                  <div className="text-[11px] leading-tight text-center text-gray-700">
                     {V2_DETAIL_TYPE_LABELS[t]}
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
-          <p className="text-xs text-gray-400">勾选后将按主图风格批量生成多页素材图（无方案对比）。</p>
+          <p className="text-xs text-gray-400">将按主图风格生成 6 张配套轮播素材图。</p>
         </div>
       </div>
 
       <div className="p-4 border-t border-gray-100">
         <Button
           onClick={onGenerate}
-          disabled={generating}
+          disabled={generating || !heroImageUrl}
           className="w-full bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white border-0"
         >
           {generating ? (
@@ -138,7 +136,7 @@ export function DetailLeftPanel({
           ) : (
             <>
               <Sparkles className="w-4 h-4 mr-2" />
-              开始生成（多页）
+              一键生成全套商详图（6张）
             </>
           )}
         </Button>

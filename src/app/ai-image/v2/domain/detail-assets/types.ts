@@ -4,13 +4,17 @@ export type V2DetailType =
   | "detail"
   | "multi_angle"
   | "lifestyle"
-  | "feature";
+  | "feature"
+  | "comparison"
+  | "spec";
 
 export const V2_DETAIL_TYPE_LABELS: Record<V2DetailType, string> = {
   detail: "细节图",
   multi_angle: "多角度图",
-  lifestyle: "仿实拍/场景图",
+  lifestyle: "场景图",
   feature: "卖点图",
+  comparison: "对比图",
+  spec: "规格图",
 };
 
 /**

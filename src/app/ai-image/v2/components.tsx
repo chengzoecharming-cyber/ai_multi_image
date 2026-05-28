@@ -307,7 +307,7 @@ export function PlanEditableFields({
 
       <div className="space-y-1.5">
         <Label className="text-xs font-medium text-gray-500 flex items-center gap-1">
-          卖点 Selling Points <Badge variant="outline" className="text-[10px] h-3.5 px-1 font-normal">英文</Badge>
+          文案要点（可选） <Badge variant="outline" className="text-[10px] h-3.5 px-1 font-normal">英文</Badge>
         </Label>
         <div className="space-y-1.5">
           {plan.sellingPoints.map((sp, i) => (
@@ -328,7 +328,7 @@ export function PlanEditableFields({
           ))}
           {isEditing && (
             <Button variant="ghost" size="sm" className="h-7 text-indigo-600 text-xs" onClick={addSellingPoint}>
-              + 添加卖点
+              + 添加文案要点
             </Button>
           )}
         </div>
@@ -483,7 +483,7 @@ export function PlanInfoDialog({
             </div>
 
             <div>
-              <Label className="text-[11px] text-gray-500">卖点（每行一条）</Label>
+              <Label className="text-[11px] text-gray-500">文案要点（可选，每行一条）</Label>
               {manualEditing ? (
                 <Textarea
                   value={sellingPointsText}
@@ -1392,7 +1392,7 @@ export function PromptPreviewPanel({
 
         {(plan.sellingPoints?.length || 0) > 0 && (
           <div>
-            <Label className="text-[11px] text-gray-500">卖点</Label>
+            <Label className="text-[11px] text-gray-500">文案要点（可选）</Label>
             <div className="mt-1 flex flex-wrap gap-1.5">
               {plan.sellingPoints.map((s, idx) => (
                 <span key={`${idx}-${s}`} className="text-[11px] px-2 py-1 rounded bg-gray-100 text-gray-700">
@@ -1493,7 +1493,7 @@ export function PromptPreviewPanel({
                   )}
                   {(plan.sellingPoints || []).slice(0, 6).map((s, idx) => (
                     <div key={`${idx}-${s}`} className="text-[11px] text-gray-600">
-                      <span className="font-medium text-gray-700">卖点{idx + 1}：</span>{s}
+                      <span className="font-medium text-gray-700">文案要点{idx + 1}：</span>{s}
                     </div>
                   ))}
                   {plan.layoutOverlay?.textBlocks?.length ? (

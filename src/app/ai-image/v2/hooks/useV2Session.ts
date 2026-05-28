@@ -946,6 +946,7 @@ export function useV2Session() {
     }));
 
     try {
+      const heroPlan = activeSession.detail?.heroPlan || null;
       const res = await fetch("/api/ai-image/v2/detail/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -955,6 +956,7 @@ export function useV2Session() {
           selectedTypes,
           provider: activeSession.provider,
           output: { width: activeSession.outputWidth, height: activeSession.outputHeight },
+          heroPlan,
         }),
       });
       const data = await res.json();

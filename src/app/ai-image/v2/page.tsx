@@ -117,7 +117,6 @@ function V2WorkbenchPageInner() {
             fileInputRef={detailHeroFileInputRef}
             onUpload={handleUploadDetailHero}
             onUpdateSession={updateActiveSession}
-            onToggleType={toggleDetailType}
             onGenerate={handleGenerateDetail}
           />
         )}
@@ -171,14 +170,15 @@ function V2WorkbenchPageInner() {
                 handleOpenPlanPreview(plan);
                 handleGenerateImage(plan);
               }}
-              onGenerateDetails={(_plan, imageUrl) =>
+              onGenerateDetails={(plan, imageUrl) =>
                 createNewSession({
                   workspaceTab: "detail",
                   goal: activeSession.goal,
                   step: "input",
                   detail: {
                     heroImageUrl: imageUrl,
-                    selectedTypes: [],
+                    heroPlan: plan,
+                    selectedTypes: ["detail", "multi_angle", "lifestyle", "feature", "comparison", "spec"],
                     generating: false,
                     results: [],
                     lastError: null,

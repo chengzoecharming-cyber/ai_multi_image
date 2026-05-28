@@ -39,6 +39,10 @@ function PlanCard({
   const meta = getPlanMeta(plan);
   const complexityLabel = plan.visualComplexity === "simple" ? "简洁" : plan.visualComplexity === "medium" ? "中等" : "复杂";
   const densityLabel = plan.informationDensity === "low" ? "低密度" : plan.informationDensity === "medium" ? "中密度" : "高密度";
+  const optionalNotes = (plan.sellingPoints || []).filter(Boolean);
+  const topCopyBlocks = (plan.copyBlocks || [])
+    .filter((b) => b.role !== "headline" && b.role !== "subheadline")
+    .slice(0, 4);
 
   return (
     <div
@@ -104,26 +108,23 @@ function PlanCard({
       {/* 信息区 */}
       <div className="flex-1 px-5 py-1 overflow-y-auto min-h-0">
         <div className="space-y-3">
-          {/* Headline */}
-          <div>
-            <div className="text-xs font-medium text-gray-500 mb-1">主标题 Headline</div>
-            <p className="text-sm font-semibold text-gray-800 leading-snug">{plan.headline}</p>
-          </div>
-
-          {/* Subtitle */}
-          {plan.subtitle && (
+          {/* Core text (optional) */}
+          {plan.headline && (
             <div>
-              <div className="text-xs font-medium text-gray-500 mb-1">副标题 Subtitle</div>
-              <p className="text-sm text-gray-700 leading-snug">{plan.subtitle}</p>
+              <div className="text-xs font-medium text-gray-500 mb-1">核心文案（可选）</div>
+              <p className="text-sm font-semibold text-gray-800 leading-snug">{plan.headline}</p>
+              {plan.subtitle ? (
+                <p className="text-sm text-gray-700 leading-snug mt-1">{plan.subtitle}</p>
+              ) : null}
             </div>
           )}
 
-          {/* Selling Points */}
-          {plan.sellingPoints.length > 0 && (
+          {/* Optional notes */}
+          {optionalNotes.length > 0 && (
             <div>
-              <div className="text-xs font-medium text-gray-500 mb-1.5">卖点 Selling Points</div>
+              <div className="text-xs font-medium text-gray-500 mb-1.5">文案要点（可选）</div>
               <div className="flex flex-wrap gap-1.5">
-                {plan.sellingPoints.map((sp, i) => (
+                {optionalNotes.map((sp, i) => (
                   <span key={i} className="text-xs px-2 py-1 rounded-md bg-gray-100 text-gray-700 font-medium">{sp}</span>
                 ))}
               </div>
@@ -147,18 +148,18 @@ function PlanCard({
           </div>
 
           {/* CopyBlocks */}
-          {plan.copyBlocks.length > 0 && (
+          {topCopyBlocks.length > 0 && (
             <div>
               <div className="text-xs font-medium text-gray-500 mb-1">文案块</div>
               <div className="space-y-1">
-                {plan.copyBlocks.slice(0, 4).map((block) => (
+                {topCopyBlocks.map((block) => (
                   <div key={block.id} className="text-xs text-gray-700 leading-snug flex items-start gap-1.5">
                     <span className="shrink-0 text-[10px] px-1 py-0.5 rounded bg-gray-100 text-gray-500 font-medium">{block.role}</span>
                     <span className="flex-1">{block.title}</span>
                   </div>
                 ))}
-                {plan.copyBlocks.length > 4 && (
-                  <p className="text-xs text-gray-400">+{plan.copyBlocks.length - 4} 个文案块</p>
+                {plan.copyBlocks.length > topCopyBlocks.length && (
+                  <p className="text-xs text-gray-400">+{plan.copyBlocks.length - topCopyBlocks.length} 个文案块</p>
                 )}
               </div>
             </div>
@@ -551,9 +552,14 @@ function ImagePreviewPanel({
               )}
               {(plan.sellingPoints || []).slice(0, 6).map((s, idx) => (
                 <div key={idx} className="text-[11px] text-gray-600">
-                  <span className="font-medium text-gray-700">卖点{idx + 1}：</span>{s}
+                  <span className="font-medium text-gray-700">文案要点{idx + 1}：</span>{s}
                 </div>
               ))}
+              {(plan.sellingPoints || []).length === 0 && (plan.copyBlocks || []).length > 0 && (
+                <div className="text-[11px] text-gray-600">
+                  <span className="font-medium text-gray-700">说明：</span>本方案以 copyBlocks 组织文案，不强制卖点列表。
+                </div>
+              )}
             </div>
           </div>
         </div>
