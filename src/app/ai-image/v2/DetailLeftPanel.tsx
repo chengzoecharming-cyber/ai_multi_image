@@ -64,90 +64,93 @@ export function DetailLeftPanel({
             onChange={onUpload}
           />
           <div className="flex gap-2">
-            {/* Thumbnail strip */}
-            <div className="flex flex-col gap-2 shrink-0">
-              {detailImageUrls.map((url, idx) => (
-                <div
-                  key={url + idx}
-                  className={cn(
-                    "relative w-12 h-12 rounded-lg overflow-hidden border cursor-pointer group",
-                    idx === activeDetailImageIndex
-                      ? "border-indigo-400 ring-1 ring-indigo-400"
-                      : "border-gray-200 hover:border-indigo-300"
-                  )}
-                  onClick={() =>
-                    onUpdateSession((s) => ({
-                      ...s,
-                      detail: {
-                        detailImageUrls: s.detail?.detailImageUrls ?? [],
-                        activeDetailImageIndex: idx,
-                        heroPlan: s.detail?.heroPlan ?? null,
-                        selectedTypes: s.detail?.selectedTypes ?? [],
-                        generating: s.detail?.generating ?? false,
-                        results: s.detail?.results ?? [],
-                        lastError: s.detail?.lastError ?? null,
-                      },
-                    }))
-                  }
-                  title="点击查看大图"
-                >
-                  <img src={url} alt={`参考图 ${idx + 1}`} className="w-full h-full object-cover" />
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onUpdateSession((s) => {
-                        const prev = s.detail?.detailImageUrls || [];
-                        const next = prev.filter((_, i) => i !== idx);
-                        return {
+            {detailImageUrls.length === 0 ? (
+              /* Empty state: single large upload area */
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full flex flex-col items-center justify-center gap-1.5 aspect-square rounded-xl border-2 border-dashed border-gray-300 hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors"
+              >
+                <Upload className="w-6 h-6 text-gray-400" />
+                <span className="text-xs text-gray-500">点击上传</span>
+              </button>
+            ) : (
+              <>
+                {/* Thumbnail strip */}
+                <div className="flex flex-col gap-2 shrink-0">
+                  {detailImageUrls.map((url, idx) => (
+                    <div
+                      key={url + idx}
+                      className={cn(
+                        "relative w-12 h-12 rounded-lg overflow-hidden border cursor-pointer group",
+                        idx === activeDetailImageIndex
+                          ? "border-indigo-400 ring-1 ring-indigo-400"
+                          : "border-gray-200 hover:border-indigo-300"
+                      )}
+                      onClick={() =>
+                        onUpdateSession((s) => ({
                           ...s,
                           detail: {
-                            detailImageUrls: next,
-                            activeDetailImageIndex: Math.min(s.detail?.activeDetailImageIndex ?? 0, Math.max(0, next.length - 1)),
+                            detailImageUrls: s.detail?.detailImageUrls ?? [],
+                            activeDetailImageIndex: idx,
                             heroPlan: s.detail?.heroPlan ?? null,
                             selectedTypes: s.detail?.selectedTypes ?? [],
                             generating: s.detail?.generating ?? false,
                             results: s.detail?.results ?? [],
-                            lastError: null,
+                            lastError: s.detail?.lastError ?? null,
                           },
-                        };
-                      });
-                    }}
-                    className="absolute top-0 right-0 p-0.5 rounded-bl bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="删除"
+                        }))
+                      }
+                      title="点击查看大图"
+                    >
+                      <img src={url} alt={`参考图 ${idx + 1}`} className="w-full h-full object-cover" />
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onUpdateSession((s) => {
+                            const prev = s.detail?.detailImageUrls || [];
+                            const next = prev.filter((_, i) => i !== idx);
+                            return {
+                              ...s,
+                              detail: {
+                                detailImageUrls: next,
+                                activeDetailImageIndex: Math.min(s.detail?.activeDetailImageIndex ?? 0, Math.max(0, next.length - 1)),
+                                heroPlan: s.detail?.heroPlan ?? null,
+                                selectedTypes: s.detail?.selectedTypes ?? [],
+                                generating: s.detail?.generating ?? false,
+                                results: s.detail?.results ?? [],
+                                lastError: null,
+                              },
+                            };
+                          });
+                        }}
+                        className="absolute top-0 right-0 p-0.5 rounded-bl bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="删除"
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-12 h-12 rounded-lg border-2 border-dashed border-gray-300 hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors flex items-center justify-center text-gray-400 shrink-0"
+                    title="添加参考图"
                   >
-                    <X className="w-2.5 h-2.5" />
+                    <Plus className="w-5 h-5" />
                   </button>
                 </div>
-              ))}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="w-12 h-12 rounded-lg border-2 border-dashed border-gray-300 hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors flex items-center justify-center text-gray-400 shrink-0"
-                title="添加参考图"
-              >
-                <Plus className="w-5 h-5" />
-              </button>
-            </div>
 
-            {/* Large preview */}
-            <div className="flex-1 min-w-0">
-              {activeDetailImage ? (
-                <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-[#F5F6F8]">
-                  <img
-                    src={activeDetailImage}
-                    alt="参考图预览"
-                    className="w-full aspect-square object-contain"
-                  />
+                {/* Large preview */}
+                <div className="flex-1 min-w-0">
+                  <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-[#F5F6F8]">
+                    <img
+                      src={activeDetailImage || detailImageUrls[0]}
+                      alt="参考图预览"
+                      className="w-full aspect-square object-contain"
+                    />
+                  </div>
                 </div>
-              ) : (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full flex flex-col items-center justify-center gap-1.5 aspect-square rounded-xl border-2 border-dashed border-gray-300 hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors"
-                >
-                  <Upload className="w-6 h-6 text-gray-400" />
-                  <span className="text-xs text-gray-500">点击上传</span>
-                </button>
-              )}
-            </div>
+              </>
+            )}
           </div>
           <p className="text-xs text-gray-400">支持 jpg、png、webp，最大 10MB。可上传主图、尺寸图、材质图等。</p>
         </div>
@@ -162,7 +165,7 @@ export function DetailLeftPanel({
             value={productDescription}
             onChange={(e) => onUpdateSession((s) => ({ ...s, goal: e.target.value, lastError: null }))}
             placeholder="例如：彩虹镀膜钨钢立铣刀，突出锋利刃口、镀层质感与耐磨性"
-            className="min-h-[70px] resize-none text-xs"
+            className="h-[220px] resize-none text-xs overflow-y-auto"
             disabled={generating}
           />
         </div>

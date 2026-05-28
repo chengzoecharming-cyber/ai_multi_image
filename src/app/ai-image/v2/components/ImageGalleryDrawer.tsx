@@ -145,7 +145,7 @@ export default function ImageGalleryDrawer({ open, onClose, onApply }: ImageGall
       configSnapshot: config,
     });
     onClose();
-    toast.success("已应用至新会话");
+    // Toast is handled by the caller (page.tsx) to show correct message
   };
 
   if (!open) return null;

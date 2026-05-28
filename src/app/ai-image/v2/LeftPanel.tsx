@@ -131,70 +131,73 @@ export function LeftPanel({
             onChange={onUpload}
           />
           <div className="flex gap-2">
-            {/* Thumbnail strip */}
-            <div className="flex flex-col gap-2 shrink-0">
-              {productImageUrls.map((url, idx) => (
-                <div
-                  key={url + idx}
-                  className={cn(
-                    "relative w-12 h-12 rounded-lg overflow-hidden border cursor-pointer group",
-                    idx === activeProductImageIndex
-                      ? "border-indigo-400 ring-1 ring-indigo-400"
-                      : "border-gray-200 hover:border-indigo-300"
-                  )}
-                  onClick={() => onUpdateSession((s) => ({ ...s, activeProductImageIndex: idx }))}
-                  title="点击查看大图"
-                >
-                  <img src={url} alt={`商品图 ${idx + 1}`} className="w-full h-full object-cover" />
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onUpdateSession((s) => {
-                        const next = s.productImageUrls.filter((_, i) => i !== idx);
-                        return {
-                          ...s,
-                          productImageUrls: next,
-                          activeProductImageIndex: Math.min(s.activeProductImageIndex ?? 0, Math.max(0, next.length - 1)),
-                          lastError: null,
-                        };
-                      });
-                    }}
-                    className="absolute top-0 right-0 p-0.5 rounded-bl bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="删除"
-                  >
-                    <X className="w-2.5 h-2.5" />
-                  </button>
-                </div>
-              ))}
+            {productImageUrls.length === 0 ? (
+              /* Empty state: single large upload area */
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-12 h-12 rounded-lg border-2 border-dashed border-gray-300 hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors flex items-center justify-center text-gray-400 shrink-0"
-                title="添加商品图"
+                className="w-full flex flex-col items-center justify-center gap-1.5 aspect-square rounded-xl border-2 border-dashed border-gray-300 hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors"
               >
-                <Plus className="w-5 h-5" />
+                <Upload className="w-6 h-6 text-gray-400" />
+                <span className="text-xs text-gray-500">点击上传</span>
               </button>
-            </div>
-
-            {/* Large preview */}
-            <div className="flex-1 min-w-0">
-              {activeProductImage ? (
-                <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-[#F5F6F8]">
-                  <img
-                    src={activeProductImage}
-                    alt="商品图预览"
-                    className="w-full aspect-square object-contain"
-                  />
+            ) : (
+              <>
+                {/* Thumbnail strip */}
+                <div className="flex flex-col gap-2 shrink-0">
+                  {productImageUrls.map((url, idx) => (
+                    <div
+                      key={url + idx}
+                      className={cn(
+                        "relative w-12 h-12 rounded-lg overflow-hidden border cursor-pointer group",
+                        idx === activeProductImageIndex
+                          ? "border-indigo-400 ring-1 ring-indigo-400"
+                          : "border-gray-200 hover:border-indigo-300"
+                      )}
+                      onClick={() => onUpdateSession((s) => ({ ...s, activeProductImageIndex: idx }))}
+                      title="点击查看大图"
+                    >
+                      <img src={url} alt={`商品图 ${idx + 1}`} className="w-full h-full object-cover" />
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onUpdateSession((s) => {
+                            const next = s.productImageUrls.filter((_, i) => i !== idx);
+                            return {
+                              ...s,
+                              productImageUrls: next,
+                              activeProductImageIndex: Math.min(s.activeProductImageIndex ?? 0, Math.max(0, next.length - 1)),
+                              lastError: null,
+                            };
+                          });
+                        }}
+                        className="absolute top-0 right-0 p-0.5 rounded-bl bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="删除"
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-12 h-12 rounded-lg border-2 border-dashed border-gray-300 hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors flex items-center justify-center text-gray-400 shrink-0"
+                    title="添加商品图"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
                 </div>
-              ) : (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full flex flex-col items-center justify-center gap-1.5 aspect-square rounded-xl border-2 border-dashed border-gray-300 hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors"
-                >
-                  <Upload className="w-6 h-6 text-gray-400" />
-                  <span className="text-xs text-gray-500">点击上传</span>
-                </button>
-              )}
-            </div>
+
+                {/* Large preview */}
+                <div className="flex-1 min-w-0">
+                  <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-[#F5F6F8]">
+                    <img
+                      src={activeProductImage || productImageUrls[0]}
+                      alt="商品图预览"
+                      className="w-full aspect-square object-contain"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
           </div>
           <p className="text-xs text-gray-400">支持 jpg、png、webp，最大 10MB。可上传多张同一商品的不同形式图。</p>
         </div>
@@ -208,7 +211,7 @@ export function LeftPanel({
             value={goal}
             onChange={(e) => onUpdateSession((s) => ({ ...s, goal: e.target.value, lastError: null }))}
             placeholder="例如：生成一张钻头产品的电商主图，白底，突出锋利刃口，英文标题"
-            className="min-h-[70px] resize-none text-xs"
+            className="h-[220px] resize-none text-xs overflow-y-auto"
             disabled={step === "generating"}
           />
           <p className="text-xs text-gray-400">用自然语言描述制图需求，AI 会分析商品图并生成方案。</p>

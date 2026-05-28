@@ -11,8 +11,8 @@ export function analyzeProductImage(_imageUrl: string, userGoal: string): Produc
     "Do not alter the overall outer contour",
     "Preserve visible holes, slots, and openings",
   ];
-  let detectedNonProductElements: string[] = ["hands", "fingers", "table background", "shadows"];
-  let isolationInstruction = "Isolate only the product, remove hands, fingers, arms, table background, packaging, shadows and unrelated objects.";
+  const detectedNonProductElements: string[] = ["hands", "fingers", "table background", "shadows"];
+  const isolationInstruction = "Isolate only the product, remove hands, fingers, arms, table background, packaging, shadows and unrelated objects.";
 
   if (lower.includes("drill") || lower.includes("钻头")) {
     productName = "Drill Bit";

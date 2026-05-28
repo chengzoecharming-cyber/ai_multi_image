@@ -11,6 +11,7 @@ export const FALLBACK_VISION_MODELS: string[] = [];
 
 export async function tryCallLLM(
   base64Image: string,
+  extraBase64Images: string[],
   userGoal: string,
   mode: "single" | "set",
   briefPrompt: string | undefined,
@@ -28,6 +29,7 @@ export async function tryCallLLM(
   const perModelTimeout = setTimeout(() => ctrl.abort(), 110000);
 
   const llmStart = Date.now();
+  const imageInputs = [{ type: "image_url", image_url: { url: base64Image } }, ...(extraBase64Images || []).map((url) => ({ type: "image_url", image_url: { url } }))];
   let res: Response;
   try {
     res = await fetch(LLM_API_URL, {
@@ -43,7 +45,7 @@ export async function tryCallLLM(
           {
             role: "user",
             content: [
-              { type: "image_url", image_url: { url: base64Image } },
+              ...imageInputs,
               {
                 type: "text",
                 text: (() => {
@@ -99,6 +101,7 @@ export async function tryCallLLM(
 
 export async function callLLM(
   base64Image: string,
+  extraBase64Images: string[],
   userGoal: string,
   mode: "single" | "set",
   briefPrompt?: string,
@@ -107,7 +110,7 @@ export async function callLLM(
 ): Promise<CreativePlan[] | ImageSetPlan[]> {
   const tag = requestId ? `[LLM][${requestId}]` : "[LLM]";
   console.log(`${tag} using model: ${LLM_MODEL}, url: ${LLM_API_URL}`);
-  const parsed = await tryCallLLM(base64Image, userGoal, mode, briefPrompt, LLM_MODEL, templateId, requestId);
+  const parsed = await tryCallLLM(base64Image, extraBase64Images, userGoal, mode, briefPrompt, LLM_MODEL, templateId, requestId);
 
   if (mode === "single") {
     if (!parsed.plans || !Array.isArray(parsed.plans)) {

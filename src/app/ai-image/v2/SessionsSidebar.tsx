@@ -108,7 +108,7 @@ export function SessionsSidebar({
   const list = sessions;
 
   const tabItemBase =
-    "flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors";
+    "flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-sm font-medium transition-colors";
   const tabActive = "bg-indigo-50 text-indigo-700";
   const tabIdle = "text-gray-500 hover:bg-gray-50 hover:text-gray-700";
 
@@ -123,24 +123,8 @@ export function SessionsSidebar({
         className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 hover:bg-indigo-300/50 transition-colors"
       />
 
-      {/* Tab header with hint style */}
+      {/* Top-level workspace tabs */}
       <div className="p-3 border-b border-gray-100 space-y-2">
-        <div className="flex items-center gap-2">
-          <LayoutGrid className="w-4 h-4 text-indigo-600 shrink-0" />
-          {!isCollapsed && (
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-gray-400">记录</span>
-              <span
-                className="text-[10px] text-gray-300"
-                title={`当前工作区 ${list.length} 条 / 共 ${totalCount} 条`}
-              >
-                {list.length}/{totalCount}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Workspace tabs inline */}
         {!isCollapsed && (
           <div className="flex gap-1">
             <button
@@ -149,7 +133,7 @@ export function SessionsSidebar({
               className={cn(tabItemBase, workspaceTab === "product" ? tabActive : tabIdle)}
               title="商品图"
             >
-              <ImageLucide className="w-3.5 h-3.5" />
+              <ImageLucide className="w-4 h-4" />
               商品图
             </button>
             <button
@@ -158,7 +142,7 @@ export function SessionsSidebar({
               className={cn(tabItemBase, workspaceTab === "detail" ? tabActive : tabIdle)}
               title="商详图"
             >
-              <LayersLucide className="w-3.5 h-3.5" />
+              <LayersLucide className="w-4 h-4" />
               商详图
             </button>
           </div>

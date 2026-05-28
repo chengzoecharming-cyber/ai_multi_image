@@ -2,6 +2,7 @@
 
 import { Suspense, useState, useCallback } from "react";
 import { Wand2, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 import { useV2Session } from "./hooks/useV2Session";
 import { V2Header } from "./V2Header";
 import { SessionsSidebar } from "./SessionsSidebar";
@@ -66,31 +67,31 @@ function V2WorkbenchPageInner() {
   const [imageGalleryOpen, setImageGalleryOpen] = useState(false);
 
   const handleApplyGallery = useCallback((data: GalleryApplyData) => {
-    const cfg = data.configSnapshot || {};
-    const width = Number.isFinite(cfg.width) ? Number(cfg.width) : 1024;
-    const height = Number.isFinite(cfg.height) ? Number(cfg.height) : 1024;
-    const provider = typeof cfg.provider === "string" ? cfg.provider : undefined;
+    // Try to find an existing session that contains this generated image
+    const existingSession = sessions.find((s) =>
+      s.generatedImages?.some((g) => g.taskId === data.taskId)
+    );
+    if (existingSession) {
+      setActiveSessionId(existingSession.id);
+      if ((existingSession.workspaceTab || "product") !== "product") {
+        setWorkspaceTab("product");
+      }
+      // Ensure the session enters preview state for this image
+      const matchedImage = existingSession.generatedImages?.find((g) => g.taskId === data.taskId);
+      const matchedPlan = existingSession.singlePlans?.find((p) => p.id === matchedImage?.planId);
+      if (matchedImage?.planId && matchedPlan) {
+        updateActiveSession((s) => ({
+          ...s,
+          step: "preview" as const,
+          previewPlanId: matchedImage.planId ?? null,
+        }));
+      }
+      toast.success("已切换到原会话");
+      return;
+    }
 
-    const productImages = data.productImageUrl ? [data.productImageUrl] : [];
-    createNewSession({
-      workspaceTab: "product",
-      goal: data.userPrompt,
-      step: "plans",
-      productImageUrls: productImages,
-      outputWidth: width,
-      outputHeight: height,
-      provider,
-      generatedImages: [
-        {
-          id: `img-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          taskId: data.taskId,
-          tab: "product",
-          imageUrl: data.imageUrl,
-          createdAt: Date.now(),
-        },
-      ],
-    });
-  }, [createNewSession]);
+    toast.error("该记录不存在（修复中）");
+  }, [sessions, setActiveSessionId, setWorkspaceTab, updateActiveSession]);
 
   if (!activeSession) {
     return (

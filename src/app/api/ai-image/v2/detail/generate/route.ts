@@ -33,6 +33,8 @@ function buildDetailPrompt(args: {
   type: DetailType;
   productDescription: string;
   heroContext?: HeroPlanContext | null;
+  referenceImageCount?: number;
+  activeReferenceIndex?: number;
 }): string {
   const base = (args.productDescription || "").trim();
   const hero = args.heroContext;
@@ -61,12 +63,17 @@ function buildDetailPrompt(args: {
     "Maintain the same lighting, color mood, material treatment, and visual atmosphere as the style reference image.",
     "This is a companion image to the main hero image, part of a cohesive product listing set.",
     "Clean commercial look, realistic materials and lighting.",
+    "If multiple reference images are provided, they describe the same product and should be jointly used as factual visual evidence.",
+    "User free-text instructions are high priority. If the user text assigns semantic roles to images (e.g., dimension image, feature scene image), follow those assignments.",
+    `Reference images available: ${args.referenceImageCount || 1}. Active reference index: ${args.activeReferenceIndex ?? 0}.`,
     "", // separator
     styleAnchor,
     "",
     "【文案要求】",
     "- 画面可包含简洁的英文文案，用于电商展示。文案有无、内容、密度交由大模型根据图片功能自由决定。",
-    "- 禁止虚构技术参数、价格、品牌、认证。",
+    "- 允许写入用户已提供的信息，以及可从图片稳定判断的非数值信息（如 part type、material family、process style、color family）。",
+    "- 禁止虚构无法验证的精确数值或认证信息（例如具体尺寸值、硬度值、证书编号），除非用户明确提供。",
+    "- 参数表/标签应尽量填写可用文本，不要把字段大面积留空或只填占位破折号。",
     "- 如有文字，必须清晰可读，不得被产品遮挡。",
   ].join("\n");
 
@@ -100,7 +107,8 @@ function buildDetailPrompt(args: {
       "【功能定位】规格参数图：展示尺寸、材质、技术参数等关键信息。",
       "Focus: technical specification visualization — dimensions, material, key parameters presented with clarity.",
       "Composition: product shown at scale with dimensional callouts, spec labels, or annotated diagram style. Clean and authoritative.",
-      "禁止生成真实尺寸数值或具体测量，尺寸值必须是占位符样式（空白、破折号或通用标签）。",
+      "When exact numeric dimensions are not provided, use qualitative spec text or bounded labels (e.g., 'High Precision', 'Tight Tolerance', 'Custom Size Available') instead of leaving rows blank.",
+      "If the user provides exact values, preserve and render them exactly.",
     ].join("\n"),
   };
 
@@ -120,12 +128,16 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       heroImageUrl,
+      detailImageUrls,
+      activeDetailImageIndex,
       productDescription,
       selectedTypes,
       output,
       heroPlan,
     } = body as {
       heroImageUrl?: unknown;
+      detailImageUrls?: unknown;
+      activeDetailImageIndex?: unknown;
       productDescription?: unknown;
       selectedTypes?: unknown;
       output?: { width?: unknown; height?: unknown };
@@ -137,6 +149,14 @@ export async function POST(request: NextRequest) {
     if (!resolvedHeroImageUrl) {
       return NextResponse.json({ error: "缺少主图 heroImageUrl" }, { status: 400 });
     }
+    const resolvedDetailImageUrls = Array.isArray(detailImageUrls)
+      ? detailImageUrls
+          .map((u) => resolveUrl(origin, u))
+          .filter((u): u is string => Boolean(u))
+      : [];
+    const currentIndex = Number.isFinite(Number(activeDetailImageIndex)) ? Number(activeDetailImageIndex) : 0;
+    const activeRefUrl = resolvedDetailImageUrls[currentIndex] || resolvedHeroImageUrl;
+    const referenceUrls = Array.from(new Set([activeRefUrl, ...resolvedDetailImageUrls].filter(Boolean))).slice(0, 6);
 
     const validTypes: DetailType[] = ["detail", "multi_angle", "lifestyle", "feature", "comparison", "spec"];
     const types: DetailType[] = Array.isArray(selectedTypes)
@@ -161,6 +181,8 @@ export async function POST(request: NextRequest) {
         type,
         productDescription: typeof productDescription === "string" ? productDescription : "",
         heroContext,
+        referenceImageCount: referenceUrls.length,
+        activeReferenceIndex: currentIndex,
       });
 
       const negativePrompt =
@@ -174,7 +196,7 @@ export async function POST(request: NextRequest) {
           userPrompt: typeof productDescription === "string" ? productDescription.trim() : null,
           negativePromptSnapshot: negativePrompt,
           configSnapshot: JSON.stringify({ width, height, detailType: type, strictSize: true, model: "default", quality: "standard" }),
-          referenceImagesSnapshot: JSON.stringify({ productImageUrl: resolvedHeroImageUrl, styleReferenceUrls: [resolvedHeroImageUrl] }),
+          referenceImagesSnapshot: JSON.stringify({ productImageUrl: activeRefUrl, styleReferenceUrls: referenceUrls }),
           status: "processing",
           provider: providerName,
         },
@@ -183,8 +205,8 @@ export async function POST(request: NextRequest) {
       const result = await provider.generate({
         prompt,
         negativePrompt,
-        productImageUrl: resolvedHeroImageUrl,
-        styleReferenceUrls: [resolvedHeroImageUrl],
+        productImageUrl: activeRefUrl,
+        styleReferenceUrls: referenceUrls,
         width,
         height,
         strictSize: true,

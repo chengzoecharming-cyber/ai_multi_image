@@ -19,6 +19,7 @@ interface PlanRequest {
   rawProductImageUrl?: string;
   productImageUrl?: string; // backward compat
   productReferenceImageUrl?: string;
+  productImageUrls?: string[];
   styleReferenceUrls?: string[];
   userGoal?: string;
   goal?: string; // backward compat
@@ -108,9 +109,17 @@ export async function POST(request: NextRequest) {
       );
     }
     const rawProductImageUrl = body.rawProductImageUrl || body.productImageUrl || "";
+    const extraProductImageUrls = Array.isArray(body.productImageUrls)
+      ? body.productImageUrls.filter((u): u is string => typeof u === "string" && u.trim().length > 0 && u !== rawProductImageUrl)
+      : [];
+    const styleReferenceUrls = Array.isArray(body.styleReferenceUrls)
+      ? body.styleReferenceUrls.filter((u): u is string => typeof u === "string" && u.trim().length > 0 && u !== rawProductImageUrl)
+      : [];
+    const supplementalImageUrls = [...extraProductImageUrls, ...styleReferenceUrls].slice(0, 5);
     log("request received", {
       hasTemplate: Boolean(body.selectedTemplateId),
       hasRawImage: Boolean(rawProductImageUrl),
+      extraImageCount: supplementalImageUrls.length,
       goalLength: userGoal.trim().length,
     });
 
@@ -201,7 +210,10 @@ export async function POST(request: NextRequest) {
           const llmStart = Date.now();
           // Feed PlanBrief prompt into runtime as extra user constraints (keeps system prompt short).
           const briefPromptForRuntime = briefPrompt;
-          const result = await callLLM(base64Image, userGoal, "single", briefPromptForRuntime, selectedTemplateId, requestId);
+          const extraBase64Images = (
+            await Promise.all(supplementalImageUrls.map((u) => imageUrlToBase64(u)))
+          ).filter((v): v is string => Boolean(v));
+          const result = await callLLM(base64Image, extraBase64Images, userGoal, "single", briefPromptForRuntime, selectedTemplateId, requestId);
           log(`callLLM done in ${Date.now() - llmStart}ms`);
 
           const normalizeStart = Date.now();

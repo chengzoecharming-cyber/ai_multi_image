@@ -205,7 +205,7 @@ async function loadServerHistorySessions(limit = 60): Promise<V2Session[]> {
 }
 
 function reconcileStep(seed?: Partial<V2Session>): Step {
-  let step = seed?.step || "input";
+  const step = seed?.step || "input";
   if (step === "generating") {
     if ((seed?.singlePlans?.length || 0) > 0) return "plans";
     if ((seed?.generatedImages?.length || 0) > 0) return "plans";
@@ -753,6 +753,8 @@ export function useV2Session() {
       const payload: Record<string, unknown> = {
         rawProductImageUrl: activeProductImage,
         productReferenceImageUrl: activeSession.productImageUrls[0] || activeProductImage,
+        productImageUrls: activeSession.productImageUrls || [],
+        styleReferenceUrls: (activeSession.productImageUrls || []).filter((u) => u !== activeProductImage),
         userGoal: activeSession.goal.trim(),
         mode: "single",
         clientRequestId,
@@ -1045,6 +1047,8 @@ export function useV2Session() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           heroImageUrl: activeDetailImage,
+          detailImageUrls: detail?.detailImageUrls || [],
+          activeDetailImageIndex: detail?.activeDetailImageIndex ?? 0,
           productDescription: activeSession.goal,
           selectedTypes,
           provider: activeSession.provider,
