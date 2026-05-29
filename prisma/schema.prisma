@@ -83,3 +83,163 @@ model AiImageTask {
 
   @@map("ai_image_tasks")
 }
+
+// ═══════════════════════════════════════════════════════════════
+// V2 工作台数据模型（Session / Plan / GeneratedImage / DetailState）
+// ═══════════════════════════════════════════════════════════════
+
+model AiImageV2Session {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  userId    String   @map("user_id")
+
+  // 基础信息
+  title     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 工作区标签
+  workspaceTab String? @map("workspace_tab")
+
+  // 核心配置
+  mode            String   @default("single")
+  step            String   @default("input")
+  status          String?
+  lastError       String?  @map("last_error")
+
+  // 图片配置
+  productImageUrls      String? @map("product_image_urls")
+  activeProductImageIndex Int    @default(0) @map("active_product_image_index")
+  referenceImageUrls    String? @map("reference_image_urls")
+  goal                  String  @default("")
+
+  // 输出配置
+  outputWidth   Int     @default(1920) @map("output_width")
+  outputHeight  Int     @default(1920) @map("output_height")
+  provider      String? @default("chatgpt2api")
+
+  // 模板
+  selectedTemplateId String? @map("selected_template_id")
+
+  // 单图方案
+  expandedSingleId String? @map("expanded_single_id")
+  editingSingleId  String? @map("editing_single_id")
+  previewPlanId    String? @map("preview_plan_id")
+  copiedId         String? @map("copied_id")
+
+  // 生成状态
+  generatingImage     Boolean @default(false) @map("generating_image")
+  generatingImagePlanId String? @map("generating_image_plan_id")
+
+  // 关联
+  plans      AiImageV2Plan[]
+  images     AiImageV2GeneratedImage[]
+  detail     AiImageV2DetailState?
+
+  @@index([tenantId, userId, updatedAt(sort: Desc)])
+  @@map("ai_image_v2_sessions")
+}
+
+model AiImageV2Plan {
+  id        String   @id @default(cuid())
+  sessionId String   @map("session_id")
+  tenantId  String   @map("tenant_id")
+  userId    String   @map("user_id")
+
+  // 基础
+  planName      String @map("plan_name")
+  planArchetype String @map("plan_archetype")
+  templateId    String @map("template_id")
+  imageType     String @map("image_type")
+  sortOrder     Int    @default(0) @map("sort_order")
+
+  // 方向
+  layoutDirection String @map("layout_direction")
+  visualDirection String @map("visual_direction")
+  colorDirection  String @map("color_direction")
+
+  // 文案密度（新增，兼容旧字段）
+  copyDensity String? @map("copy_density")
+
+  // 产品分析（JSON）
+  productAnalysisJson String? @map("product_analysis_json")
+
+  // 文案
+  productName  String @map("product_name")
+  headline     String
+  subtitle     String?
+  sellingPoints String? @map("selling_points") // JSON array
+  copyBlocks    String? @map("copy_blocks")    // JSON array
+
+  copySource String @default("ai_rewritten") @map("copy_source")
+  copyNotes  String? @map("copy_notes")        // JSON array
+
+  // 视觉风格
+  visualStyleId    String? @map("visual_style_id")
+  visualStyleLabel String? @map("visual_style_label")
+
+  // 布局叠加（JSON）
+  layoutOverlayJson String? @map("layout_overlay_json")
+
+  // Prompts（超大字段）
+  planSummaryPrompt     String? @map("plan_summary_prompt")
+  imageGenerationPrompt String? @map("image_generation_prompt")
+  finalPrompt           String? @map("final_prompt")
+
+  // 风险
+  riskWarnings String? @map("risk_warnings") // JSON array
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  session AiImageV2Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId, sessionId])
+  @@map("ai_image_v2_plans")
+}
+
+model AiImageV2GeneratedImage {
+  id        String   @id @default(cuid())
+  sessionId String   @map("session_id")
+  tenantId  String   @map("tenant_id")
+  userId    String   @map("user_id")
+
+  planId      String? @map("plan_id")
+  taskId      String? @map("task_id")
+  tab         String  @default("product")
+  detailType  String? @map("detail_type")
+  imageUrl    String  @map("image_url")
+  imageBase64 String? @map("image_base64")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  session AiImageV2Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId, sessionId])
+  @@map("ai_image_v2_generated_images")
+}
+
+model AiImageV2DetailState {
+  id        String   @id @default(cuid())
+  sessionId String   @unique @map("session_id")
+  tenantId  String   @map("tenant_id")
+  userId    String   @map("user_id")
+
+  // 参考图
+  detailImageUrls      String? @map("detail_image_urls")
+  activeDetailImageIndex Int   @default(0) @map("active_detail_image_index")
+
+  // Hero方案（JSON）
+  heroPlanJson String? @map("hero_plan_json")
+
+  // 选中的详情图类型
+  selectedTypes String? @map("selected_types")
+
+  generating Boolean @default(false)
+  lastError  String? @map("last_error")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  session AiImageV2Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
+  @@map("ai_image_v2_detail_states")
+}

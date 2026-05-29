@@ -128,7 +128,9 @@ export async function POST(request: NextRequest) {
           ? deriveStableSeed([resolvedProductImageUrl, finalPrompt, finalNegativePrompt || "", width, height, model])
           : undefined;
 
-    const requestedStrengthRaw = (config as any)?.editStrength ?? (config as any)?.strength;
+    const requestedStrengthRaw =
+      (config as Record<string, unknown>)?.editStrength ??
+      (config as Record<string, unknown>)?.strength;
     const requestedStrength =
       typeof requestedStrengthRaw === "number" && Number.isFinite(requestedStrengthRaw)
         ? Math.max(0, Math.min(1, requestedStrengthRaw))

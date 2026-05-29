@@ -1,852 +1,85 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { useSearchParams } from "next/navigation";
-import type { CreativePlan, V2DetailType, V2Session, V2SessionStatus, V2WorkspaceTab, Step } from "../types";
+import type { V2Session, V2WorkspaceTab } from "../types";
 import type { PlanTemplate } from "@/lib/plan-templates/types";
-import {
-  getSystemTemplates,
-  getSavedTemplatesFromServer,
-  migrateLocalSavedTemplatesToServer,
-  saveSavedTemplateToServer,
-} from "@/app/ai-image/v2/domain/templates";
-import { buildNoTextImagePrompt } from "../lib/noTextPrompt";
 
-const SESSION_STORAGE_KEY = "ai_image_v2_sessions_v3";
-
-interface TaskHistoryItem {
-  id: string;
-  status: string;
-  userPrompt?: string | null;
-  resultImageUrl?: string | null;
-  createdAt: string;
-}
-
-function safeJsonParse<T>(raw: string | null): T | null {
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return null;
-  }
-}
-
-function nowTs() {
-  return Date.now();
-}
-
-function createPlanRequestId() {
-  return `plan-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-}
-
-function sessionHasOutput(session: V2Session): boolean {
-  return (
-    (session.generatedImages?.length || 0) > 0 ||
-    (session.singlePlans?.length || 0) > 0 ||
-    (session.detail?.results?.length || 0) > 0
-  );
-}
-
-function parseTaskResultImages(resultImageUrl?: string | null): string[] {
-  if (!resultImageUrl) return [];
-  try {
-    const parsed = JSON.parse(resultImageUrl);
-    if (Array.isArray(parsed)) return parsed.filter((u) => typeof u === "string");
-    if (typeof parsed === "string") return [parsed];
-    return [];
-  } catch {
-    return [resultImageUrl];
-  }
-}
-
-function getSessionHistoryKey(session: V2Session): string | null {
-  const taskIds = (session.generatedImages || [])
-    .map((img) => img.taskId?.trim())
-    .filter((id): id is string => Boolean(id))
-    .sort();
-  if (taskIds.length > 0) {
-    return `task:${taskIds.join(",")}`;
-  }
-
-  const imageUrls = (session.generatedImages || [])
-    .map((img) => img.imageUrl?.trim())
-    .filter((url): url is string => Boolean(url))
-    .sort();
-  if (imageUrls.length > 0) {
-    return `img:${imageUrls.join(",")}`;
-  }
-
-  return null;
-}
-
-function mergeSessionsWithServerHistory(localSessions: V2Session[], serverSessions: V2Session[]): V2Session[] {
-  const merged = new Map<string, V2Session>();
-
-  for (const session of serverSessions) {
-    const key = getSessionHistoryKey(session) || session.id;
-    merged.set(key, session);
-  }
-
-  for (const session of localSessions) {
-    const key = getSessionHistoryKey(session);
-    if (!key) {
-      merged.set(`draft:${session.id}`, session);
-      continue;
-    }
-
-    const existing = merged.get(key);
-    if (!existing) {
-      merged.set(key, session);
-      continue;
-    }
-    // Keep server history as baseline for generated outputs, but preserve richer
-    // local editing state (e.g. uploaded product images / references / goal text).
-    // Migrate deprecated single-image fields to arrays when present.
-    const sessionProductImages = session.productImageUrls?.length
-      ? session.productImageUrls
-      : session.productImageUrl
-        ? [session.productImageUrl]
-        : [];
-    const existingProductImages = existing.productImageUrls?.length
-      ? existing.productImageUrls
-      : existing.productImageUrl
-        ? [existing.productImageUrl]
-        : [];
-    const mergedProductImages = [...sessionProductImages, ...existingProductImages].filter((url, i, arr) => arr.indexOf(url) === i);
-
-    const sessionRefs = session.referenceImageUrls?.length
-      ? session.referenceImageUrls
-      : session.productReferenceImageUrl
-        ? [session.productReferenceImageUrl]
-        : [];
-    const existingRefs = existing.referenceImageUrls?.length
-      ? existing.referenceImageUrls
-      : existing.productReferenceImageUrl
-        ? [existing.productReferenceImageUrl]
-        : [];
-    const mergedRefs = [...new Set([...sessionRefs, ...existingRefs])];
-
-    const sessionDetailImages = session.detail?.detailImageUrls?.length
-      ? session.detail.detailImageUrls
-      : session.detail?.heroImageUrl
-        ? [session.detail.heroImageUrl]
-        : [];
-    const existingDetailImages = existing.detail?.detailImageUrls?.length
-      ? existing.detail.detailImageUrls
-      : existing.detail?.heroImageUrl
-        ? [existing.detail.heroImageUrl]
-        : [];
-    const mergedDetailImages = [...sessionDetailImages, ...existingDetailImages].filter((url, i, arr) => arr.indexOf(url) === i);
-
-    const mergedSession: V2Session = {
-      ...existing,
-      ...session,
-      productImageUrls: mergedProductImages,
-      activeProductImageIndex: session.activeProductImageIndex ?? existing.activeProductImageIndex ?? 0,
-      referenceImageUrls: mergedRefs,
-      goal: (session.goal && session.goal.trim()) ? session.goal : (existing.goal || ""),
-      generatedImages:
-        (existing.generatedImages && existing.generatedImages.length > 0)
-          ? existing.generatedImages
-          : (session.generatedImages || []),
-      singlePlans:
-        (session.singlePlans && session.singlePlans.length > 0)
-          ? session.singlePlans
-          : (existing.singlePlans || []),
-      detail: {
-        ...(session.detail || existing.detail || { selectedTypes: [], generating: false, results: [], lastError: null }),
-        detailImageUrls: mergedDetailImages,
-        activeDetailImageIndex: session.detail?.activeDetailImageIndex ?? existing.detail?.activeDetailImageIndex ?? 0,
-      },
-      updatedAt: Math.max(existing.updatedAt || 0, session.updatedAt || 0),
-    };
-    merged.set(key, mergedSession);
-  }
-
-  return Array.from(merged.values()).sort((a, b) => b.updatedAt - a.updatedAt);
-}
-
-async function loadServerHistorySessions(limit = 60): Promise<V2Session[]> {
-  try {
-    const res = await fetch(`/api/ai-image/tasks?limit=${limit}`);
-    if (!res.ok) return [];
-    const json = (await res.json()) as { data?: TaskHistoryItem[] };
-    const tasks = Array.isArray(json?.data) ? json.data : [];
-    const completed = tasks.filter((t) => t.status === "completed");
-    const sessions = completed
-      .map((task) => {
-        const images = parseTaskResultImages(task.resultImageUrl);
-        if (images.length === 0) return null;
-        const ts = Number.isFinite(Date.parse(task.createdAt)) ? Date.parse(task.createdAt) : nowTs();
-        const session = createEmptySession({
-          id: `srv-${task.id}`,
-          createdAt: ts,
-          updatedAt: ts,
-          goal: (task.userPrompt || "").trim(),
-          step: "plans",
-          workspaceTab: "product",
-          generatedImages: images.map((imageUrl, idx) => ({
-            id: `${task.id}-${idx}`,
-            taskId: task.id,
-            tab: "product",
-            imageUrl,
-            createdAt: ts,
-          })),
-        });
-        return session;
-      })
-      .filter((s): s is V2Session => Boolean(s));
-    return sessions;
-  } catch (error) {
-    console.error("[useV2Session] Failed to load server history:", error);
-    return [];
-  }
-}
-
-function reconcileStep(seed?: Partial<V2Session>): Step {
-  const step = seed?.step || "input";
-  if (step === "generating") {
-    if ((seed?.singlePlans?.length || 0) > 0) return "plans";
-    if ((seed?.generatedImages?.length || 0) > 0) return "plans";
-    return "input";
-  }
-  if (step === "input" && ((seed?.singlePlans?.length || 0) > 0 || (seed?.generatedImages?.length || 0) > 0)) {
-    return "plans";
-  }
-  return step;
-}
-
-function createEmptySession(seed?: Partial<V2Session>): V2Session {
-  const ts = nowTs();
-
-  // Migrate deprecated single-image fields to arrays if present.
-  const migratedProductImages = seed?.productImageUrls?.length
-    ? seed.productImageUrls
-    : seed?.productImageUrl
-      ? [seed.productImageUrl]
-      : [];
-  const migratedDetailImages = seed?.detail?.detailImageUrls?.length
-    ? seed.detail.detailImageUrls
-    : seed?.detail?.heroImageUrl
-      ? [seed.detail.heroImageUrl]
-      : [];
-
-  const base: V2Session = {
-    id: seed?.id || globalThis.crypto?.randomUUID?.() || `sess-${ts}-${Math.random().toString(36).slice(2, 6)}`,
-    title: seed?.title,
-    createdAt: seed?.createdAt || ts,
-    updatedAt: ts,
-
-    workspaceTab: seed?.workspaceTab || "product",
-
-    mode: "single",
-    step: reconcileStep(seed),
-    status: seed?.status,
-    lastError: seed?.lastError ?? null,
-
-    productImageUrls: migratedProductImages,
-    activeProductImageIndex: seed?.activeProductImageIndex ?? 0,
-    referenceImageUrls: seed?.referenceImageUrls ?? [],
-    goal: seed?.goal ?? "",
-
-    outputWidth: Number.isFinite(seed?.outputWidth) ? Number(seed?.outputWidth) : 1920,
-    outputHeight: Number.isFinite(seed?.outputHeight) ? Number(seed?.outputHeight) : 1920,
-
-    provider: seed?.provider || process.env.NEXT_PUBLIC_DEFAULT_IMAGE_PROVIDER || "chatgpt2api",
-    selectedTemplateId: seed?.selectedTemplateId ?? null,
-
-    singlePlans: seed?.singlePlans ?? [],
-    expandedSingleId: seed?.expandedSingleId ?? null,
-    editingSingleId: seed?.editingSingleId ?? null,
-
-    previewPlanId: seed?.previewPlanId ?? null,
-    copiedId: seed?.copiedId ?? null,
-
-    // Reset transient generation flags on restore — the request is dead after refresh.
-    generatingImage: false,
-    generatingImagePlanId: null,
-    generatedImages: seed?.generatedImages ?? [],
-
-    detail: {
-      detailImageUrls: migratedDetailImages,
-      activeDetailImageIndex: seed?.detail?.activeDetailImageIndex ?? 0,
-      heroPlan: seed?.detail?.heroPlan ?? null,
-      selectedTypes: seed?.detail?.selectedTypes ?? [],
-      generating: false,
-      results: seed?.detail?.results ?? [],
-      lastError: seed?.detail?.lastError ?? null,
-    },
-
-    // deprecated (kept for old storage)
-    groupId: (seed as any)?.groupId ?? null,
-  };
-  return { ...base, status: deriveSessionStatus(base) };
-}
-
-function deriveSessionStatus(session: V2Session): V2SessionStatus {
-  if (session.lastError) return "failed";
-  if (session.detail?.lastError) return "failed";
-  // Any active generation (product or detail) counts as generating.
-  if (session.generatingImage || session.detail?.generating) return "generating";
-  if (session.step === "generating") return "planning";
-  // Any generated image across any tab means the session has produced output.
-  if ((session.generatedImages?.length || 0) > 0) return "done";
-  if ((session.singlePlans?.length || 0) > 0) {
-    if (session.step === "plans" || session.step === "preview") return "needs_review";
-  }
-  return "draft";
-}
+import { useSessionStore } from "./useSessionStore";
+import { useSessionActions } from "./useSessionActions";
+import { useUploadHandlers } from "./useUploadHandlers";
+import { usePlanGeneration } from "./usePlanGeneration";
+import { useImageGeneration } from "./useImageGeneration";
+import { useDetailGeneration } from "./useDetailGeneration";
+import { useTemplateLibrary } from "./useTemplateLibrary";
+import { useSessionPersistence } from "./useSessionPersistence";
 
 export function useV2Session() {
-  const searchParams = useSearchParams();
+  // ── Core session state ──
+  const {
+    sessions,
+    setSessions,
+    activeSessionId,
+    setActiveSessionId,
+    activeSession,
+    updateActiveSession,
+    isHydrated,
+  } = useSessionStore();
 
-  const [sessions, setSessions] = useState<V2Session[]>([]);
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  // ── Server sync ──
+  const persistence = useSessionPersistence({
+    sessions,
+    isHydrated,
+    tenantId: "default",
+    userId: "default",
+  });
+
+  // ── Workspace tab (UI state, synced with active session) ──
   const [workspaceTab, setWorkspaceTabState] = useState<V2WorkspaceTab>("product");
 
-  const [templateLibraryOpen, setTemplateLibraryOpen] = useState(false);
-  const [systemTemplates, setSystemTemplates] = useState<PlanTemplate[]>([]);
-  const [userTemplates, setUserTemplates] = useState<PlanTemplate[]>([]);
-
-  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
-  const [saveTemplatePlan, setSaveTemplatePlan] = useState<CreativePlan | null>(null);
-
-  /** 开发调试：最近一次生成的 prompt 对比数据 */
-  interface DebugPromptData {
-    requestId?: string;
-    selectedTemplateId?: string | null;
-    briefSourceType?: string;
-    briefSourceId?: string;
-    briefImageType?: string;
-    briefLayoutCount?: number;
-    briefVariantCount?: number;
-    briefStyleMode?: string;
-    oldTemplatePromptLength?: number;
-    briefPromptLength?: number;
-    oldTemplatePrompt?: string;
-    briefPrompt?: string;
-  }
-  const [lastDebugPrompt, setLastDebugPrompt] = useState<DebugPromptData | null>(null);
-
-  const productFileInputRef = useRef<HTMLInputElement>(null);
-  const detailHeroFileInputRef = useRef<HTMLInputElement>(null);
-  const referenceFileInputRef = useRef<HTMLInputElement>(null);
-  const generateControllerRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    setSystemTemplates(getSystemTemplates());
-
-    void (async () => {
-      try {
-        const templates = await migrateLocalSavedTemplatesToServer();
-        if (!cancelled) setUserTemplates(templates);
-      } catch (error) {
-        console.error("[useV2Session] Failed to load user templates from server:", error);
-        if (!cancelled) setUserTemplates([]);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const refreshUserTemplates = useCallback(() => {
-    void (async () => {
-      try {
-        const templates = await getSavedTemplatesFromServer();
-        setUserTemplates(templates);
-      } catch (error) {
-        console.error("[useV2Session] Failed to refresh user templates:", error);
-      }
-    })();
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    let restoredLocalSessions: V2Session[] | null = null;
-
-    const loaded = safeJsonParse<{ sessions: V2Session[]; activeSessionId: string | null }>(localStorage.getItem(SESSION_STORAGE_KEY));
-    if (loaded?.sessions?.length) {
-      const restored = loaded.sessions.map((s) => createEmptySession(s));
-      setSessions(restored);
-      setActiveSessionId(loaded.activeSessionId || loaded.sessions[0].id);
-      restoredLocalSessions = restored;
-    }
-
-    if (!restoredLocalSessions) {
-      // Backward compat: migrate old group storage if present
-      const legacyGroups = safeJsonParse<{ groups: Array<{ slots: V2Session[]; activeSlotId: string | null }>; activeGroupId: string | null }>(
-        localStorage.getItem("ai_image_v2_sessions_v2_groups")
-      );
-      if (legacyGroups?.groups?.length) {
-        const flat: V2Session[] = [];
-        legacyGroups.groups.forEach((g) => {
-          (g.slots || []).forEach((s) => flat.push(createEmptySession({ ...s, groupId: null })));
-        });
-        if (flat.length) {
-          setSessions(flat);
-          setActiveSessionId(flat[0].id);
-          restoredLocalSessions = flat;
-        }
-      }
-    }
-
-    if (!restoredLocalSessions) {
-      // Backward compat: migrate old sessions storage if present under previous key.
-      const legacy = safeJsonParse<{ sessions: V2Session[]; activeSessionId: string | null }>(localStorage.getItem("ai_image_v2_sessions_v1"));
-      if (legacy?.sessions?.length) {
-        const migrated = legacy.sessions.map((s) => createEmptySession({ ...s, groupId: null }));
-        setSessions(migrated);
-        setActiveSessionId(legacy.activeSessionId || migrated[0].id);
-        restoredLocalSessions = migrated;
-      }
-    }
-
-    void (async () => {
-      const serverHistory = await loadServerHistorySessions();
-      const localSessions = restoredLocalSessions || [];
-      const mergedSessions = mergeSessionsWithServerHistory(localSessions, serverHistory);
-
-      if (!cancelled && mergedSessions.length > 0) {
-        const nextActiveId =
-          restoredLocalSessions &&
-          (loaded?.activeSessionId || localSessions[0]?.id) &&
-          mergedSessions.some((session) => session.id === (loaded?.activeSessionId || localSessions[0]?.id))
-            ? (loaded?.activeSessionId || localSessions[0]?.id)!
-            : mergedSessions[0].id;
-
-        setSessions(mergedSessions);
-        setActiveSessionId(nextActiveId);
-        setWorkspaceTabState("product");
-        return;
-      }
-
-      const seeded = createEmptySession({
-        productImageUrls: searchParams.get("productImageUrl") ? [searchParams.get("productImageUrl")!] : [],
-        goal: searchParams.get("goal") || "",
-        workspaceTab: "product",
-      });
-      if (!cancelled) {
-        setSessions([seeded]);
-        setActiveSessionId(seeded.id);
-        setWorkspaceTabState("product");
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [searchParams]);
-
-  // ── Persist sessions to localStorage (with debounce) ──
-  // v2 images are persisted to local static files (/generated/...) by the
-  // backend, so imageUrl already survives refreshes.  We still keep
-  // imageBase64 in memory for copy/download but strip it from localStorage
-  // to stay well under quota.  On restore the local URL renders the image.
-  /** 从 singlePlans 的 CreativePlan 中移除超大字段，避免 localStorage quota exceeded */
-  function stripHeavyPlanFields(plans: CreativePlan[]): Partial<CreativePlan>[] {
-    return plans.map((p) => {
-      const {
-        visualDirection,
-        colorDirection,
-        layoutDirection,
-        imageGenerationPrompt,
-        finalPrompt,
-        planSummaryPrompt,
-        ...rest
-      } = p;
-      return rest;
-    });
-  }
-
-  useEffect(() => {
-    if (!sessions.length) return;
-    const t = setTimeout(() => {
-      try {
-        const stripped = sessions.map((s) => ({
-          ...s,
-          singlePlans: stripHeavyPlanFields(s.singlePlans || []),
-          lastDebugPrompt: undefined,
-          generatedImages: s.generatedImages.map((g) => {
-            const { imageBase64, ...rest } = g;
-            return rest;
-          }),
-        }));
-        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ sessions: stripped, activeSessionId }));
-      } catch (e) {
-        console.error("[useV2Session] Failed to persist sessions:", e);
-      }
-    }, 300);
-    return () => clearTimeout(t);
-  }, [sessions, activeSessionId]);
-
-  // ── Force persist on page unload ──
-  useEffect(() => {
-    const handler = () => {
-      try {
-        const stripped = sessions.map((s) => ({
-          ...s,
-          singlePlans: stripHeavyPlanFields(s.singlePlans || []),
-          lastDebugPrompt: undefined,
-          generatedImages: s.generatedImages.map((g) => {
-            const { imageBase64, ...rest } = g;
-            return rest;
-          }),
-        }));
-        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ sessions: stripped, activeSessionId }));
-      } catch {
-        // noop on unload
-      }
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [sessions, activeSessionId]);
-
-  const activeSession = useMemo(() => {
-    return sessions.find((s) => s.id === activeSessionId) || sessions[0] || null;
-  }, [sessions, activeSessionId]);
-
-  // Keep UI tab aligned with active session kind when possible.
   useEffect(() => {
     if (!activeSession?.workspaceTab) return;
     setWorkspaceTabState(activeSession.workspaceTab);
   }, [activeSession?.id]);
 
-  const resolveTemplateById = useCallback(
-    (id: string | null | undefined) => {
-      if (!id) return null;
-      return systemTemplates.find((t) => t.id === id) || userTemplates.find((t) => t.id === id) || null;
-    },
-    [systemTemplates, userTemplates]
+  // ── Derived: filtered sessions by tab ──
+  const filteredSessions = useMemo(
+    () => sessions.filter((s) => (s.workspaceTab || "product") === workspaceTab),
+    [sessions, workspaceTab]
   );
 
-  const selectedTemplate = resolveTemplateById(activeSession?.selectedTemplateId);
-
-  const updateActiveSession = useCallback(
-    (updater: (s: V2Session) => V2Session) => {
-      if (!activeSession) return;
-      setSessions((prev) =>
-        prev.map((s) => {
-          if (s.id !== activeSession.id) return s;
-          const next = updater(s);
-          const status = deriveSessionStatus(next);
-          return { ...next, updatedAt: nowTs(), status };
-        })
-      );
-    },
-    [activeSession]
+  // ── Template library ──
+  const templateLib = useTemplateLibrary();
+  const selectedTemplate = useMemo(
+    () => templateLib.resolveTemplateById(activeSession?.selectedTemplateId),
+    [templateLib, activeSession?.selectedTemplateId]
   );
 
-  const createNewSession = useCallback((seed?: Partial<V2Session>) => {
-    const sess = createEmptySession(seed);
-    setSessions((prev) => [sess, ...prev]);
-    setActiveSessionId(sess.id);
-    toast.success("已新增记录");
-  }, []);
+  // ── Session actions (CRUD, workspace tab) ──
+  const sessionActions = useSessionActions({
+    sessions,
+    setSessions,
+    activeSessionId,
+    setActiveSessionId,
+    activeSession,
+    updateActiveSession,
+    workspaceTab,
+    setWorkspaceTabState,
+  });
 
-  const duplicateSession = useCallback(
-    (id: string) => {
-      const base = sessions.find((s) => s.id === id);
-      if (!base) return;
-      const cloned = safeJsonParse<V2Session>(JSON.stringify(base)) || base;
-      const ts = nowTs();
-      const next: V2Session = {
-        ...cloned,
-        id: globalThis.crypto?.randomUUID?.() || `sess-${ts}-${Math.random().toString(36).slice(2, 6)}`,
-        createdAt: ts,
-        updatedAt: ts,
-        lastError: null,
-        generatingImage: false,
-      };
-      setSessions((prev) => [next, ...prev]);
-      setActiveSessionId(next.id);
-      toast.success("已复制记录");
-    },
-    [sessions]
-  );
+  // ── Upload handlers ──
+  const uploadHandlers = useUploadHandlers({ activeSession, updateActiveSession });
 
-  const deleteSession = useCallback(
-    (id: string) => {
-      setSessions((prev) => {
-        const next = prev.filter((s) => s.id !== id);
-        const fallback = next.length ? next : [createEmptySession({ workspaceTab: "product" })];
-        if (activeSessionId === id) setActiveSessionId(fallback[0].id);
-        return fallback;
-      });
-      toast.success("已删除记录");
-    },
-    [activeSessionId]
-  );
+  // ── Plan generation ──
+  const planGeneration = usePlanGeneration({ activeSession, updateActiveSession, selectedTemplate });
 
-  const setWorkspaceTab = useCallback(
-    (tab: V2WorkspaceTab) => {
-      setWorkspaceTabState(tab);
-      // Switch active session to the most recent one in that tab.
-      setActiveSessionId((prevId) => {
-        const current = sessions.find((s) => s.id === prevId) || null;
-        if (current && (current.workspaceTab || "product") === tab) return prevId;
-        const candidate = sessions.find((s) => (s.workspaceTab || "product") === tab) || null;
-        return candidate?.id || prevId;
-      });
-    },
-    [sessions]
-  );
+  // ── Image generation ──
+  const imageGeneration = useImageGeneration({ activeSession, updateActiveSession });
 
-  const handleUploadProductImage = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (!activeSession) return;
-      const files = Array.from(e.target.files || []);
-      if (files.length === 0) return;
-      const uploadedUrls: string[] = [];
-      try {
-        for (const file of files) {
-          const formData = new FormData();
-          formData.append("file", file);
-          const res = await fetch("/api/upload", { method: "POST", body: formData });
-          const data = await res.json();
-          if (res.ok && data.data?.url) {
-            uploadedUrls.push(data.data.url);
-          } else {
-            toast.error(data.error || `上传失败: ${file.name}`);
-          }
-        }
-        if (uploadedUrls.length > 0) {
-          updateActiveSession((s) => {
-            const prev = s.productImageUrls || [];
-            const nextUrls = [...prev, ...uploadedUrls];
-            return {
-              ...s,
-              productImageUrls: nextUrls,
-              activeProductImageIndex: nextUrls.length - 1,
-              lastError: null,
-              step: "input",
-            };
-          });
-          toast.success(`已上传 ${uploadedUrls.length} 张商品图`);
-        }
-      } catch {
-        toast.error("上传失败，请重试");
-      }
-      if (productFileInputRef.current) productFileInputRef.current.value = "";
-    },
-    [activeSession, updateActiveSession]
-  );
+  // ── Detail generation ──
+  const detailGeneration = useDetailGeneration({ activeSession, updateActiveSession });
 
-  const handleUploadDetailImage = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (!activeSession) return;
-      const files = Array.from(e.target.files || []);
-      if (files.length === 0) return;
-      const uploadedUrls: string[] = [];
-      try {
-        for (const file of files) {
-          const formData = new FormData();
-          formData.append("file", file);
-          const res = await fetch("/api/upload", { method: "POST", body: formData });
-          const data = await res.json();
-          if (res.ok && data.data?.url) {
-            uploadedUrls.push(data.data.url);
-          } else {
-            toast.error(data.error || `上传失败: ${file.name}`);
-          }
-        }
-        if (uploadedUrls.length > 0) {
-          updateActiveSession((s) => {
-            const prev = s.detail?.detailImageUrls || [];
-            const nextUrls = [...prev, ...uploadedUrls];
-            return {
-              ...s,
-              detail: {
-                ...(s.detail || { selectedTypes: [], generating: false, results: [], lastError: null }),
-                detailImageUrls: nextUrls,
-                activeDetailImageIndex: nextUrls.length - 1,
-                lastError: null,
-              },
-            };
-          });
-          toast.success(`已上传 ${uploadedUrls.length} 张参考图`);
-        }
-      } catch {
-        toast.error("上传失败，请重试");
-      }
-      if (detailHeroFileInputRef.current) detailHeroFileInputRef.current.value = "";
-    },
-    [activeSession, updateActiveSession]
-  );
-
-  const handleUploadReferenceImage = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (!activeSession) return;
-      const file = e.target.files?.[0];
-      if (!file) return;
-      const maxRef = activeSession.provider === "chatgpt2api" ? 0 : 3;
-      if ((activeSession.referenceImageUrls?.length || 0) >= maxRef) {
-        toast.error(maxRef === 0 ? "ChatGPT2API 不支持参考图" : "参考图最多3张");
-        if (referenceFileInputRef.current) referenceFileInputRef.current.value = "";
-        return;
-      }
-      const formData = new FormData();
-      formData.append("file", file);
-      try {
-        const res = await fetch("/api/upload", { method: "POST", body: formData });
-        const data = await res.json();
-        if (res.ok && data.data?.url) {
-          updateActiveSession((s) => ({
-            ...s,
-            referenceImageUrls: [...(s.referenceImageUrls || []), data.data.url],
-            lastError: null,
-          }));
-          toast.success("参考图上传成功");
-        } else {
-          toast.error(data.error || "上传失败");
-        }
-      } catch {
-        toast.error("上传失败，请重试");
-      }
-      if (referenceFileInputRef.current) referenceFileInputRef.current.value = "";
-    },
-    [activeSession, updateActiveSession]
-  );
-
-  const handleRemoveReferenceImage = useCallback(
-    (index: number) => {
-      updateActiveSession((s) => ({
-        ...s,
-        referenceImageUrls: (s.referenceImageUrls || []).filter((_, i) => i !== index),
-      }));
-    },
-    [updateActiveSession]
-  );
-
-  const handleGeneratePlan = useCallback(async () => {
-    if (!activeSession) return;
-    const activeProductImage = activeSession.productImageUrls[activeSession.activeProductImageIndex ?? 0];
-    if (!activeProductImage) {
-      toast.error("请先上传商品图");
-      return;
-    }
-    if (!activeSession.goal.trim() || activeSession.goal.trim().length < 3) {
-      toast.error("请输入制图目标描述（至少3个字）");
-      return;
-    }
-
-    updateActiveSession((s) => ({
-      ...s,
-      step: "generating",
-      lastError: null,
-      singlePlans: [],
-      previewPlanId: null,
-      expandedSingleId: null,
-    }));
-
-    const controller = new AbortController();
-    generateControllerRef.current = controller;
-    const timeoutId = setTimeout(() => controller.abort(), 120000);
-    const clientRequestId = createPlanRequestId();
-    setLastDebugPrompt({ requestId: clientRequestId });
-
-    try {
-      const payload: Record<string, unknown> = {
-        rawProductImageUrl: activeProductImage,
-        productReferenceImageUrl: activeSession.productImageUrls[0] || activeProductImage,
-        productImageUrls: activeSession.productImageUrls || [],
-        styleReferenceUrls: (activeSession.productImageUrls || []).filter((u) => u !== activeProductImage),
-        userGoal: activeSession.goal.trim(),
-        mode: "single",
-        clientRequestId,
-      };
-      if (selectedTemplate) payload.selectedTemplateId = selectedTemplate.id;
-      payload.debugBriefPrompt = true;
-
-      const res = await fetch("/api/ai-image/v2/plan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      const data = await res.json();
-      if (res.ok && data.data) {
-        const plans: CreativePlan[] = data.data;
-        setLastDebugPrompt(data.debug ? { ...data.debug, requestId: data.requestId } : { requestId: data.requestId || clientRequestId });
-        updateActiveSession((s) => ({
-          ...s,
-          singlePlans: plans,
-          expandedSingleId: plans[0]?.id || null,
-          step: "plans",
-        }));
-        if (data.fallback) {
-          toast.warning(`已生成 ${plans.length} 个演示方案（LLM 暂不可用）`, { duration: 6000 });
-        } else {
-          toast.success(`已生成 ${plans.length} 个方案`);
-        }
-      } else {
-        toast.error(data.error || "生成失败");
-        updateActiveSession((s) => ({ ...s, step: "input", lastError: data.error || "生成失败" }));
-      }
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === "AbortError") {
-        toast.error("生成超时（约120秒），请重试");
-      } else {
-        toast.error("网络错误，请重试");
-      }
-      updateActiveSession((s) => ({ ...s, step: "input", lastError: "网络错误或超时" }));
-    } finally {
-      clearTimeout(timeoutId);
-      generateControllerRef.current = null;
-    }
-  }, [activeSession, selectedTemplate, updateActiveSession]);
-
-  const handleCancelGenerate = useCallback(() => {
-    if (generateControllerRef.current) {
-      generateControllerRef.current.abort();
-      generateControllerRef.current = null;
-    }
-    updateActiveSession((s) => ({ ...s, step: "input", lastError: null }));
-  }, [updateActiveSession]);
-
-  const handleUpdateSinglePlan = useCallback(
-    (updated: CreativePlan) => {
-      updateActiveSession((s) => ({
-        ...s,
-        singlePlans: s.singlePlans.map((p) => (p.id === updated.id ? updated : p)),
-      }));
-    },
-    [updateActiveSession]
-  );
-
-  const handleOpenPlanPreview = useCallback(
-    (plan: CreativePlan) => {
-      updateActiveSession((s) => ({ ...s, previewPlanId: plan.id, expandedSingleId: plan.id, step: "preview" }));
-    },
-    [updateActiveSession]
-  );
-
-  const handleOpenSaveTemplate = useCallback((plan: CreativePlan) => {
-    setSaveTemplatePlan(plan);
-    setSaveTemplateOpen(true);
-  }, []);
-
-  const handleSaveTemplate = useCallback(
-    (template: PlanTemplate) => {
-      void (async () => {
-        try {
-          await saveSavedTemplateToServer(template);
-          refreshUserTemplates();
-          toast.success(`模板「${template.name}」已保存`);
-        } catch (error) {
-          console.error("[useV2Session] Failed to save template:", error);
-          toast.error("保存模板失败");
-        }
-      })();
-    },
-    [refreshUserTemplates]
-  );
-
+  // ── Override: handleUseTemplate needs updateActiveSession ──
   const handleUseTemplate = useCallback(
     (template: PlanTemplate) => {
       if (template.category === "image_set") {
@@ -864,308 +97,75 @@ export function useV2Session() {
     [updateActiveSession]
   );
 
-  const handleGenerateImage = useCallback(
-    async (plan: CreativePlan) => {
-      const activeProductImage = activeSession?.productImageUrls?.[activeSession?.activeProductImageIndex ?? 0];
-      if (!activeProductImage) {
-        toast.error("请先上传商品图");
-        return;
-      }
-      updateActiveSession((s) => ({ ...s, generatingImage: true, generatingImagePlanId: plan.id, lastError: null }));
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 90000);
-
-      try {
-        const isChatGPT2API = activeSession.provider === "chatgpt2api";
-
-        // ChatGPT2API 只支持单张参考图，不支持 styleReferenceUrls
-        const styleRefs = isChatGPT2API
-          ? []
-          : [
-              ...(activeSession.productImageUrls[0] ? [activeSession.productImageUrls[0]] : []),
-              ...(activeSession.referenceImageUrls || []),
-            ];
-
-        // V2 default: generate WITH on-image copy using the plan's finalPrompt/imageGenerationPrompt.
-        // Fallback to "no-text" prompt only when the plan prompt is missing.
-        const promptContent =
-          plan.finalPrompt ||
-          plan.imageGenerationPrompt ||
-          buildNoTextImagePrompt(plan);
-
-        const negativePromptBase =
-          "watermark, ai generated mark, logo, signature, corner badge, copyright stamp, generated by, ai watermark, brand mark, label, stamp, qr code";
-
-        const res = await fetch("/api/ai-image/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            promptContent,
-            productImageUrl: activeProductImage,
-            styleReferenceUrls: styleRefs,
-            // Allow on-image copy in V2 by default; keep only watermark/logo bans.
-            negativePrompt: negativePromptBase,
-            provider: activeSession.provider,
-            config: {
-              width: activeSession.outputWidth,
-              height: activeSession.outputHeight,
-              model: "default",
-              generationModeId: "commercial_showcase",
-              // V2 plans expect visible changes (lighting/background/layout).
-              // Too-low strength often returns near-identical reference images.
-              editStrength: 0.75,
-              strictSize: true,
-            },
-          }),
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-        const data = await res.json();
-        const rawResultImageUrl =
-          data?.data?.resultImageUrl ?? data?.data?.imageUrl ?? data?.imageUrl ?? null;
-
-        const imageUrl = (() => {
-          if (!rawResultImageUrl) return null;
-          if (Array.isArray(rawResultImageUrl)) return rawResultImageUrl[0] || null;
-          if (typeof rawResultImageUrl !== "string") return null;
-
-          // Backends may return:
-          // 1) JSON stringified array: '["https://..."]'
-          // 2) JSON stringified string: '"https://..."'
-          // 3) Plain URL string: 'https://...'
-          try {
-            const parsed = JSON.parse(rawResultImageUrl);
-            if (Array.isArray(parsed)) return parsed[0] || null;
-            if (typeof parsed === "string") return parsed;
-          } catch {
-            return rawResultImageUrl;
-          }
-          return null;
-        })();
-
-        if (res.ok && imageUrl) {
-          const rawBase64 = (data?.imageBase64 as string | undefined) || "";
-          const imageBase64 =
-            rawBase64 && rawBase64.startsWith("data:")
-              ? rawBase64
-              : rawBase64 && rawBase64.startsWith("http")
-                ? ""
-                : rawBase64 && rawBase64.length > 64
-                  ? `data:image/png;base64,${rawBase64}`
-                  : "";
-          updateActiveSession((s) => ({
-            ...s,
-            generatingImage: false,
-            generatingImagePlanId: null,
-            generatedImages: [
-              {
-                id: globalThis.crypto?.randomUUID?.() || `img-${nowTs()}-${Math.random().toString(36).slice(2, 6)}`,
-                planId: plan.id,
-                taskId: data.data?.id,
-                tab: "product",
-                imageUrl,
-                imageBase64,
-                createdAt: nowTs(),
-              },
-              ...s.generatedImages,
-            ],
-            productImageUrls: s.productImageUrls.includes(imageUrl) ? s.productImageUrls : [imageUrl, ...s.productImageUrls],
-          }));
-          toast.success("图片生成成功");
-        } else {
-          toast.error(data.error || "生成失败");
-          updateActiveSession((s) => ({ ...s, generatingImage: false, generatingImagePlanId: null, lastError: data.error || "生成失败" }));
-        }
-      } catch (err: unknown) {
-        clearTimeout(timeoutId);
-        if (err instanceof Error && err.name === "AbortError") {
-          toast.error("生成超时（90秒），请重试");
-          updateActiveSession((s) => ({ ...s, generatingImage: false, generatingImagePlanId: null, lastError: "生成超时（90秒）" }));
-        } else {
-          toast.error("网络错误，请重试");
-          updateActiveSession((s) => ({ ...s, generatingImage: false, generatingImagePlanId: null, lastError: "网络错误" }));
-        }
-      }
-    },
-    [activeSession, updateActiveSession]
-  );
-
-  const handleReset = useCallback(() => {
-    updateActiveSession((s) =>
-      createEmptySession({
-        id: s.id,
-        createdAt: s.createdAt,
-        workspaceTab: s.workspaceTab || "product",
-      })
-    );
-  }, [updateActiveSession]);
-
-  const toggleDetailType = useCallback(
-    (type: V2DetailType) => {
-      updateActiveSession((s) => {
-        const prev = s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: false, results: [], lastError: null };
-        const exists = prev.selectedTypes.includes(type);
-        const nextSelected = exists ? prev.selectedTypes.filter((t) => t !== type) : [...prev.selectedTypes, type];
-        return { ...s, detail: { ...prev, selectedTypes: nextSelected, lastError: null } };
-      });
-    },
-    [updateActiveSession]
-  );
-
-  const handleGenerateDetail = useCallback(async () => {
-    if (!activeSession) return;
-    const detail = activeSession.detail;
-    const activeDetailImage = detail?.detailImageUrls?.[detail?.activeDetailImageIndex ?? 0] || null;
-    const selectedTypes = detail?.selectedTypes || [];
-    if (!activeDetailImage) {
-      toast.error("请先上传参考图");
-      return;
-    }
-    if (!activeSession.goal.trim() || activeSession.goal.trim().length < 3) {
-      toast.error("请输入商品描述（至少3个字）");
-      return;
-    }
-    if (selectedTypes.length === 0) {
-      toast.error("请先勾选要生成的素材类型");
-      return;
-    }
-
-    updateActiveSession((s) => ({
-      ...s,
-      detail: {
-        ...(s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: false, results: [], lastError: null }),
-        generating: true,
-        lastError: null,
-      },
-    }));
-
-    try {
-      const heroPlan = activeSession.detail?.heroPlan || null;
-      const res = await fetch("/api/ai-image/v2/detail/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          heroImageUrl: activeDetailImage,
-          detailImageUrls: detail?.detailImageUrls || [],
-          activeDetailImageIndex: detail?.activeDetailImageIndex ?? 0,
-          productDescription: activeSession.goal,
-          selectedTypes,
-          provider: activeSession.provider,
-          output: { width: activeSession.outputWidth, height: activeSession.outputHeight },
-          heroPlan,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        const msg = data?.error || "生成失败";
-        toast.error(msg);
-        updateActiveSession((s) => ({
-          ...s,
-          detail: { ...(s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: false, results: [], lastError: null }), generating: false, lastError: msg },
-        }));
-        return;
-      }
-
-      const pages: Array<{ type: V2DetailType; imageUrl: string; taskId?: string; imageBase64?: string }> = Array.isArray(data?.pages)
-        ? data.pages
-        : [];
-      const now = nowTs();
-      updateActiveSession((s) => {
-        const prevDetail = s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: false, results: [], lastError: null };
-        const newImages = pages
-          .filter((p) => p?.imageUrl && p?.type)
-          .map((p) => {
-            const id = globalThis.crypto?.randomUUID?.() || `img-${now}-${Math.random().toString(36).slice(2, 6)}`;
-            return {
-              id,
-              taskId: p.taskId,
-              tab: "detail" as const,
-              detailType: p.type,
-              imageUrl: p.imageUrl,
-              imageBase64: p.imageBase64,
-              createdAt: nowTs(),
-            };
-          });
-        const resultPairs: Array<{ type: V2DetailType; imageId: string }> = [];
-        newImages.forEach((img) => {
-          if (img.detailType) resultPairs.push({ type: img.detailType, imageId: img.id });
-        });
-        return {
-          ...s,
-          generatedImages: [...newImages, ...(s.generatedImages || [])],
-          detail: {
-            ...prevDetail,
-            generating: false,
-            lastError: null,
-            results: [...resultPairs, ...(prevDetail.results || [])],
-          },
-        };
-      });
-      toast.success("商详图已生成");
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "网络错误";
-      toast.error("网络错误，请重试");
-      updateActiveSession((s) => ({
-        ...s,
-        detail: { ...(s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: false, results: [], lastError: null }), generating: false, lastError: msg },
-      }));
-    }
-  }, [activeSession, updateActiveSession]);
-
-  const filteredSessions = useMemo(
-    () => sessions.filter((s) => (s.workspaceTab || "product") === workspaceTab),
-    [sessions, workspaceTab]
-  );
-  const activeTabSessionId = activeSessionId;
-
   return {
+    // Session store
     sessions,
     filteredSessions,
-    activeSessionId: activeTabSessionId,
+    activeSessionId,
     setActiveSessionId,
     activeSession,
     updateActiveSession,
-    createNewSession,
-    duplicateSession,
-    deleteSession,
 
+    // Session actions
+    createNewSession: sessionActions.createNewSession,
+    duplicateSession: sessionActions.duplicateSession,
+    deleteSession: sessionActions.deleteSession,
+
+    // Workspace tab
     workspaceTab,
-    setWorkspaceTab,
+    setWorkspaceTab: sessionActions.setWorkspaceTab,
 
-    templateLibraryOpen,
-    setTemplateLibraryOpen,
-    systemTemplates,
-    userTemplates,
-    refreshUserTemplates,
+    // Template library
+    templateLibraryOpen: templateLib.templateLibraryOpen,
+    setTemplateLibraryOpen: templateLib.setTemplateLibraryOpen,
+    systemTemplates: templateLib.systemTemplates,
+    userTemplates: templateLib.userTemplates,
+    refreshUserTemplates: templateLib.refreshUserTemplates,
 
-    saveTemplateOpen,
-    setSaveTemplateOpen,
-    saveTemplatePlan,
-    setSaveTemplatePlan,
+    saveTemplateOpen: templateLib.saveTemplateOpen,
+    setSaveTemplateOpen: templateLib.setSaveTemplateOpen,
+    saveTemplatePlan: templateLib.saveTemplatePlan,
+    setSaveTemplatePlan: templateLib.setSaveTemplatePlan,
 
-    productFileInputRef,
-    detailHeroFileInputRef,
-    referenceFileInputRef,
+    // Upload refs
+    productFileInputRef: uploadHandlers.productFileInputRef,
+    detailHeroFileInputRef: uploadHandlers.detailHeroFileInputRef,
+    referenceFileInputRef: uploadHandlers.referenceFileInputRef,
+
+    // Selected template
     selectedTemplate,
 
-    handleUploadProductImage,
-    handleUploadDetailHero: handleUploadDetailImage,
-    handleUploadReferenceImage,
-    handleRemoveReferenceImage,
-    handleGenerate: handleGeneratePlan,
-    handleCancelGenerate,
-    handleUpdateSinglePlan,
-    handleOpenPlanPreview,
-    handleOpenSaveTemplate,
-    handleSaveTemplate,
+    // Upload handlers
+    handleUploadProductImage: uploadHandlers.handleUploadProductImage,
+    handleUploadDetailHero: uploadHandlers.handleUploadDetailHero,
+    handleUploadReferenceImage: uploadHandlers.handleUploadReferenceImage,
+    handleRemoveReferenceImage: uploadHandlers.handleRemoveReferenceImage,
+
+    // Plan generation
+    handleGenerate: planGeneration.handleGenerate,
+    handleCancelGenerate: planGeneration.handleCancelGenerate,
+    handleUpdateSinglePlan: planGeneration.handleUpdateSinglePlan,
+    handleOpenPlanPreview: planGeneration.handleOpenPlanPreview,
+
+    // Template actions
+    handleOpenSaveTemplate: templateLib.handleOpenSaveTemplate,
+    handleSaveTemplate: templateLib.handleSaveTemplate,
     handleUseTemplate,
-    handleGenerateImage,
-    handleReset,
 
-    toggleDetailType,
-    handleGenerateDetail,
+    // Image generation
+    handleGenerateImage: imageGeneration.handleGenerateImage,
 
-    lastDebugPrompt,
+    // Reset
+    handleReset: sessionActions.handleReset,
+
+    // Detail generation
+    toggleDetailType: detailGeneration.toggleDetailType,
+    handleGenerateDetail: detailGeneration.handleGenerateDetail,
+
+    // Debug
+    lastDebugPrompt: planGeneration.lastDebugPrompt,
+
+    // Hydration flag (for future sync hooks)
+    isHydrated,
   };
 }

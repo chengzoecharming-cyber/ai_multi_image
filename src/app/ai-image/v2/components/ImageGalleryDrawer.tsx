@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { X, Download, ImageIcon, Loader2, ArrowRightLeft } from "lucide-react";
 import { toast } from "sonner";
 
@@ -13,7 +13,16 @@ interface TaskItem {
   promptSnapshot: string | null;
   referenceImagesSnapshot: string | null;
   configSnapshot: string | null;
-  negativePromptSnapshot: string | null;
+}
+
+interface ImageItem {
+  url: string;
+  taskId: string;
+  createdAt: string;
+  userPrompt: string | null;
+  promptSnapshot: string | null;
+  referenceImagesSnapshot: string | null;
+  configSnapshot: string | null;
 }
 
 export interface GalleryApplyData {
@@ -30,6 +39,8 @@ interface ImageGalleryDrawerProps {
   onClose: () => void;
   onApply?: (data: GalleryApplyData) => void;
 }
+
+const PAGE_SIZE = 10;
 
 function formatDateLabel(iso: string): string {
   const d = new Date(iso);
@@ -61,29 +72,134 @@ function safeJsonParse<T>(raw: string | null): T | null {
   }
 }
 
-export default function ImageGalleryDrawer({ open, onClose, onApply }: ImageGalleryDrawerProps) {
-  const [tasks, setTasks] = useState<TaskItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+/**
+ * IntersectionObserver hook for lazy image loading.
+ * Also triggers external-image persistence + thumbnail generation
+ * when the image first becomes visible.
+ */
+function useLazyImage(src: string, taskId: string) {
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [shouldLoad, setShouldLoad] = useState(false);
+  const [resolvedSrc, setResolvedSrc] = useState(src);
+  const [resolvedThumb, setResolvedThumb] = useState<string | null>(null);
+  const persistedRef = useRef(false);
 
   useEffect(() => {
+    const img = imgRef.current;
+    if (!img) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setShouldLoad(true);
+            observer.disconnect();
+
+            // Persist external image to local when it first enters viewport
+            if (!persistedRef.current) {
+              persistedRef.current = true;
+              const origin = window.location.origin;
+              const isExternal =
+                src.startsWith("http") && !src.startsWith(origin);
+              if (isExternal) {
+                fetch(`/api/ai-image/tasks/${taskId}/persist-image`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ imageUrl: src }),
+                })
+                  .then(async (res) => {
+                    if (res.ok) {
+                      const data = (await res.json()) as {
+                        localUrl?: string;
+                        thumbUrl?: string;
+                      };
+                      if (data.localUrl) {
+                        setResolvedSrc(data.localUrl);
+                      }
+                      if (data.thumbUrl) {
+                        setResolvedThumb(data.thumbUrl);
+                      }
+                    }
+                  })
+                  .catch((err) => {
+                    console.warn("[LazyImage] persist failed:", err);
+                  });
+              }
+            }
+          }
+        });
+      },
+      { rootMargin: "200px" }
+    );
+    observer.observe(img);
+    return () => observer.disconnect();
+  }, [src, taskId]);
+
+  return { imgRef, shouldLoad, resolvedSrc, resolvedThumb };
+}
+
+function LazyImage({
+  src,
+  taskId,
+  alt,
+  className,
+  useThumb = false,
+}: {
+  src: string;
+  taskId: string;
+  alt: string;
+  className: string;
+  useThumb?: boolean;
+}) {
+  const { imgRef, shouldLoad, resolvedSrc, resolvedThumb } = useLazyImage(
+    src,
+    taskId
+  );
+  const displaySrc = shouldLoad
+    ? useThumb && resolvedThumb
+      ? resolvedThumb
+      : resolvedSrc
+    : undefined;
+  return (
+    <img
+      ref={imgRef}
+      src={displaySrc}
+      data-src={src}
+      alt={alt}
+      className={className}
+    />
+  );
+}
+
+export default function ImageGalleryDrawer({ open, onClose, onApply }: ImageGalleryDrawerProps) {
+  const [images, setImages] = useState<ImageItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [offset, setOffset] = useState(0);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // Reset when drawer opens
+  useEffect(() => {
     if (!open) return;
+    setImages([]);
+    setOffset(0);
+    setHasMore(true);
     setLoading(true);
-    fetch("/api/ai-image/tasks?limit=100")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.data) {
-          const completed = data.data.filter((t: TaskItem) => t.status === "completed" && t.resultImageUrl);
-          setTasks(completed);
-        }
-      })
-      .catch(() => toast.error("加载图片库失败"))
-      .finally(() => setLoading(false));
+    fetchPage(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const imagesByDate = useMemo(() => {
-    const all = tasks
-      .flatMap((task) =>
+  const fetchPage = useCallback(async (pageOffset: number) => {
+    try {
+      const res = await fetch(`/api/ai-image/tasks?limit=${PAGE_SIZE}&offset=${pageOffset}`);
+      if (!res.ok) throw new Error("Failed to fetch");
+      const data = (await res.json()) as {
+        data?: TaskItem[];
+        total?: number;
+      };
+      const tasks = Array.isArray(data?.data) ? data.data : [];
+      const completed = tasks.filter((t) => t.status === "completed" && t.resultImageUrl);
+      const newImages = completed.flatMap((task) =>
         parseResultImages(task.resultImageUrl).map((url) => ({
           url,
           taskId: task.id,
@@ -93,17 +209,54 @@ export default function ImageGalleryDrawer({ open, onClose, onApply }: ImageGall
           referenceImagesSnapshot: task.referenceImagesSnapshot,
           configSnapshot: task.configSnapshot,
         }))
-      )
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      );
+      setImages((prev) => (pageOffset === 0 ? newImages : [...prev, ...newImages]));
+      setHasMore(newImages.length === PAGE_SIZE);
+    } catch {
+      toast.error("加载图片库失败");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-    const groups: Record<string, typeof all> = {};
-    for (const item of all) {
+  // Infinite scroll via IntersectionObserver on sentinel
+  useEffect(() => {
+    if (!open || loading || !hasMore) return;
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setOffset((prev) => {
+              const next = prev + PAGE_SIZE;
+              setLoading(true);
+              fetchPage(next);
+              return next;
+            });
+          }
+        });
+      },
+      { rootMargin: "300px" }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [open, loading, hasMore, fetchPage]);
+
+  const imagesByDate = useMemo(() => {
+    const sorted = [...images].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    const groups: Record<string, ImageItem[]> = {};
+    for (const item of sorted) {
       const key = formatDateLabel(item.createdAt);
       if (!groups[key]) groups[key] = [];
       groups[key].push(item);
     }
     return groups;
-  }, [tasks]);
+  }, [images]);
+
+  const totalCount = useMemo(() => images.length, [images]);
 
   const handleDownload = async (url: string) => {
     try {
@@ -123,14 +276,7 @@ export default function ImageGalleryDrawer({ open, onClose, onApply }: ImageGall
     }
   };
 
-  const handleApply = (item: {
-    url: string;
-    taskId: string;
-    userPrompt: string | null;
-    promptSnapshot: string | null;
-    referenceImagesSnapshot: string | null;
-    configSnapshot: string | null;
-  }) => {
+  const handleApply = (item: ImageItem) => {
     if (!onApply) return;
     const refs = safeJsonParse<{ productImageUrl?: string | null; styleReferenceUrls?: string[] }>(
       item.referenceImagesSnapshot
@@ -145,7 +291,6 @@ export default function ImageGalleryDrawer({ open, onClose, onApply }: ImageGall
       configSnapshot: config,
     });
     onClose();
-    // Toast is handled by the caller (page.tsx) to show correct message
   };
 
   if (!open) return null;
@@ -162,7 +307,7 @@ export default function ImageGalleryDrawer({ open, onClose, onApply }: ImageGall
           <div className="flex items-center gap-2">
             <ImageIcon className="w-5 h-5 text-indigo-500" />
             <h2 className="text-base font-semibold text-gray-800">图片库</h2>
-            <span className="text-xs text-gray-400">{Object.values(imagesByDate).flat().length} 张</span>
+            <span className="text-xs text-gray-400">{totalCount} 张</span>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center">
             <X className="w-4 h-4 text-gray-500" />
@@ -171,35 +316,38 @@ export default function ImageGalleryDrawer({ open, onClose, onApply }: ImageGall
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
-          {loading && (
+          {loading && images.length === 0 && (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
               <p className="text-sm text-gray-400">加载中...</p>
             </div>
           )}
 
-          {!loading && Object.keys(imagesByDate).length === 0 && (
+          {!loading && images.length === 0 && (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <ImageIcon className="w-10 h-10 text-gray-300" />
               <p className="text-sm text-gray-400">暂无生成记录</p>
             </div>
           )}
 
-          {Object.entries(imagesByDate).map(([dateLabel, images]) => (
+          {Object.entries(imagesByDate).map(([dateLabel, items]) => (
             <div key={dateLabel}>
-              <h3 className="text-xs font-semibold text-gray-500 mb-3 sticky top-0 bg-white py-1 z-10">{dateLabel}</h3>
+              <h3 className="text-xs font-semibold text-gray-500 mb-3 sticky top-0 bg-white py-1 z-10">
+                {dateLabel}
+              </h3>
               <div className="grid grid-cols-2 gap-3">
-                {images.map((img, idx) => (
+                {items.map((img, idx) => (
                   <div
                     key={`${img.taskId}-${idx}`}
                     className="group relative aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-200 cursor-pointer"
                     onClick={() => setPreviewUrl(img.url)}
                   >
-                    <img
+                    <LazyImage
                       src={img.url}
+                      taskId={img.taskId}
                       alt=""
                       className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                      loading="lazy"
+                      useThumb
                     />
                     {/* Hover actions */}
                     <div className="absolute inset-x-0 bottom-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-t from-black/60 to-transparent">
@@ -229,6 +377,19 @@ export default function ImageGalleryDrawer({ open, onClose, onApply }: ImageGall
               </div>
             </div>
           ))}
+
+          {/* Sentinel for infinite scroll */}
+          <div ref={sentinelRef} className="h-4" />
+
+          {loading && images.length > 0 && (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="w-5 h-5 text-indigo-500 animate-spin" />
+            </div>
+          )}
+
+          {!hasMore && images.length > 0 && (
+            <p className="text-center text-xs text-gray-400 py-4">没有更多了</p>
+          )}
         </div>
       </div>
 

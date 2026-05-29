@@ -216,7 +216,7 @@ export async function POST(request: NextRequest) {
     const width = Number.isFinite(Number(output?.width)) ? Number(output?.width) : 1024;
     const height = Number.isFinite(Number(output?.height)) ? Number(output?.height) : 1024;
 
-    const providerName = body.provider || process.env.IMAGE_PROVIDER || "pollinations";
+    const providerName = body.provider || process.env.IMAGE_PROVIDER || "chatgpt2api";
     const provider = getImageProvider(providerName);
 
     const heroContext = extractHeroContext(heroPlan as CreativePlan | null);

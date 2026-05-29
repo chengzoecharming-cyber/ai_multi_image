@@ -85,10 +85,8 @@ export interface CopyBlock {
 
 export type VisualDensity = "clean" | "balanced" | "high_information";
 
-/** @deprecated Use CopyDensityId from domain/copy-density instead. */
 export type VisualComplexity = "simple" | "medium" | "complex";
 
-/** @deprecated Use CopyDensityId from domain/copy-density instead. */
 export type InformationDensity = "low" | "medium" | "high";
 
 export interface LayoutOverlay {
@@ -130,9 +128,7 @@ export interface CreativePlan {
   templateId: string;
   imageType: ImageTypeId | string;
 
-  /** @deprecated visualComplexity is being replaced by copyDensity. Kept for backward compat. */
   visualComplexity: VisualComplexity;
-  /** @deprecated informationDensity is being replaced by copyDensity. Kept for backward compat. */
   informationDensity: InformationDensity;
   /** 文案密度策略（新增）。当未指定时，由 taxonomy 提供默认值。 */
   copyDensity?: CopyDensityId;
@@ -237,9 +233,6 @@ export interface V2DetailState {
   generating: boolean;
   results: Array<{ type: V2DetailType; imageId: string }>;
   lastError?: string | null;
-
-  /** @deprecated use detailImageUrls */
-  heroImageUrl?: string | null;
 }
 
 export interface V2Session {
@@ -285,13 +278,6 @@ export interface V2Session {
 
   detail?: V2DetailState;
 
-  // ============================================================
-  // Deprecated fields (kept for storage migration)
-  // ============================================================
-  /** @deprecated use productImageUrls */
-  productImageUrl?: string | null;
-  /** @deprecated use productImageUrls[0] */
-  productReferenceImageUrl?: string | null;
   groupId?: string | null;
 }
 

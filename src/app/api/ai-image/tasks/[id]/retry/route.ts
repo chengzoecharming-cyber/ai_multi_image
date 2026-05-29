@@ -54,7 +54,7 @@ export async function POST(
 
     const result = await provider.generate({
       prompt: task.promptSnapshot,
-      negativePrompt: (task as any).negativePromptSnapshot || undefined,
+      negativePrompt: task.negativePromptSnapshot || undefined,
       productImageUrl,
       styleReferenceUrls,
       width: config?.width || 1024,

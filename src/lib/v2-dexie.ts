@@ -1,0 +1,150 @@
+import Dexie, { type EntityTable } from "dexie";
+import type { V2Session } from "@/app/ai-image/v2/types";
+
+// ============================================================
+// IndexedDB Schema for V2 Workbench
+// ============================================================
+
+export interface DexieSession {
+  id: string;
+  data: V2Session;
+  syncedAt: number; // timestamp of last successful server sync
+  dirty: boolean;   // true if local changes not yet synced
+  deleted: boolean; // soft-delete flag
+}
+
+export interface DexieMeta {
+  key: string;
+  value: unknown;
+}
+
+const DB_NAME = "ai_image_v2";
+const DB_VERSION = 1;
+
+class V2Dexie extends Dexie {
+  sessions!: EntityTable<DexieSession, "id">;
+  meta!: EntityTable<DexieMeta, "key">;
+
+  constructor() {
+    super(DB_NAME);
+    this.version(DB_VERSION).stores({
+      sessions: "id, dirty, deleted, syncedAt",
+      meta: "key",
+    });
+  }
+}
+
+export const v2db = new V2Dexie();
+
+// ============================================================
+// Session CRUD
+// ============================================================
+
+export async function dexieSaveSession(session: V2Session, dirty = true): Promise<void> {
+  await v2db.sessions.put({
+    id: session.id,
+    data: session,
+    syncedAt: Date.now(),
+    dirty,
+    deleted: false,
+  });
+}
+
+export async function dexieSaveSessions(sessions: V2Session[], dirty = false): Promise<void> {
+  await v2db.sessions.bulkPut(
+    sessions.map((s) => ({
+      id: s.id,
+      data: s,
+      syncedAt: Date.now(),
+      dirty,
+      deleted: false,
+    }))
+  );
+}
+
+export async function dexieGetSession(id: string): Promise<V2Session | null> {
+  const row = await v2db.sessions.get(id);
+  if (!row || row.deleted) return null;
+  return row.data;
+}
+
+export async function dexieGetAllSessions(): Promise<V2Session[]> {
+  const rows = await v2db.sessions.where("deleted").equals(0).toArray();
+  return rows.map((r) => r.data).sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+export async function dexieDeleteSession(id: string): Promise<void> {
+  await v2db.sessions.delete(id);
+}
+
+export async function dexieSoftDeleteSession(id: string): Promise<void> {
+  await v2db.sessions.update(id, { deleted: true, dirty: true });
+}
+
+export async function dexieMarkClean(id: string): Promise<void> {
+  await v2db.sessions.update(id, { dirty: false, syncedAt: Date.now() });
+}
+
+export async function dexieGetDirtySessions(): Promise<V2Session[]> {
+  const rows = await v2db.sessions.where("dirty").equals(1).and((r) => !r.deleted).toArray();
+  return rows.map((r) => r.data);
+}
+
+// ============================================================
+// Migration from localStorage legacy
+// ============================================================
+
+export async function dexieMigrateFromLocalStorage(): Promise<{ sessions: V2Session[]; activeSessionId: string | null } | null> {
+  try {
+    // v3
+    const v3 = localStorage.getItem("ai_image_v2_sessions_v3");
+    if (v3) {
+      const parsed = JSON.parse(v3) as { sessions: V2Session[]; activeSessionId: string | null };
+      if (parsed.sessions?.length) {
+        await dexieSaveSessions(parsed.sessions, true);
+        return { sessions: parsed.sessions, activeSessionId: parsed.activeSessionId };
+      }
+    }
+    // v2 groups
+    const v2 = localStorage.getItem("ai_image_v2_sessions_v2_groups");
+    if (v2) {
+      const parsed = JSON.parse(v2) as { groups: Array<{ slots: V2Session[] }> };
+      const flat = parsed.groups?.flatMap((g) => g.slots || []) || [];
+      if (flat.length) {
+        await dexieSaveSessions(flat, true);
+        return { sessions: flat, activeSessionId: flat[0]?.id ?? null };
+      }
+    }
+    // v1
+    const v1 = localStorage.getItem("ai_image_v2_sessions_v1");
+    if (v1) {
+      const parsed = JSON.parse(v1) as { sessions: V2Session[]; activeSessionId: string | null };
+      if (parsed.sessions?.length) {
+        await dexieSaveSessions(parsed.sessions, true);
+        return { sessions: parsed.sessions, activeSessionId: parsed.activeSessionId };
+      }
+    }
+  } catch (e) {
+    console.error("[dexie] Failed to migrate from localStorage:", e);
+  }
+  return null;
+}
+
+export async function dexieClearLegacyLocalStorage(): Promise<void> {
+  localStorage.removeItem("ai_image_v2_sessions_v3");
+  localStorage.removeItem("ai_image_v2_sessions_v2_groups");
+  localStorage.removeItem("ai_image_v2_sessions_v1");
+}
+
+// ============================================================
+// Meta store (activeSessionId, lastSync)
+// ============================================================
+
+export async function dexieGetMeta<T>(key: string, defaultValue?: T): Promise<T | undefined> {
+  const row = await v2db.meta.get(key);
+  return (row?.value as T) ?? defaultValue;
+}
+
+export async function dexieSetMeta(key: string, value: unknown): Promise<void> {
+  await v2db.meta.put({ key, value });
+}

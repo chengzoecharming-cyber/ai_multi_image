@@ -8,7 +8,6 @@ import type { VisualStyleId } from "../visual-styles";
 export type TemplateVisualComplexity = "simple" | "medium" | "complex";
 export type TemplateInformationDensity = "low" | "medium" | "high";
 
-/** @deprecated 保留旧值，新逻辑使用 copyMode + headlineRequirement */
 export type CopyProfile =
   | "headline_only"
   | "headline_labels"
@@ -232,7 +231,7 @@ export interface TemplateVariant {
  *
  * v2.1 重构说明：
  * - 旧字段（visualIdentity / colorDirection / layoutNonNegotiables / mandatoryVisualRules / ...）
- *   保留但标记为 deprecated，由兼容层自动从 v2 字段生成。
+ *   保留，由兼容层自动从 v2 字段生成。
  * - 新增 configV2 字段承载三层架构（intent + styleWorld + layout）。
  * - 新增 copyMode / headlineRequirement / creativeFreedom / productScaleStrategy。
  * - 运行时通过 compat 层将 v2 字段映射回旧字段，保证下游零改动。
@@ -260,34 +259,19 @@ export interface SystemTemplate {
   creativeFreedom?: CreativeFreedomLevel;
   productScaleStrategy?: ProductScaleStrategy;
 
-  // ── 旧字段（deprecated，保留供兼容层读取） ──
-  /** @deprecated 由 styleWorld + intent 自动推导 */
   visualComplexity?: TemplateVisualComplexity;
-  /** @deprecated 由 copyMode + intent 自动推导 */
   informationDensity?: TemplateInformationDensity;
-  /** @deprecated 由 copyMode 直接替代 */
   copyProfile?: CopyProfile;
-  /** @deprecated 由 configV2.styleWorld.visualDirection 自动推导 */
   visualIdentity?: string;
-  /** @deprecated 由 configV2.styleWorld.colorDirection 自动推导 */
   colorDirection?: string;
-  /** @deprecated 由 configV2.intent + layout 自动推导 */
   layoutNonNegotiables?: string;
 
-  // ── 结构化规则字段（deprecated，兼容层自动合并生成） ──
-  /** @deprecated 由 intent + styleWorld + creativeFreedom 自动生成 */
   mandatoryVisualRules?: string[];
-  /** @deprecated 由 styleWorld + intent 自动生成 */
   avoidRules?: string[];
-  /** @deprecated 由 intent + styleWorld 自动生成 */
   sceneRules?: string[];
-  /** @deprecated 由 styleWorld 自动生成 */
   lightingColorRules?: string[];
-  /** @deprecated 由 intent + productScaleStrategy + layout 自动生成 */
   productPlacementRules?: string[];
-  /** @deprecated 由 copyMode + headlineRequirement 自动生成 */
   copyRules?: string[];
-  /** @deprecated 由 configV2.conflictResolution 替代 */
   userGoalConflictResolution?: string;
 }
 

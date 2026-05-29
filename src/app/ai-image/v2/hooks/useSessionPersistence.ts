@@ -1,0 +1,216 @@
+"use client";
+
+import { useEffect, useRef, useCallback } from "react";
+import type { V2Session } from "../types";
+import {
+  dexieSaveSessions,
+  dexieSaveSession,
+  dexieGetAllSessions,
+  dexieGetDirtySessions,
+  dexieMarkClean,
+  dexieDeleteSession,
+  dexieMigrateFromLocalStorage,
+  dexieClearLegacyLocalStorage,
+  dexieGetMeta,
+  dexieSetMeta,
+} from "@/lib/v2-dexie";
+import { stripHeavySessionFields } from "./utils/session-utils";
+
+const SYNC_DEBOUNCE_MS = 2000;
+const FULL_SYNC_INTERVAL_MS = 30000;
+
+export interface UseSessionPersistenceOptions {
+  sessions: V2Session[];
+  isHydrated: boolean;
+  tenantId?: string;
+  userId?: string;
+}
+
+export interface PersistenceApi {
+  syncNow: () => Promise<void>;
+  pushToServer: (session: V2Session) => Promise<void>;
+  pullFromServer: () => Promise<V2Session[]>;
+  deleteFromServer: (id: string) => Promise<void>;
+}
+
+export function useSessionPersistence(options: UseSessionPersistenceOptions): PersistenceApi {
+  const { sessions, isHydrated, tenantId = "default", userId = "default" } = options;
+
+  const sessionsRef = useRef(sessions);
+  sessionsRef.current = sessions;
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fullSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Debounced sync to IndexedDB ──
+  useEffect(() => {
+    if (!isHydrated) return;
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = setTimeout(() => {
+      const current = sessionsRef.current;
+      if (current.length === 0) return;
+      const stripped = current.map((s) => stripHeavySessionFields(s));
+      dexieSaveSessions(stripped, true).catch((e) =>
+        console.error("[useSessionPersistence] Failed to save to IndexedDB:", e)
+      );
+    }, SYNC_DEBOUNCE_MS);
+    return () => {
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    };
+  }, [sessions, isHydrated]);
+
+  // ── Periodic full sync to server ──
+  useEffect(() => {
+    if (!isHydrated) return;
+
+    const tick = () => {
+      fullSyncTimerRef.current = setTimeout(async () => {
+        await syncAllToServer();
+        tick();
+      }, FULL_SYNC_INTERVAL_MS);
+    };
+
+    tick();
+    return () => {
+      if (fullSyncTimerRef.current) clearTimeout(fullSyncTimerRef.current);
+    };
+  }, [isHydrated, tenantId, userId]);
+
+  // ── Sync all dirty sessions to server ──
+  const syncAllToServer = useCallback(async () => {
+    try {
+      const dirty = await dexieGetDirtySessions();
+      if (dirty.length === 0) return;
+      for (const session of dirty) {
+        await postSessionToServer(session, tenantId, userId);
+        await dexieMarkClean(session.id);
+      }
+    } catch (e) {
+      console.error("[useSessionPersistence] Full sync failed:", e);
+    }
+  }, [tenantId, userId]);
+
+  const syncNow = useCallback(async () => {
+    await syncAllToServer();
+  }, [syncAllToServer]);
+
+  const pushToServer = useCallback(
+    async (session: V2Session) => {
+      try {
+        await postSessionToServer(session, tenantId, userId);
+        await dexieMarkClean(session.id);
+      } catch (e) {
+        console.error("[useSessionPersistence] Push failed:", e);
+      }
+    },
+    [tenantId, userId]
+  );
+
+  const pullFromServer = useCallback(async (): Promise<V2Session[]> => {
+    try {
+      const res = await fetch(
+        `/api/ai-image/v2/sessions?tenantId=${encodeURIComponent(tenantId)}&userId=${encodeURIComponent(userId)}&limit=100`
+      );
+      if (!res.ok) return [];
+      const json = (await res.json()) as { data?: V2Session[] };
+      const serverSessions = json.data || [];
+      // Save server sessions to IndexedDB (clean)
+      if (serverSessions.length > 0) {
+        await dexieSaveSessions(serverSessions, false);
+      }
+      return serverSessions;
+    } catch (e) {
+      console.error("[useSessionPersistence] Pull failed:", e);
+      return [];
+    }
+  }, [tenantId, userId]);
+
+  const deleteFromServer = useCallback(
+    async (id: string) => {
+      try {
+        await fetch(
+          `/api/ai-image/v2/sessions/${id}?tenantId=${encodeURIComponent(tenantId)}&userId=${encodeURIComponent(userId)}`,
+          { method: "DELETE" }
+        );
+        await dexieDeleteSession(id);
+      } catch (e) {
+        console.error("[useSessionPersistence] Delete failed:", e);
+      }
+    },
+    [tenantId, userId]
+  );
+
+  return { syncNow, pushToServer, pullFromServer, deleteFromServer };
+}
+
+// ============================================================
+// Static helpers for initial hydration
+// ============================================================
+
+export async function hydrateSessions(
+  tenantId: string,
+  userId: string,
+  searchParams?: { get: (key: string) => string | null }
+): Promise<{ sessions: V2Session[]; activeSessionId: string | null }> {
+  // 1. Try localStorage migration (first time only)
+  const migrated = await dexieMigrateFromLocalStorage();
+  if (migrated) {
+    await dexieClearLegacyLocalStorage();
+    await dexieSetMeta("activeSessionId", migrated.activeSessionId);
+  }
+
+  // 2. Try server first
+  try {
+    const res = await fetch(
+      `/api/ai-image/v2/sessions?tenantId=${encodeURIComponent(tenantId)}&userId=${encodeURIComponent(userId)}&limit=100`
+    );
+    if (res.ok) {
+      const json = (await res.json()) as { data?: V2Session[] };
+      const serverSessions = json.data || [];
+      if (serverSessions.length > 0) {
+        await dexieSaveSessions(serverSessions, false);
+        const activeId = (await dexieGetMeta<string>("activeSessionId")) || serverSessions[0].id;
+        return { sessions: serverSessions, activeSessionId: activeId };
+      }
+    }
+  } catch (e) {
+    console.warn("[hydrateSessions] Server load failed, falling back to IndexedDB:", e);
+  }
+
+  // 3. Fall back to IndexedDB
+  const local = await dexieGetAllSessions();
+  if (local.length > 0) {
+    const activeId = (await dexieGetMeta<string>("activeSessionId")) || local[0].id;
+    return { sessions: local, activeSessionId: activeId };
+  }
+
+  // 4. Seed a fresh session from URL params
+  const seedProductImage = searchParams?.get("productImageUrl");
+  const seedGoal = searchParams?.get("goal") || "";
+  const { createEmptySession } = await import("./utils/session-utils");
+  const seeded = createEmptySession({
+    productImageUrls: seedProductImage ? [seedProductImage] : [],
+    goal: seedGoal,
+    workspaceTab: "product",
+  });
+  await dexieSaveSession(seeded, true);
+  return { sessions: [seeded], activeSessionId: seeded.id };
+}
+
+// ============================================================
+// Internal
+// ============================================================
+
+async function postSessionToServer(session: V2Session, tenantId: string, userId: string): Promise<void> {
+  const res = await fetch(
+    `/api/ai-image/v2/sessions?tenantId=${encodeURIComponent(tenantId)}&userId=${encodeURIComponent(userId)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session }),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Unknown" }));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+}
