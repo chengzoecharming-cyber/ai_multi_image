@@ -76,17 +76,23 @@ function safeJsonParse<T>(raw: string | null): T | null {
  * IntersectionObserver hook for lazy image loading.
  * Also triggers external-image persistence + thumbnail generation
  * when the image first becomes visible.
+ *
+ * Never loads external URLs directly. Shows placeholder until local
+ * thumbnail/image is ready; falls back to external URL only on error.
  */
 function useLazyImage(src: string, taskId: string) {
-  const imgRef = useRef<HTMLImageElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [shouldLoad, setShouldLoad] = useState(false);
-  const [resolvedSrc, setResolvedSrc] = useState(src);
+  const [resolvedSrc, setResolvedSrc] = useState<string | null>(null);
   const [resolvedThumb, setResolvedThumb] = useState<string | null>(null);
+  const [state, setState] = useState<"idle" | "loading" | "ready" | "error">(
+    "idle"
+  );
   const persistedRef = useRef(false);
 
   useEffect(() => {
-    const img = imgRef.current;
-    if (!img) return;
+    const el = containerRef.current;
+    if (!el) return;
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -94,47 +100,62 @@ function useLazyImage(src: string, taskId: string) {
             setShouldLoad(true);
             observer.disconnect();
 
-            // Persist external image to local when it first enters viewport
             if (!persistedRef.current) {
               persistedRef.current = true;
               const origin = window.location.origin;
               const isExternal =
                 src.startsWith("http") && !src.startsWith(origin);
-              if (isExternal) {
-                fetch(`/api/ai-image/tasks/${taskId}/persist-image`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ imageUrl: src }),
-                })
-                  .then(async (res) => {
-                    if (res.ok) {
-                      const data = (await res.json()) as {
-                        localUrl?: string;
-                        thumbUrl?: string;
-                      };
-                      if (data.localUrl) {
-                        setResolvedSrc(data.localUrl);
-                      }
-                      if (data.thumbUrl) {
-                        setResolvedThumb(data.thumbUrl);
-                      }
-                    }
-                  })
-                  .catch((err) => {
-                    console.warn("[LazyImage] persist failed:", err);
-                  });
+              if (!isExternal) {
+                setResolvedSrc(src);
+                setState("ready");
+                return;
               }
+
+              setState("loading");
+              const ctrl = new AbortController();
+              const timeout = setTimeout(() => ctrl.abort(), 8000);
+
+              fetch(`/api/ai-image/tasks/${taskId}/persist-image`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ imageUrl: src }),
+                signal: ctrl.signal,
+              })
+                .then(async (res) => {
+                  clearTimeout(timeout);
+                  if (res.ok) {
+                    const data = (await res.json()) as {
+                      localUrl?: string;
+                      thumbUrl?: string;
+                    };
+                    if (data.localUrl) setResolvedSrc(data.localUrl);
+                    if (data.thumbUrl) setResolvedThumb(data.thumbUrl);
+                    setState("ready");
+                  } else {
+                    setState("error");
+                  }
+                })
+                .catch(() => {
+                  clearTimeout(timeout);
+                  setState("error");
+                });
             }
           }
         });
       },
       { rootMargin: "200px" }
     );
-    observer.observe(img);
+    observer.observe(el);
     return () => observer.disconnect();
   }, [src, taskId]);
 
-  return { imgRef, shouldLoad, resolvedSrc, resolvedThumb };
+  return {
+    containerRef,
+    shouldLoad,
+    resolvedSrc,
+    resolvedThumb,
+    state,
+  };
 }
 
 function LazyImage({
@@ -150,23 +171,36 @@ function LazyImage({
   className: string;
   useThumb?: boolean;
 }) {
-  const { imgRef, shouldLoad, resolvedSrc, resolvedThumb } = useLazyImage(
+  const { containerRef, resolvedSrc, resolvedThumb, state } = useLazyImage(
     src,
     taskId
   );
-  const displaySrc = shouldLoad
-    ? useThumb && resolvedThumb
-      ? resolvedThumb
-      : resolvedSrc
-    : undefined;
+
+  const displaySrc =
+    state === "ready"
+      ? useThumb && resolvedThumb
+        ? resolvedThumb
+        : resolvedSrc ?? src
+      : state === "error"
+        ? src
+        : undefined;
+
   return (
-    <img
-      ref={imgRef}
-      src={displaySrc}
-      data-src={src}
-      alt={alt}
-      className={className}
-    />
+    <div ref={containerRef} className="relative w-full h-full">
+      {displaySrc ? (
+        <img
+          src={displaySrc}
+          data-src={src}
+          alt={alt}
+          className={className}
+          loading="lazy"
+        />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+          <Loader2 className="w-5 h-5 text-gray-300 animate-spin" />
+        </div>
+      )}
+    </div>
   );
 }
 
