@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { X, Download, ImageIcon, Loader2, ArrowRightLeft } from "lucide-react";
 import { toast } from "sonner";
+import { enqueuePersist } from "@/lib/persist-queue";
 
 interface TaskItem {
   id: string;
@@ -113,42 +114,18 @@ function useLazyImage(src: string, taskId: string, initialThumb?: string | null)
                 return;
               }
 
-              // Old task without pre-generated thumbnail — trigger persist API
+              // Old task without pre-generated thumbnail — enqueue persist job
               setState("loading");
-              const ctrl = new AbortController();
-              const timeout = setTimeout(() => ctrl.abort(), 8000);
-
-              fetch(`/api/ai-image/tasks/${taskId}/persist-image`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ imageUrl: src }),
-                signal: ctrl.signal,
-              })
-                .then(async (res) => {
-                  clearTimeout(timeout);
-                  if (res.ok) {
-                    const data = (await res.json()) as {
-                      localUrl?: string;
-                      thumbUrl?: string;
-                    };
-                    if (data.thumbUrl) {
-                      setDisplaySrc(data.thumbUrl);
-                    } else if (data.localUrl) {
-                      setDisplaySrc(data.localUrl);
-                    } else {
-                      setDisplaySrc(src);
-                    }
-                    setState("ready");
-                  } else {
-                    setDisplaySrc(src);
-                    setState("error");
-                  }
-                })
-                .catch(() => {
-                  clearTimeout(timeout);
+              enqueuePersist(taskId, src, (data) => {
+                if (data.thumbUrl) {
+                  setDisplaySrc(data.thumbUrl);
+                } else if (data.localUrl) {
+                  setDisplaySrc(data.localUrl);
+                } else {
                   setDisplaySrc(src);
-                  setState("error");
-                });
+                }
+                setState("ready");
+              });
             }
           }
         });
