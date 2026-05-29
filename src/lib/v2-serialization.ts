@@ -46,7 +46,7 @@ interface RawImage {
   taskId: string | null;
   tab: string;
   detailType: string | null;
-  imageUrl: string;
+  imageUrl: string | null;
   imageBase64: string | null;
   createdAt: Date;
 }
@@ -107,6 +107,7 @@ export function deserializeSession(row: RawSession): V2Session {
     : undefined;
 
   const generatedImages: V2GeneratedImage[] = (row.images || [])
+    .filter((img) => !!img.imageUrl)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .map((img) => ({
       id: img.id,
@@ -114,7 +115,7 @@ export function deserializeSession(row: RawSession): V2Session {
       taskId: img.taskId ?? undefined,
       tab: (img.tab as "product" | "detail") || "product",
       detailType: (img.detailType as V2DetailType) ?? undefined,
-      imageUrl: img.imageUrl,
+      imageUrl: img.imageUrl!,
       imageBase64: img.imageBase64 ?? undefined,
       createdAt: new Date(img.createdAt).getTime(),
     }));
