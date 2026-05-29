@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
         id: true,
         status: true,
         resultImageUrl: true,
+        thumbImageUrl: true,
         userPrompt: true,
         promptSnapshot: true,
         configSnapshot: true,

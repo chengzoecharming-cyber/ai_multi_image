@@ -7,16 +7,39 @@ import path from "path";
 
 const LOCAL_GENERATED_DIR = path.join(process.cwd(), "public", "generated");
 
-async function persistImageLocally(taskId: string, imageUrl: string): Promise<string | null> {
+interface PersistResult {
+  localUrl: string;
+  thumbUrl: string;
+}
+
+async function persistImageWithThumb(taskId: string, imageUrl: string): Promise<PersistResult | null> {
   try {
     await mkdir(LOCAL_GENERATED_DIR, { recursive: true });
     const imgRes = await fetch(imageUrl, { signal: AbortSignal.timeout(30000) });
     if (!imgRes.ok) return null;
     const buffer = Buffer.from(await imgRes.arrayBuffer());
+
     const fileName = `task-${taskId}.png`;
     const filePath = path.join(LOCAL_GENERATED_DIR, fileName);
     await writeFile(filePath, buffer);
-    return `/generated/${fileName}`;
+    const localUrl = `/generated/${fileName}`;
+
+    // Generate thumbnail
+    try {
+      const sharp = (await import("sharp")).default;
+      const thumbBuffer = await sharp(buffer)
+        .resize(192, 192, { fit: "cover" })
+        .jpeg({ quality: 85 })
+        .toBuffer();
+      const thumbName = `task-${taskId}.jpg`;
+      const thumbPath = path.join(LOCAL_GENERATED_DIR, thumbName);
+      await writeFile(thumbPath, thumbBuffer);
+      const thumbUrl = `/generated/${thumbName}`;
+      return { localUrl, thumbUrl };
+    } catch (thumbErr) {
+      console.warn("[Generate] thumbnail generation failed:", thumbErr);
+      return { localUrl, thumbUrl: localUrl };
+    }
   } catch (e) {
     console.error("[Generate] failed to persist image locally:", e);
     return null;
@@ -254,8 +277,9 @@ const providerName = body.provider || process.env.IMAGE_PROVIDER || "chatgpt2api
         console.log("[Generate] chatgpt2api imageUrl replaced:", imageUrl);
       }
       // Always persist to local static path if possible; provider-hosted URLs may expire.
-      const localImageUrl = await persistImageLocally(task.id, imageUrl);
-      const effectiveImageUrl = localImageUrl || imageUrl;
+      const persistResult = await persistImageWithThumb(task.id, imageUrl);
+      const effectiveImageUrl = persistResult?.localUrl ?? imageUrl;
+      const effectiveThumbUrl = persistResult?.thumbUrl ?? effectiveImageUrl;
 
       // Download image and convert to base64 for frontend copy/download (avoids CORS)
       let imageBase64 = "";
@@ -277,6 +301,7 @@ const providerName = body.provider || process.env.IMAGE_PROVIDER || "chatgpt2api
         data: {
           status: "completed",
           resultImageUrl: JSON.stringify([effectiveImageUrl]),
+          thumbImageUrl: effectiveThumbUrl,
         },
       });
       return NextResponse.json({

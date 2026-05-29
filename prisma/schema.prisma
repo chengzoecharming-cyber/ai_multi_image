@@ -71,6 +71,7 @@ model AiImageTask {
   referenceImagesSnapshot String   @map("reference_images_snapshot")
   status                  String
   resultImageUrl          String?  @map("result_image_url")
+  thumbImageUrl           String?  @map("thumb_image_url")
   errorMessage            String?  @map("error_message")
   // 原始 provider 响应（调试用）
   rawResponse             String?  @map("raw_response")

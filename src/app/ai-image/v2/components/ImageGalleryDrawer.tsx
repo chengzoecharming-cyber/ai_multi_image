@@ -8,6 +8,7 @@ interface TaskItem {
   id: string;
   status: string;
   resultImageUrl: string | null;
+  thumbImageUrl: string | null;
   createdAt: string;
   userPrompt: string | null;
   promptSnapshot: string | null;
@@ -17,6 +18,7 @@ interface TaskItem {
 
 interface ImageItem {
   url: string;
+  thumbUrl: string | null;
   taskId: string;
   createdAt: string;
   userPrompt: string | null;
@@ -74,19 +76,18 @@ function safeJsonParse<T>(raw: string | null): T | null {
 
 /**
  * IntersectionObserver hook for lazy image loading.
- * Also triggers external-image persistence + thumbnail generation
- * when the image first becomes visible.
  *
- * Never loads external URLs directly. Shows placeholder until local
- * thumbnail/image is ready; falls back to external URL only on error.
+ * If thumbUrl is already local (pre-generated at generation time),
+ * show it immediately when entering viewport — no API call needed.
+ *
+ * Only falls back to the slow persist API for old tasks without
+ * a pre-generated thumbnail.
  */
-function useLazyImage(src: string, taskId: string) {
+function useLazyImage(src: string, taskId: string, initialThumb?: string | null) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [shouldLoad, setShouldLoad] = useState(false);
-  const [resolvedSrc, setResolvedSrc] = useState<string | null>(null);
-  const [resolvedThumb, setResolvedThumb] = useState<string | null>(null);
+  const [displaySrc, setDisplaySrc] = useState<string | null>(initialThumb ?? null);
   const [state, setState] = useState<"idle" | "loading" | "ready" | "error">(
-    "idle"
+    initialThumb ? "ready" : "idle"
   );
   const persistedRef = useRef(false);
 
@@ -97,7 +98,6 @@ function useLazyImage(src: string, taskId: string) {
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            setShouldLoad(true);
             observer.disconnect();
 
             if (!persistedRef.current) {
@@ -105,12 +105,15 @@ function useLazyImage(src: string, taskId: string) {
               const origin = window.location.origin;
               const isExternal =
                 src.startsWith("http") && !src.startsWith(origin);
-              if (!isExternal) {
-                setResolvedSrc(src);
+
+              // Already have a local thumbnail — nothing to do
+              if (!isExternal || initialThumb) {
+                setDisplaySrc(initialThumb ?? src);
                 setState("ready");
                 return;
               }
 
+              // Old task without pre-generated thumbnail — trigger persist API
               setState("loading");
               const ctrl = new AbortController();
               const timeout = setTimeout(() => ctrl.abort(), 8000);
@@ -128,15 +131,22 @@ function useLazyImage(src: string, taskId: string) {
                       localUrl?: string;
                       thumbUrl?: string;
                     };
-                    if (data.localUrl) setResolvedSrc(data.localUrl);
-                    if (data.thumbUrl) setResolvedThumb(data.thumbUrl);
+                    if (data.thumbUrl) {
+                      setDisplaySrc(data.thumbUrl);
+                    } else if (data.localUrl) {
+                      setDisplaySrc(data.localUrl);
+                    } else {
+                      setDisplaySrc(src);
+                    }
                     setState("ready");
                   } else {
+                    setDisplaySrc(src);
                     setState("error");
                   }
                 })
                 .catch(() => {
                   clearTimeout(timeout);
+                  setDisplaySrc(src);
                   setState("error");
                 });
             }
@@ -147,47 +157,29 @@ function useLazyImage(src: string, taskId: string) {
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [src, taskId]);
+  }, [src, taskId, initialThumb]);
 
-  return {
-    containerRef,
-    shouldLoad,
-    resolvedSrc,
-    resolvedThumb,
-    state,
-  };
+  return { containerRef, displaySrc, state };
 }
 
 function LazyImage({
   src,
+  thumbUrl,
   taskId,
   alt,
   className,
-  useThumb = false,
 }: {
   src: string;
+  thumbUrl?: string | null;
   taskId: string;
   alt: string;
   className: string;
-  useThumb?: boolean;
 }) {
-  const { containerRef, resolvedSrc, resolvedThumb, state } = useLazyImage(
-    src,
-    taskId
-  );
-
-  const displaySrc =
-    state === "ready"
-      ? useThumb && resolvedThumb
-        ? resolvedThumb
-        : resolvedSrc ?? src
-      : state === "error"
-        ? src
-        : undefined;
+  const { containerRef, displaySrc, state } = useLazyImage(src, taskId, thumbUrl);
 
   return (
     <div ref={containerRef} className="relative w-full h-full">
-      {displaySrc ? (
+      {displaySrc && state !== "loading" ? (
         <img
           src={displaySrc}
           data-src={src}
@@ -236,6 +228,7 @@ export default function ImageGalleryDrawer({ open, onClose, onApply }: ImageGall
       const newImages = completed.flatMap((task) =>
         parseResultImages(task.resultImageUrl).map((url) => ({
           url,
+          thumbUrl: task.thumbImageUrl ?? null,
           taskId: task.id,
           createdAt: task.createdAt,
           userPrompt: task.userPrompt,
@@ -378,10 +371,10 @@ export default function ImageGalleryDrawer({ open, onClose, onApply }: ImageGall
                   >
                     <LazyImage
                       src={img.url}
+                      thumbUrl={img.thumbUrl}
                       taskId={img.taskId}
                       alt=""
                       className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                      useThumb
                     />
                     {/* Hover actions */}
                     <div className="absolute inset-x-0 bottom-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-t from-black/60 to-transparent">
