@@ -5,9 +5,12 @@ RUN npm ci
 
 FROM node:20-alpine AS builder
 RUN apk add --no-cache vips-dev
+ENV PRISMA_CLI_BINARY_TARGETS=linux-musl-openssl-3.0.x
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# 清除可能缓存的 debian 引擎，强制重新生成 musl 引擎
+RUN rm -rf node_modules/.prisma node_modules/@prisma/client
 RUN npx prisma generate
 RUN npm run build
 
