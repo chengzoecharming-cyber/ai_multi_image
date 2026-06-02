@@ -215,7 +215,10 @@ export default function ImageGalleryDrawer({ open, onClose, onApply }: ImageGall
         }))
       );
       setImages((prev) => (pageOffset === 0 ? newImages : [...prev, ...newImages]));
-      setHasMore(newImages.length === PAGE_SIZE);
+      // FIX: hasMore should be based on whether we got a full page of TASKS,
+      // not whether we got a full page of completed images.
+      // Some tasks may be pending/failed and produce 0 images, but there may still be more tasks on next page.
+      setHasMore(tasks.length === PAGE_SIZE);
     } catch {
       toast.error("加载图片库失败");
     } finally {

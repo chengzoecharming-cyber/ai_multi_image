@@ -51,7 +51,6 @@ export const tplImageSet5: SystemTemplate = {
     "五张图必须保持产品比例和结构一致",
     "禁止任何一张图看起来像属于不同产品",
     "禁止假价格、假折扣或平台标识",
-    "禁止真实测量数字",
     "不虚构参数、不编造品牌",
   ],
   allowedStyleIds: [

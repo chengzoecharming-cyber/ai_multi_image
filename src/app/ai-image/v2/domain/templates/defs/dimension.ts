@@ -1,7 +1,7 @@
 import type { SystemTemplate, TemplateVariant } from "../types";
 
 // ── 尺寸标注展示图 — 系统模板配置 ──
-// 功能定位：展示产品尺寸和结构标注，带测量示意线和标注框，但不生成真实数字。
+// 功能定位：展示产品尺寸和结构标注，带测量示意线和标注框。如用户提供具体尺寸则如实呈现。
 
 const variants: TemplateVariant[] = [
   {
@@ -27,7 +27,7 @@ const variants: TemplateVariant[] = [
 export const tplDimension: SystemTemplate = {
   id: "tpl-dimension-annotation",
   name: "尺寸标注展示图",
-  description: "展示产品尺寸和结构标注。带测量示意线和标注框，不生成真实数字。",
+  description: "展示产品尺寸和结构标注。带测量示意线和标注框。",
   imageType: "spec_info",
   archetype: "technical_breakdown",
   allowedLayoutTypes: [
@@ -39,13 +39,11 @@ export const tplDimension: SystemTemplate = {
   informationDensity: "medium",
   copyProfile: "technical_medium",
   visualIdentity:
-    "Clean engineering drawing sheet style with product at dimension-revealing angle, thin measurement lines, placeholder dimension boxes.",
+    "Clean engineering drawing sheet style with product at dimension-revealing angle, thin measurement lines, dimension callouts.",
   colorDirection: "Neutral technical palette with product natural colors.",
   layoutNonNegotiables:
-    "No real measurement numbers. Dimension values must be blanks, dashes, or generic labels. Full product visible; annotation lines point to visible features and must not cross.",
+    "Product full and visible; annotation lines point to visible features and must not cross.",
   riskRules: [
-    "禁止生成真实尺寸数值或具体测量",
-    "尺寸值必须是占位符样式（空白、破折号或通用标签）",
     "注释线必须指向真实可见结构",
     "不虚构参数、不编造品牌、产品完整可见",
   ],

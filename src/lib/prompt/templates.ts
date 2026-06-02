@@ -60,8 +60,8 @@ You are a professional e-commerce product image generation specialist for indust
 const COMMON_IRON_RULES = `IRON RULES (Never Violate):
 1. Use the product reference image as the GROUND TRUTH. Preserve original product shape, proportions, geometry, structure, holes, grooves, edges, threads, cutting edges, mounting points, and all key mechanical details.
 2. Do NOT redesign, reshape, or alter the product structure. Do NOT add or remove parts, holes, threads, or features.
-3. Do NOT generate fake logos, fake prices, fake slogans, fake sizes, fake numbers, fake measurement labels, or gibberish text.
-4. Do NOT invent compatibility claims, performance specifications, or technical parameters.
+3. Do NOT generate fake logos, fake prices, fake slogans, or gibberish text. If the user provides real sizes, real numbers, or real measurement labels, render them accurately.
+4. Do NOT invent compatibility claims, performance specifications, or technical parameters UNLESS the user explicitly provides them.
 5. Do NOT translate, rewrite, supplement, or fabricate text content.
 6. If the user provides text, use ONLY the user-provided text exactly as given. If no text is provided, leave text areas blank or preserve clean information zone structures without adding content.
 7. Mechanical accuracy is critical: hole count/positions/diameters, slot widths, thread pitch/profile, edges, chamfers, radii, angles, and overall dimensions must remain immutable.`;
@@ -69,7 +69,7 @@ const COMMON_IRON_RULES = `IRON RULES (Never Violate):
 const COMMON_TEXT_RULES = `TEXT RULES:
 - If the user provides text in {{text_language}}: Use ONLY the user-provided text. Do NOT translate, rewrite, supplement, or fabricate.
 - If the user does NOT provide text: Leave text areas blank or preserve clean information zone structures. Do NOT add placeholder text, fake words, or gibberish.
-- Do NOT generate fake readable text, fake logos, fake prices, fake slogans, fake sizes, fake numbers, or incorrect language text.
+- Do NOT generate fake readable text, fake logos, fake prices, fake slogans, or incorrect language text. If the user provides real sizes, numbers, or measurements, render them accurately.
 - Do NOT generate fake arrows, fake labels, fake icons, or misleading annotations.`;
 
 const COMMON_QUALITY_CHECK = `QUALITY CHECK (Self-verify before output):
@@ -80,7 +80,7 @@ const COMMON_QUALITY_CHECK = `QUALITY CHECK (Self-verify before output):
 5. Are material textures and lighting realistic?
 6. Have all iron rules been followed?`;
 
-const COMMON_NEGATIVE_BASE = `no fake readable text, no gibberish words, no incorrect text, no fake numbers, no fabricated labels, no fake logos, no fake prices, no fake slogans, no watermark, no cartoon style, no illustration style, no toy-like 3D render, no deformation, no incorrect structure, no unrealistic mechanical geometry, no extra parts, no incorrect components, no messy background, no clutter, no people, no hands, no human face, color shift, inaccurate color, unnatural hue, oversaturated colors, low resolution, pixelated, compressed artifacts, blurry details, noise`;
+const COMMON_NEGATIVE_BASE = `no fake readable text, no gibberish words, no incorrect text, no fabricated labels, no fake logos, no fake prices, no fake slogans, no watermark, no cartoon style, no illustration style, no toy-like 3D render, no deformation, no incorrect structure, no unrealistic mechanical geometry, no extra parts, no incorrect components, no messy background, no clutter, no people, no hands, no human face, color shift, inaccurate color, unnatural hue, oversaturated colors, low resolution, pixelated, compressed artifacts, blurry details, noise`;
 
 // ─── Template 1: White Background Main Image ────────────────────────
 
@@ -222,7 +222,7 @@ VISUAL RULES:
 - {{free_description}}
 
 ${COMMON_QUALITY_CHECK}`,
-  negativePrompt: `${COMMON_NEGATIVE_BASE}, busy background, cluttered composition, people, hands, fake text, fake numbers, fake prices, watermark, cartoon, illustration, 3D toy render, deformation, incorrect geometry, extra parts, missing holes, changed structure, messy layout, unprofessional design`,
+  negativePrompt: `${COMMON_NEGATIVE_BASE}, busy background, cluttered composition, people, hands, fake text, fake prices, watermark, cartoon, illustration, 3D toy render, deformation, incorrect geometry, extra parts, missing holes, changed structure, messy layout, unprofessional design`,
   sortOrder: 2,
   enabled: true,
 };
@@ -232,7 +232,7 @@ ${COMMON_QUALITY_CHECK}`,
 const TEMPLATE_03: PromptTemplate = {
   id: "temu_feature_explanation",
   name: "Temu 功能卖点说明图模版",
-  description: "功能卖点说明图，突出关键优势，允许标题和卖点区块，但不生成真实文字。",
+  description: "功能卖点说明图，突出关键优势，允许标题和卖点区块。",
   tags: {
     platformTags: ["Temu"],
     productTags: ["五金", "刀具", "机械件", "紧固件"],
@@ -364,7 +364,7 @@ Step 1: Analyze the product reference image. Determine the base product form.
 Step 2: Create a clean grid or row layout with equal spacing between each variant.
 Step 3: Generate 3-6 product variants showing logical size progression or type variation. Each variant must maintain the exact same structural proportions relative to its size — do NOT invent product types not present in the reference.
 Step 4: Apply consistent lighting and shadow direction across all variants for cohesion.
-Step 5: Add subtle size comparison cues (clean spacing, optional alignment guides) but NO fake dimension labels.
+Step 5: Add subtle size comparison cues (clean spacing, optional alignment guides).
 Step 6: Reserve a headline zone for: {{headline}}. Leave blank if not provided.
 Step 7: Ensure all variants are equally sharp and well-lit.
 
@@ -380,7 +380,7 @@ VISUAL RULES:
 - {{free_description}}
 
 ${COMMON_QUALITY_CHECK}`,
-  negativePrompt: `${COMMON_NEGATIVE_BASE}, fake size labels, fake dimension numbers, fake measurement text, busy background, cluttered arrangement, uneven spacing, mismatched lighting, people, hands, watermark, cartoon, illustration, 3D toy render, deformation, incorrect geometry, extra parts, missing holes, changed structure, invented product types`,
+  negativePrompt: `${COMMON_NEGATIVE_BASE}, busy background, cluttered arrangement, uneven spacing, mismatched lighting, people, hands, watermark, cartoon, illustration, 3D toy render, deformation, incorrect geometry, extra parts, missing holes, changed structure, invented product types`,
   sortOrder: 4,
   enabled: true,
 };
@@ -620,7 +620,7 @@ ${COMMON_QUALITY_CHECK}`,
 const TEMPLATE_08: PromptTemplate = {
   id: "specification_info",
   name: "规格信息图模版",
-  description: "信息卡片版式，展示比例和结构，不做真实尺寸数字标注。",
+  description: "信息卡片版式，展示比例和结构，用户有提供具体尺寸时如实呈现。",
   tags: {
     platformTags: ["Temu", "Amazon", "Ozon", "SHEIN"],
     productTags: ["五金", "刀具", "机械件", "紧固件"],
@@ -660,19 +660,17 @@ const TEMPLATE_08: PromptTemplate = {
   templatePrompt: `${COMMON_ROLE}
 
 TASK:
-Generate a specification-style e-commerce information image. Show the product with its proportions, structure, and detail zones in a clean information-card composition. This template provides structural specification layout WITHOUT generating fake numeric dimensions or measurement labels.
+Generate a specification-style e-commerce information image. Show the product with its proportions, structure, and detail zones in a clean information-card composition. If the user provides specific dimensions or parameters, present them accurately; otherwise leave fields blank.
 
 ${COMMON_IRON_RULES}
-
-IMPORTANT: Do NOT generate any numeric dimensions, measurement labels, technical annotation text, or fake parameters. Only show blank specification fields or structural zones.
 
 EXECUTION PROCESS:
 Step 1: Analyze the product reference image. Understand its overall shape, key structural zones, and proportional relationships.
 Step 2: Place the product in the composition (typically left side or center-left) at a clear, well-lit angle that shows overall form.
-Step 3: Create 4-6 clean specification field blocks on the right side or below the product. These are blank rectangular zones with clean borders — ready for user to add real specifications later.
-Step 4: Optionally show a simple proportional diagram or structural outline (thin line drawing style) of the product to communicate shape without fake numbers.
+Step 3: Create 4-6 clean specification field blocks on the right side or below the product. If the user provides specific values, display them accurately; otherwise use blank rectangular zones with clean borders.
+Step 4: Optionally show a simple proportional diagram or structural outline (thin line drawing style) of the product to communicate shape.
 Step 5: Reserve a headline zone for: {{headline}}. Leave blank if not provided.
-Step 6: The specification blocks correspond to: {{spec_fields}}. If provided, these inform the BLOCK LABELS ONLY (not the values). If not provided, use generic blank blocks.
+Step 6: The specification blocks correspond to: {{spec_fields}}. If provided, these inform the BLOCK LABELS. If user provides values too, display them; otherwise leave blank.
 Step 7: Ensure the product image is accurate and the layout is clean and professional.
 
 ${COMMON_TEXT_RULES}
@@ -680,14 +678,14 @@ ${COMMON_TEXT_RULES}
 VISUAL RULES:
 - Background: Clean white or very light gray.
 - Composition: Product on left (or top), specification blocks on right (or bottom). Balanced whitespace.
-- Specification blocks: Clean rectangles with thin borders, ample internal padding. Blank inside (no fake numbers).
-- Block labels: If user provides field names, show ONLY those names. No fabricated values.
-- Proportional diagram (optional): Thin line outline showing product shape, no dimension numbers.
+- Specification blocks: Clean rectangles with thin borders, ample internal padding. If user provides values, display them accurately; otherwise blank inside.
+- Block labels: If user provides field names, show those names. No fabricated values unless user-provided.
+- Proportional diagram (optional): Thin line outline showing product shape.
 - Style: Technical datasheet aesthetic meets product photography. Clean, organized, professional.
 - {{free_description}}
 
 ${COMMON_QUALITY_CHECK}`,
-  negativePrompt: `${COMMON_NEGATIVE_BASE}, fake dimension numbers, fake measurement labels, fake technical annotations, fake parameter text, fake size numbers, busy background, cluttered layout, people, hands, watermark, cartoon, illustration, 3D toy render, deformation, incorrect geometry, extra parts, missing holes, changed structure`,
+  negativePrompt: `${COMMON_NEGATIVE_BASE}, busy background, cluttered layout, people, hands, watermark, cartoon, illustration, 3D toy render, deformation, incorrect geometry, extra parts, missing holes, changed structure`,
   sortOrder: 8,
   enabled: true,
 };

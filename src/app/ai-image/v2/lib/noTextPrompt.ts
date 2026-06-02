@@ -4,20 +4,69 @@ function englishOnly(text: string) {
   return text.replace(/[^\x00-\x7F]/g, " ").replace(/\s+/g, " ").trim();
 }
 
-export function buildNoTextImagePrompt(plan: CreativePlan): string {
+/**
+ * 检测用户目标是否属于"有限范围修改"（如只改文字、只换背景等）。
+ * 如果是，提示词应该极简，不要注入完整布局指令。
+ */
+export function isLimitedScope(userGoal?: string): boolean {
+  if (!userGoal) return false;
+  const limitedKeywords = [
+    "只改", "仅修改", "只换", "只调整", "只改一下", "只变",
+    "不要改变", "不要改", "不要动", "保持不变", "其他不变",
+    "保持其他", "其余不变", "只改尺寸", "只改文字", "只改颜色",
+    "只换背景", "只调", "仅改", "仅换", "仅调整",
+  ];
+  const text = userGoal.toLowerCase();
+  return limitedKeywords.some((kw) => text.includes(kw));
+}
+
+export function buildNoTextImagePrompt(plan: CreativePlan, userGoal?: string): string {
   const analysis = plan.productAnalysis;
   const visibleFeatures =
     analysis?.visibleFeatures?.map(englishOnly).filter(Boolean).join(", ") || "all visible product features";
+
+  // ── LIMITED SCOPE MODE ──
+  // If the user explicitly limited the modification scope (e.g., "only change the size text"),
+  // produce a MINIMAL prompt that respects the restriction instead of rebuilding a full layout.
+  if (isLimitedScope(userGoal)) {
+    const parts: string[] = [
+      `=== PREMIUM E-COMMERCE PRODUCT IMAGE ===`,
+      ``,
+      `USER GOAL (HIGHEST PRIORITY): "${userGoal}"`,
+      ``,
+      `CRITICAL INSTRUCTION:`,
+      `- ONLY perform the specific modification requested by the user goal above.`,
+      `- Do NOT add, remove, or change ANY other element (headlines, feature points, badges, layout, background, product angle, etc.).`,
+      `- Preserve the EXACT existing composition, lighting, and styling.`,
+      `- Preserve the EXACT product structure, proportions, and visible features.`,
+      `- All on-image text must remain the SAME except for the specific change requested.`,
+      ``,
+      `=== PRODUCT ===`,
+      `Product: "${plan.productName}".`,
+      analysis?.productType ? `Product type: ${englishOnly(analysis.productType)}.` : "",
+      `Visible features: ${visibleFeatures}.`,
+      analysis?.isolationInstruction ? `Isolation: ${englishOnly(analysis.isolationInstruction)}.` : "",
+      ``,
+      `=== STYLE PRESERVATION ===`,
+      `Color palette: ${plan.colorDirection || "preserve original"}`,
+      `Layout direction: ${plan.layoutDirection || "preserve original"}`,
+      `Visual complexity: ${plan.visualComplexity || "preserve original"}. Information density: ${plan.informationDensity || "preserve original"}.`,
+      ``,
+      `=== QUALITY ===`,
+      `Photorealistic commercial product photography. No watermark, no AI mark.`,
+    ];
+    return parts.filter(Boolean).join("\n");
+  }
 
   // Determine plan style from planName or colorDirection
   const planNameLower = (plan.planName || "").toLowerCase();
   const colorLower = (plan.colorDirection || "").toLowerCase();
   
-  const isDarkMode = planNameLower.includes("dark") || planNameLower.includes("luxury") || 
+  const isDarkMode = planNameLower.includes("dark") || planNameLower.includes("luxury") ||
     colorLower.includes("dark") || colorLower.includes("black") || colorLower.includes("navy");
-  const isLightMode = planNameLower.includes("clean") || planNameLower.includes("light") || 
+  const isLightMode = planNameLower.includes("clean") || planNameLower.includes("light") ||
     planNameLower.includes("professional") || colorLower.includes("light") || colorLower.includes("white");
-  const isBoldMode = planNameLower.includes("bold") || planNameLower.includes("creative") || 
+  const isBoldMode = planNameLower.includes("bold") || planNameLower.includes("creative") ||
     planNameLower.includes("dynamic") || colorLower.includes("bold") || colorLower.includes("vibrant");
 
   // Determine style-specific rendering instructions
