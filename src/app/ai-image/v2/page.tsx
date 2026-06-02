@@ -233,6 +233,7 @@ function V2WorkbenchPageInner() {
                   workspaceTab: "detail",
                   goal: activeSession.goal,
                   step: "input",
+                  provider: activeSession.provider,
                   detail: {
                     detailImageUrls: [safeImageUrl],
                     activeDetailImageIndex: 0,

@@ -38,7 +38,7 @@ export interface SessionStoreState {
   isHydrated: boolean;
 }
 
-export function useSessionStore(): SessionStoreState {
+export function useSessionStore(tenantId: string, userId: string, ownerKey: string, enabled = true): SessionStoreState {
   const searchParams = useSearchParams();
 
   const [sessions, setSessions] = useState<V2Session[]>([]);
@@ -66,20 +66,21 @@ export function useSessionStore(): SessionStoreState {
 
   // ── Hydration: IndexedDB ↔ Server V2 only ──
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
 
     void (async () => {
       // 1. Migrate legacy localStorage on first load
-      const migrated = await dexieMigrateFromLocalStorage();
+      const migrated = await dexieMigrateFromLocalStorage(ownerKey);
       if (migrated) {
         await dexieClearLegacyLocalStorage();
       }
 
       // 2. Load from server V2 API
-      const serverV2 = await loadServerV2Sessions("default", "default");
+      const serverV2 = await loadServerV2Sessions(tenantId, userId);
 
       // 3. Load from IndexedDB
-      const indexedDbSessions = await dexieGetAllSessions();
+      const indexedDbSessions = await dexieGetAllSessions(ownerKey);
 
       // 4. Merge server V2 + IndexedDB
       let merged: V2Session[] = [];
@@ -87,7 +88,7 @@ export function useSessionStore(): SessionStoreState {
         merged = serverV2;
       }
       if (indexedDbSessions.length > 0) {
-        merged = mergeSessionsWithServerHistory(merged, indexedDbSessions);
+        merged = mergeSessionsWithServerHistory(indexedDbSessions, merged);
       }
 
       if (merged.length > 0 && !cancelled) {
@@ -117,7 +118,7 @@ export function useSessionStore(): SessionStoreState {
     return () => {
       cancelled = true;
     };
-  }, [searchParams]);
+  }, [enabled, ownerKey, searchParams, tenantId, userId]);
 
   return {
     sessions,

@@ -24,6 +24,7 @@ export interface UseSessionPersistenceOptions {
   isHydrated: boolean;
   tenantId?: string;
   userId?: string;
+  ownerKey?: string;
 }
 
 export interface PersistenceApi {
@@ -35,12 +36,15 @@ export interface PersistenceApi {
 }
 
 export function useSessionPersistence(options: UseSessionPersistenceOptions): PersistenceApi {
-  const { sessions, isHydrated, tenantId = "default", userId = "default" } = options;
+  const { sessions, isHydrated, tenantId = "default", userId = "default", ownerKey = `${tenantId}::${userId}` } = options;
 
   const sessionsRef = useRef(sessions);
-  sessionsRef.current = sessions;
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fullSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    sessionsRef.current = sessions;
+  }, [sessions]);
 
   // ── Debounced sync to IndexedDB ──
   useEffect(() => {
@@ -50,14 +54,14 @@ export function useSessionPersistence(options: UseSessionPersistenceOptions): Pe
       const current = sessionsRef.current;
       if (current.length === 0) return;
       const stripped = current.map((s) => stripHeavySessionFields(s));
-      dexieSaveSessions(stripped, true).catch((e) =>
+      dexieSaveSessions(stripped, true, ownerKey).catch((e) =>
         console.error("[useSessionPersistence] Failed to save to IndexedDB:", e)
       );
     }, SYNC_DEBOUNCE_MS);
     return () => {
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     };
-  }, [sessions, isHydrated]);
+  }, [sessions, isHydrated, ownerKey]);
 
   // ── Periodic full sync to server ──
   useEffect(() => {
@@ -65,7 +69,7 @@ export function useSessionPersistence(options: UseSessionPersistenceOptions): Pe
 
     const tick = () => {
       fullSyncTimerRef.current = setTimeout(async () => {
-        await syncAllToServer();
+        await syncDirtySessionsToServer(ownerKey, tenantId, userId);
         tick();
       }, FULL_SYNC_INTERVAL_MS);
     };
@@ -74,50 +78,36 @@ export function useSessionPersistence(options: UseSessionPersistenceOptions): Pe
     return () => {
       if (fullSyncTimerRef.current) clearTimeout(fullSyncTimerRef.current);
     };
-  }, [isHydrated, tenantId, userId]);
-
-  // ── Sync all dirty sessions to server ──
-  const syncAllToServer = useCallback(async () => {
-    try {
-      const dirty = await dexieGetDirtySessions();
-      if (dirty.length === 0) return;
-      for (const session of dirty) {
-        await postSessionToServer(session, tenantId, userId);
-        await dexieMarkClean(session.id);
-      }
-    } catch (e) {
-      console.error("[useSessionPersistence] Full sync failed:", e);
-    }
-  }, [tenantId, userId]);
+  }, [isHydrated, ownerKey, tenantId, userId]);
 
   const syncNow = useCallback(async () => {
-    await syncAllToServer();
-  }, [syncAllToServer]);
+    await syncDirtySessionsToServer(ownerKey, tenantId, userId);
+  }, [ownerKey, tenantId, userId]);
 
   const pushToServer = useCallback(
     async (session: V2Session) => {
       try {
         await postSessionToServer(session, tenantId, userId);
-        await dexieMarkClean(session.id);
+        await dexieMarkClean(session.id, ownerKey);
       } catch (e) {
         console.error("[useSessionPersistence] Push failed:", e);
       }
     },
-    [tenantId, userId]
+    [ownerKey, tenantId, userId]
   );
 
   const persistSessionImmediately = useCallback(
     async (session: V2Session) => {
       try {
         const stripped = stripHeavySessionFields(session);
-        await dexieSaveSession(stripped, true);
+        await dexieSaveSession(stripped, true, ownerKey);
         await postSessionToServer(session, tenantId, userId);
-        await dexieMarkClean(session.id);
+        await dexieMarkClean(session.id, ownerKey);
       } catch (e) {
         console.error("[useSessionPersistence] Immediate persist failed:", e);
       }
     },
-    [tenantId, userId]
+    [ownerKey, tenantId, userId]
   );
 
   const pullFromServer = useCallback(async (): Promise<V2Session[]> => {
@@ -130,14 +120,14 @@ export function useSessionPersistence(options: UseSessionPersistenceOptions): Pe
       const serverSessions = json.data || [];
       // Save server sessions to IndexedDB (clean)
       if (serverSessions.length > 0) {
-        await dexieSaveSessions(serverSessions, false);
+        await dexieSaveSessions(serverSessions, false, ownerKey);
       }
       return serverSessions;
     } catch (e) {
       console.error("[useSessionPersistence] Pull failed:", e);
       return [];
     }
-  }, [tenantId, userId]);
+  }, [ownerKey, tenantId, userId]);
 
   const deleteFromServer = useCallback(
     async (id: string) => {
@@ -146,12 +136,12 @@ export function useSessionPersistence(options: UseSessionPersistenceOptions): Pe
           `/api/ai-image/v2/sessions/${id}?tenantId=${encodeURIComponent(tenantId)}&userId=${encodeURIComponent(userId)}`,
           { method: "DELETE" }
         );
-        await dexieDeleteSession(id);
+        await dexieDeleteSession(id, ownerKey);
       } catch (e) {
         console.error("[useSessionPersistence] Delete failed:", e);
       }
     },
-    [tenantId, userId]
+    [ownerKey, tenantId, userId]
   );
 
   return { syncNow, pushToServer, persistSessionImmediately, pullFromServer, deleteFromServer };
@@ -164,13 +154,14 @@ export function useSessionPersistence(options: UseSessionPersistenceOptions): Pe
 export async function hydrateSessions(
   tenantId: string,
   userId: string,
+  ownerKey: string,
   searchParams?: { get: (key: string) => string | null }
 ): Promise<{ sessions: V2Session[]; activeSessionId: string | null }> {
   // 1. Try localStorage migration (first time only)
-  const migrated = await dexieMigrateFromLocalStorage();
+  const migrated = await dexieMigrateFromLocalStorage(ownerKey);
   if (migrated) {
     await dexieClearLegacyLocalStorage();
-    await dexieSetMeta("activeSessionId", migrated.activeSessionId);
+    await dexieSetMeta("activeSessionId", migrated.activeSessionId, ownerKey);
   }
 
   // 2. Try server first
@@ -182,8 +173,8 @@ export async function hydrateSessions(
       const json = (await res.json()) as { data?: V2Session[] };
       const serverSessions = json.data || [];
       if (serverSessions.length > 0) {
-        await dexieSaveSessions(serverSessions, false);
-        const activeId = (await dexieGetMeta<string>("activeSessionId")) || serverSessions[0].id;
+        await dexieSaveSessions(serverSessions, false, ownerKey);
+        const activeId = (await dexieGetMeta<string>("activeSessionId", undefined, ownerKey)) || serverSessions[0].id;
         return { sessions: serverSessions, activeSessionId: activeId };
       }
     }
@@ -192,9 +183,9 @@ export async function hydrateSessions(
   }
 
   // 3. Fall back to IndexedDB
-  const local = await dexieGetAllSessions();
+  const local = await dexieGetAllSessions(ownerKey);
   if (local.length > 0) {
-    const activeId = (await dexieGetMeta<string>("activeSessionId")) || local[0].id;
+    const activeId = (await dexieGetMeta<string>("activeSessionId", undefined, ownerKey)) || local[0].id;
     return { sessions: local, activeSessionId: activeId };
   }
 
@@ -207,7 +198,7 @@ export async function hydrateSessions(
     goal: seedGoal,
     workspaceTab: "product",
   });
-  await dexieSaveSession(seeded, true);
+  await dexieSaveSession(seeded, true, ownerKey);
   return { sessions: [seeded], activeSessionId: seeded.id };
 }
 
@@ -227,5 +218,18 @@ async function postSessionToServer(session: V2Session, tenantId: string, userId:
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: "Unknown" }));
     throw new Error(err.error || `HTTP ${res.status}`);
+  }
+}
+
+async function syncDirtySessionsToServer(ownerKey: string, tenantId: string, userId: string): Promise<void> {
+  try {
+    const dirty = await dexieGetDirtySessions(ownerKey);
+    if (dirty.length === 0) return;
+    for (const session of dirty) {
+      await postSessionToServer(session, tenantId, userId);
+      await dexieMarkClean(session.id, ownerKey);
+    }
+  } catch (e) {
+    console.error("[useSessionPersistence] Full sync failed:", e);
   }
 }

@@ -13,8 +13,11 @@ import { useImageGeneration } from "./useImageGeneration";
 import { useDetailGeneration } from "./useDetailGeneration";
 import { useTemplateLibrary } from "./useTemplateLibrary";
 import { useSessionPersistence } from "./useSessionPersistence";
+import { useSessionIdentity } from "./useSessionIdentity";
 
 export function useV2Session() {
+  const identity = useSessionIdentity();
+
   // ── Core session state ──
   const {
     sessions,
@@ -24,14 +27,15 @@ export function useV2Session() {
     activeSession,
     updateActiveSession,
     isHydrated,
-  } = useSessionStore();
+  } = useSessionStore(identity.tenantId, identity.userId, identity.ownerKey, identity.isReady);
 
   // ── Server sync ──
   const persistence = useSessionPersistence({
     sessions,
-    isHydrated,
-    tenantId: "default",
-    userId: "default",
+    isHydrated: isHydrated && identity.isReady,
+    tenantId: identity.tenantId,
+    userId: identity.userId,
+    ownerKey: identity.ownerKey,
   });
 
   // ── Workspace tab (UI state, synced with active session) ──
@@ -40,7 +44,7 @@ export function useV2Session() {
   useEffect(() => {
     if (!activeSession?.workspaceTab) return;
     setWorkspaceTabState(activeSession.workspaceTab);
-  }, [activeSession?.id]);
+  }, [activeSession?.id, activeSession?.workspaceTab]);
 
   // ── Derived: filtered sessions by tab ──
   const filteredSessions = useMemo(
@@ -182,5 +186,6 @@ export function useV2Session() {
 
     // Hydration flag (for future sync hooks)
     isHydrated,
+    identityReady: identity.isReady,
   };
 }

@@ -7,6 +7,7 @@ import type { V2Session } from "@/app/ai-image/v2/types";
 
 export interface DexieSession {
   id: string;
+  ownerKey: string;
   data: V2Session;
   syncedAt: number; // timestamp of last successful server sync
   dirty: boolean;   // true if local changes not yet synced
@@ -19,7 +20,8 @@ export interface DexieMeta {
 }
 
 const DB_NAME = "ai_image_v2";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
+const DEFAULT_OWNER_KEY = "default::default";
 
 class V2Dexie extends Dexie {
   sessions!: EntityTable<DexieSession, "id">;
@@ -28,7 +30,7 @@ class V2Dexie extends Dexie {
   constructor() {
     super(DB_NAME);
     this.version(DB_VERSION).stores({
-      sessions: "id, dirty, deleted, syncedAt",
+      sessions: "id, ownerKey, dirty, deleted, syncedAt",
       meta: "key",
     });
   }
@@ -40,9 +42,10 @@ export const v2db = new V2Dexie();
 // Session CRUD
 // ============================================================
 
-export async function dexieSaveSession(session: V2Session, dirty = true): Promise<void> {
+export async function dexieSaveSession(session: V2Session, dirty = true, ownerKey = DEFAULT_OWNER_KEY): Promise<void> {
   await v2db.sessions.put({
     id: session.id,
+    ownerKey,
     data: session,
     syncedAt: Date.now(),
     dirty,
@@ -50,10 +53,15 @@ export async function dexieSaveSession(session: V2Session, dirty = true): Promis
   });
 }
 
-export async function dexieSaveSessions(sessions: V2Session[], dirty = false): Promise<void> {
+export async function dexieSaveSessions(
+  sessions: V2Session[],
+  dirty = false,
+  ownerKey = DEFAULT_OWNER_KEY
+): Promise<void> {
   await v2db.sessions.bulkPut(
     sessions.map((s) => ({
       id: s.id,
+      ownerKey,
       data: s,
       syncedAt: Date.now(),
       dirty,
@@ -62,31 +70,42 @@ export async function dexieSaveSessions(sessions: V2Session[], dirty = false): P
   );
 }
 
-export async function dexieGetSession(id: string): Promise<V2Session | null> {
+export async function dexieGetSession(id: string, ownerKey = DEFAULT_OWNER_KEY): Promise<V2Session | null> {
   const row = await v2db.sessions.get(id);
+  if (row?.ownerKey !== ownerKey) return null;
   if (!row || row.deleted) return null;
   return row.data;
 }
 
-export async function dexieGetAllSessions(): Promise<V2Session[]> {
-  const rows = await v2db.sessions.where("deleted").equals(0).toArray();
+export async function dexieGetAllSessions(ownerKey = DEFAULT_OWNER_KEY): Promise<V2Session[]> {
+  const rows = await v2db.sessions.where("ownerKey").equals(ownerKey).and((row) => !row.deleted).toArray();
   return rows.map((r) => r.data).sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
-export async function dexieDeleteSession(id: string): Promise<void> {
+export async function dexieDeleteSession(id: string, ownerKey = DEFAULT_OWNER_KEY): Promise<void> {
+  const row = await v2db.sessions.get(id);
+  if (!row || row.ownerKey !== ownerKey) return;
   await v2db.sessions.delete(id);
 }
 
-export async function dexieSoftDeleteSession(id: string): Promise<void> {
+export async function dexieSoftDeleteSession(id: string, ownerKey = DEFAULT_OWNER_KEY): Promise<void> {
+  const row = await v2db.sessions.get(id);
+  if (!row || row.ownerKey !== ownerKey) return;
   await v2db.sessions.update(id, { deleted: true, dirty: true });
 }
 
-export async function dexieMarkClean(id: string): Promise<void> {
+export async function dexieMarkClean(id: string, ownerKey = DEFAULT_OWNER_KEY): Promise<void> {
+  const row = await v2db.sessions.get(id);
+  if (!row || row.ownerKey !== ownerKey) return;
   await v2db.sessions.update(id, { dirty: false, syncedAt: Date.now() });
 }
 
-export async function dexieGetDirtySessions(): Promise<V2Session[]> {
-  const rows = await v2db.sessions.where("dirty").equals(1).and((r) => !r.deleted).toArray();
+export async function dexieGetDirtySessions(ownerKey = DEFAULT_OWNER_KEY): Promise<V2Session[]> {
+  const rows = await v2db.sessions
+    .where("ownerKey")
+    .equals(ownerKey)
+    .and((row) => row.dirty && !row.deleted)
+    .toArray();
   return rows.map((r) => r.data);
 }
 
@@ -94,14 +113,16 @@ export async function dexieGetDirtySessions(): Promise<V2Session[]> {
 // Migration from localStorage legacy
 // ============================================================
 
-export async function dexieMigrateFromLocalStorage(): Promise<{ sessions: V2Session[]; activeSessionId: string | null } | null> {
+export async function dexieMigrateFromLocalStorage(
+  ownerKey = DEFAULT_OWNER_KEY
+): Promise<{ sessions: V2Session[]; activeSessionId: string | null } | null> {
   try {
     // v3
     const v3 = localStorage.getItem("ai_image_v2_sessions_v3");
     if (v3) {
       const parsed = JSON.parse(v3) as { sessions: V2Session[]; activeSessionId: string | null };
       if (parsed.sessions?.length) {
-        await dexieSaveSessions(parsed.sessions, true);
+        await dexieSaveSessions(parsed.sessions, true, ownerKey);
         return { sessions: parsed.sessions, activeSessionId: parsed.activeSessionId };
       }
     }
@@ -111,7 +132,7 @@ export async function dexieMigrateFromLocalStorage(): Promise<{ sessions: V2Sess
       const parsed = JSON.parse(v2) as { groups: Array<{ slots: V2Session[] }> };
       const flat = parsed.groups?.flatMap((g) => g.slots || []) || [];
       if (flat.length) {
-        await dexieSaveSessions(flat, true);
+        await dexieSaveSessions(flat, true, ownerKey);
         return { sessions: flat, activeSessionId: flat[0]?.id ?? null };
       }
     }
@@ -120,7 +141,7 @@ export async function dexieMigrateFromLocalStorage(): Promise<{ sessions: V2Sess
     if (v1) {
       const parsed = JSON.parse(v1) as { sessions: V2Session[]; activeSessionId: string | null };
       if (parsed.sessions?.length) {
-        await dexieSaveSessions(parsed.sessions, true);
+        await dexieSaveSessions(parsed.sessions, true, ownerKey);
         return { sessions: parsed.sessions, activeSessionId: parsed.activeSessionId };
       }
     }
@@ -140,11 +161,15 @@ export async function dexieClearLegacyLocalStorage(): Promise<void> {
 // Meta store (activeSessionId, lastSync)
 // ============================================================
 
-export async function dexieGetMeta<T>(key: string, defaultValue?: T): Promise<T | undefined> {
-  const row = await v2db.meta.get(key);
+export async function dexieGetMeta<T>(
+  key: string,
+  defaultValue?: T,
+  ownerKey = DEFAULT_OWNER_KEY
+): Promise<T | undefined> {
+  const row = await v2db.meta.get(`${ownerKey}:${key}`);
   return (row?.value as T) ?? defaultValue;
 }
 
-export async function dexieSetMeta(key: string, value: unknown): Promise<void> {
-  await v2db.meta.put({ key, value });
+export async function dexieSetMeta(key: string, value: unknown, ownerKey = DEFAULT_OWNER_KEY): Promise<void> {
+  await v2db.meta.put({ key: `${ownerKey}:${key}`, value });
 }
