@@ -29,6 +29,7 @@ export interface UseSessionPersistenceOptions {
 export interface PersistenceApi {
   syncNow: () => Promise<void>;
   pushToServer: (session: V2Session) => Promise<void>;
+  persistSessionImmediately: (session: V2Session) => Promise<void>;
   pullFromServer: () => Promise<V2Session[]>;
   deleteFromServer: (id: string) => Promise<void>;
 }
@@ -105,6 +106,20 @@ export function useSessionPersistence(options: UseSessionPersistenceOptions): Pe
     [tenantId, userId]
   );
 
+  const persistSessionImmediately = useCallback(
+    async (session: V2Session) => {
+      try {
+        const stripped = stripHeavySessionFields(session);
+        await dexieSaveSession(stripped, true);
+        await postSessionToServer(session, tenantId, userId);
+        await dexieMarkClean(session.id);
+      } catch (e) {
+        console.error("[useSessionPersistence] Immediate persist failed:", e);
+      }
+    },
+    [tenantId, userId]
+  );
+
   const pullFromServer = useCallback(async (): Promise<V2Session[]> => {
     try {
       const res = await fetch(
@@ -139,7 +154,7 @@ export function useSessionPersistence(options: UseSessionPersistenceOptions): Pe
     [tenantId, userId]
   );
 
-  return { syncNow, pushToServer, pullFromServer, deleteFromServer };
+  return { syncNow, pushToServer, persistSessionImmediately, pullFromServer, deleteFromServer };
 }
 
 // ============================================================

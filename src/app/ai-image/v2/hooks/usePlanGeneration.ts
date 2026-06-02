@@ -10,6 +10,7 @@ export interface UsePlanGenerationOptions {
   activeSession: V2Session | null;
   updateActiveSession: (updater: (s: V2Session) => V2Session) => void;
   selectedTemplate: PlanTemplate | null;
+  onSessionPersist?: (session: V2Session) => Promise<void> | void;
 }
 
 export interface PlanGenerationActions {
@@ -36,7 +37,7 @@ export interface DebugPromptData {
 }
 
 export function usePlanGeneration(options: UsePlanGenerationOptions): PlanGenerationActions {
-  const { activeSession, updateActiveSession, selectedTemplate } = options;
+  const { activeSession, updateActiveSession, selectedTemplate, onSessionPersist } = options;
 
   const generateControllerRef = useRef<AbortController | null>(null);
   const [lastDebugPrompt, setLastDebugPrompt] = useState<DebugPromptData | null>(null);
@@ -92,12 +93,18 @@ export function usePlanGeneration(options: UsePlanGenerationOptions): PlanGenera
       if (res.ok && data.data) {
         const plans: CreativePlan[] = data.data;
         setLastDebugPrompt(data.debug ? { ...data.debug, requestId: data.requestId } : { requestId: data.requestId || clientRequestId });
+        let nextSession: V2Session | null = null;
         updateActiveSession((s) => ({
-          ...s,
-          singlePlans: plans,
-          expandedSingleId: plans[0]?.id || null,
-          step: "plans" as const,
+          ...(nextSession = {
+            ...s,
+            singlePlans: plans,
+            expandedSingleId: plans[0]?.id || null,
+            step: "plans" as const,
+          }),
         }));
+        if (nextSession) {
+          void onSessionPersist?.(nextSession);
+        }
         if (data.fallback) {
           toast.warning(`已生成 ${plans.length} 个演示方案（LLM 暂不可用）`, { duration: 6000 });
         } else {
@@ -118,7 +125,7 @@ export function usePlanGeneration(options: UsePlanGenerationOptions): PlanGenera
       clearTimeout(timeoutId);
       generateControllerRef.current = null;
     }
-  }, [activeSession, selectedTemplate, updateActiveSession]);
+  }, [activeSession, onSessionPersist, selectedTemplate, updateActiveSession]);
 
   const handleCancelGenerate = useCallback(() => {
     if (generateControllerRef.current) {
@@ -130,12 +137,18 @@ export function usePlanGeneration(options: UsePlanGenerationOptions): PlanGenera
 
   const handleUpdateSinglePlan = useCallback(
     (updated: CreativePlan) => {
+      let nextSession: V2Session | null = null;
       updateActiveSession((s) => ({
-        ...s,
-        singlePlans: s.singlePlans.map((p) => (p.id === updated.id ? updated : p)),
+        ...(nextSession = {
+          ...s,
+          singlePlans: s.singlePlans.map((p) => (p.id === updated.id ? updated : p)),
+        }),
       }));
+      if (nextSession) {
+        void onSessionPersist?.(nextSession);
+      }
     },
-    [updateActiveSession]
+    [onSessionPersist, updateActiveSession]
   );
 
   const handleOpenPlanPreview = useCallback(

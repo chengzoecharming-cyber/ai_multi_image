@@ -15,6 +15,8 @@ export interface UseSessionActionsOptions {
   updateActiveSession: (updater: (s: V2Session) => V2Session) => void;
   workspaceTab: V2WorkspaceTab;
   setWorkspaceTabState: React.Dispatch<React.SetStateAction<V2WorkspaceTab>>;
+  onSessionPersist?: (session: V2Session) => Promise<void> | void;
+  onDeletePersistedSession?: (id: string) => Promise<void> | void;
 }
 
 export interface SessionActions {
@@ -34,6 +36,8 @@ export function useSessionActions(options: UseSessionActionsOptions): SessionAct
     activeSession,
     updateActiveSession,
     setWorkspaceTabState,
+    onSessionPersist,
+    onDeletePersistedSession,
   } = options;
 
   const createNewSession = useCallback(
@@ -41,9 +45,10 @@ export function useSessionActions(options: UseSessionActionsOptions): SessionAct
       const sess = createEmptySession(seed);
       setSessions((prev) => [sess, ...prev]);
       setActiveSessionId(sess.id);
+      void onSessionPersist?.(sess);
       toast.success("已新增记录");
     },
-    [setSessions, setActiveSessionId]
+    [onSessionPersist, setSessions, setActiveSessionId]
   );
 
   const duplicateSession = useCallback(
@@ -63,9 +68,10 @@ export function useSessionActions(options: UseSessionActionsOptions): SessionAct
       };
       setSessions((prev) => [next, ...prev]);
       setActiveSessionId(next.id);
+      void onSessionPersist?.(next);
       toast.success("已复制记录");
     },
-    [sessions, setSessions, setActiveSessionId]
+    [onSessionPersist, sessions, setSessions, setActiveSessionId]
   );
 
   const deleteSession = useCallback(
@@ -76,9 +82,10 @@ export function useSessionActions(options: UseSessionActionsOptions): SessionAct
         if (activeSessionId === id) setActiveSessionId(fallback[0].id);
         return fallback;
       });
+      void onDeletePersistedSession?.(id);
       toast.success("已删除记录");
     },
-    [activeSessionId, setActiveSessionId]
+    [activeSessionId, onDeletePersistedSession, setActiveSessionId, setSessions]
   );
 
   const setWorkspaceTab = useCallback(
@@ -91,19 +98,23 @@ export function useSessionActions(options: UseSessionActionsOptions): SessionAct
         return candidate?.id || prevId;
       });
     },
-    [sessions, setWorkspaceTabState]
+    [sessions, setActiveSessionId, setWorkspaceTabState]
   );
 
   const handleReset = useCallback(() => {
     if (!activeSession) return;
+    let nextSession: V2Session | null = null;
     updateActiveSession((s) =>
-      createEmptySession({
+      (nextSession = createEmptySession({
         id: s.id,
         createdAt: s.createdAt,
         workspaceTab: s.workspaceTab || "product",
-      })
+      }))
     );
-  }, [activeSession, updateActiveSession]);
+    if (nextSession) {
+      void onSessionPersist?.(nextSession);
+    }
+  }, [activeSession, onSessionPersist, updateActiveSession]);
 
   return {
     createNewSession,

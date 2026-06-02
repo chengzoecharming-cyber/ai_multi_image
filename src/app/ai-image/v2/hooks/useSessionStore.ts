@@ -14,63 +14,6 @@ import {
   dexieClearLegacyLocalStorage,
 } from "@/lib/v2-dexie";
 
-interface TaskHistoryItem {
-  id: string;
-  status: string;
-  userPrompt?: string | null;
-  resultImageUrl?: string | null;
-  createdAt: string;
-}
-
-function parseTaskResultImages(resultImageUrl?: string | null): string[] {
-  if (!resultImageUrl) return [];
-  try {
-    const parsed = JSON.parse(resultImageUrl);
-    if (Array.isArray(parsed)) return parsed.filter((u) => typeof u === "string");
-    if (typeof parsed === "string") return [parsed];
-    return [];
-  } catch {
-    return [resultImageUrl];
-  }
-}
-
-async function loadServerHistorySessions(limit = 60): Promise<V2Session[]> {
-  try {
-    const res = await fetch(`/api/ai-image/tasks?limit=${limit}`);
-    if (!res.ok) return [];
-    const json = (await res.json()) as { data?: TaskHistoryItem[] };
-    const tasks = Array.isArray(json?.data) ? json.data : [];
-    const completed = tasks.filter((t) => t.status === "completed");
-    const sessions = completed
-      .map((task) => {
-        const images = parseTaskResultImages(task.resultImageUrl);
-        if (images.length === 0) return null;
-        const ts = Number.isFinite(Date.parse(task.createdAt)) ? Date.parse(task.createdAt) : Date.now();
-        const session = createEmptySession({
-          id: `srv-${task.id}`,
-          createdAt: ts,
-          updatedAt: ts,
-          goal: (task.userPrompt || "").trim(),
-          step: "plans",
-          workspaceTab: "product",
-          generatedImages: images.map((imageUrl, idx) => ({
-            id: `${task.id}-${idx}`,
-            taskId: task.id,
-            tab: "product" as const,
-            imageUrl,
-            createdAt: ts,
-          })),
-        });
-        return session;
-      })
-      .filter((s): s is V2Session => Boolean(s));
-    return sessions;
-  } catch (error) {
-    console.error("[useSessionStore] Failed to load server history:", error);
-    return [];
-  }
-}
-
 async function loadServerV2Sessions(tenantId: string, userId: string): Promise<V2Session[]> {
   try {
     const res = await fetch(
@@ -121,7 +64,7 @@ export function useSessionStore(): SessionStoreState {
     [activeSession]
   );
 
-  // ── Hydration: IndexedDB → Server V2 → Server task history ──
+  // ── Hydration: IndexedDB ↔ Server V2 only ──
   useEffect(() => {
     let cancelled = false;
 
@@ -135,22 +78,16 @@ export function useSessionStore(): SessionStoreState {
       // 2. Load from server V2 API
       const serverV2 = await loadServerV2Sessions("default", "default");
 
-      // 3. Load legacy task history (for backward compat)
-      const serverHistory = await loadServerHistorySessions();
-
-      // 4. Load from IndexedDB
+      // 3. Load from IndexedDB
       const indexedDbSessions = await dexieGetAllSessions();
 
-      // 5. Merge all sources: server V2 + IndexedDB + task history
+      // 4. Merge server V2 + IndexedDB
       let merged: V2Session[] = [];
       if (serverV2.length > 0) {
         merged = serverV2;
       }
       if (indexedDbSessions.length > 0) {
         merged = mergeSessionsWithServerHistory(merged, indexedDbSessions);
-      }
-      if (merged.length === 0 && serverHistory.length > 0) {
-        merged = serverHistory;
       }
 
       if (merged.length > 0 && !cancelled) {
@@ -164,7 +101,7 @@ export function useSessionStore(): SessionStoreState {
         return;
       }
 
-      // 6. Seed a fresh session
+      // 5. Seed a fresh session
       const seeded = createEmptySession({
         productImageUrls: searchParams.get("productImageUrl") ? [searchParams.get("productImageUrl")!] : [],
         goal: searchParams.get("goal") || "",

@@ -9,6 +9,7 @@ import { resolveImageUrl, nowTs } from "./utils/session-utils";
 export interface UseImageGenerationOptions {
   activeSession: V2Session | null;
   updateActiveSession: (updater: (s: V2Session) => V2Session) => void;
+  onSessionPersist?: (session: V2Session) => Promise<void> | void;
 }
 
 export interface ImageGenerationActions {
@@ -16,7 +17,7 @@ export interface ImageGenerationActions {
 }
 
 export function useImageGeneration(options: UseImageGenerationOptions): ImageGenerationActions {
-  const { activeSession, updateActiveSession } = options;
+  const { activeSession, updateActiveSession, onSessionPersist } = options;
 
   const handleGenerateImage = useCallback(
     async (plan: CreativePlan) => {
@@ -81,24 +82,30 @@ export function useImageGeneration(options: UseImageGenerationOptions): ImageGen
                 : rawBase64 && rawBase64.length > 64
                   ? `data:image/png;base64,${rawBase64}`
                   : "";
+          let nextSession: V2Session | null = null;
           updateActiveSession((s) => ({
-            ...s,
-            generatingImage: false,
-            generatingImagePlanId: null,
-            generatedImages: [
-              {
-                id: globalThis.crypto?.randomUUID?.() || `img-${nowTs()}-${Math.random().toString(36).slice(2, 6)}`,
-                planId: plan.id,
-                taskId: data.data?.id,
-                tab: "product" as const,
-                imageUrl,
-                imageBase64,
-                createdAt: nowTs(),
-              },
-              ...s.generatedImages,
-            ],
-            productImageUrls: s.productImageUrls.includes(imageUrl) ? s.productImageUrls : [imageUrl, ...s.productImageUrls],
+            ...(nextSession = {
+              ...s,
+              generatingImage: false,
+              generatingImagePlanId: null,
+              generatedImages: [
+                {
+                  id: globalThis.crypto?.randomUUID?.() || `img-${nowTs()}-${Math.random().toString(36).slice(2, 6)}`,
+                  planId: plan.id,
+                  taskId: data.data?.id,
+                  tab: "product" as const,
+                  imageUrl,
+                  imageBase64,
+                  createdAt: nowTs(),
+                },
+                ...s.generatedImages,
+              ],
+              productImageUrls: s.productImageUrls.includes(imageUrl) ? s.productImageUrls : [imageUrl, ...s.productImageUrls],
+            }),
           }));
+          if (nextSession) {
+            void onSessionPersist?.(nextSession);
+          }
           toast.success("图片生成成功");
         } else {
           toast.error(data.error || "生成失败");
@@ -130,7 +137,7 @@ export function useImageGeneration(options: UseImageGenerationOptions): ImageGen
         }
       }
     },
-    [activeSession, updateActiveSession]
+    [activeSession, onSessionPersist, updateActiveSession]
   );
 
   return { handleGenerateImage };

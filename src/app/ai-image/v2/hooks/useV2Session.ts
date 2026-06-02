@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import type { V2Session, V2WorkspaceTab } from "../types";
+import type { V2WorkspaceTab } from "../types";
 import type { PlanTemplate } from "@/lib/plan-templates/types";
 
 import { useSessionStore } from "./useSessionStore";
@@ -65,16 +65,31 @@ export function useV2Session() {
     updateActiveSession,
     workspaceTab,
     setWorkspaceTabState,
+    onSessionPersist: persistence.persistSessionImmediately,
+    onDeletePersistedSession: persistence.deleteFromServer,
   });
 
   // ── Upload handlers ──
-  const uploadHandlers = useUploadHandlers({ activeSession, updateActiveSession });
+  const uploadHandlers = useUploadHandlers({
+    activeSession,
+    updateActiveSession,
+    onSessionPersist: persistence.persistSessionImmediately,
+  });
 
   // ── Plan generation ──
-  const planGeneration = usePlanGeneration({ activeSession, updateActiveSession, selectedTemplate });
+  const planGeneration = usePlanGeneration({
+    activeSession,
+    updateActiveSession,
+    selectedTemplate,
+    onSessionPersist: persistence.persistSessionImmediately,
+  });
 
   // ── Image generation ──
-  const imageGeneration = useImageGeneration({ activeSession, updateActiveSession });
+  const imageGeneration = useImageGeneration({
+    activeSession,
+    updateActiveSession,
+    onSessionPersist: persistence.persistSessionImmediately,
+  });
 
   // ── Detail generation ──
   const detailGeneration = useDetailGeneration({ activeSession, updateActiveSession });

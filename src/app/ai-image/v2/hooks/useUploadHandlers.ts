@@ -7,6 +7,7 @@ import type { V2Session } from "../types";
 export interface UseUploadHandlersOptions {
   activeSession: V2Session | null;
   updateActiveSession: (updater: (s: V2Session) => V2Session) => void;
+  onSessionPersist?: (session: V2Session) => Promise<void> | void;
 }
 
 export interface UploadHandlers {
@@ -20,7 +21,7 @@ export interface UploadHandlers {
 }
 
 export function useUploadHandlers(options: UseUploadHandlersOptions): UploadHandlers {
-  const { activeSession, updateActiveSession } = options;
+  const { activeSession, updateActiveSession, onSessionPersist } = options;
 
   const productFileInputRef = useRef<HTMLInputElement>(null);
   const detailHeroFileInputRef = useRef<HTMLInputElement>(null);
@@ -56,22 +57,27 @@ export function useUploadHandlers(options: UseUploadHandlersOptions): UploadHand
       if (files.length === 0) return;
       const uploadedUrls = await uploadFiles(files);
       if (uploadedUrls.length > 0) {
+        let nextSession: V2Session | null = null;
         updateActiveSession((s) => {
           const prev = s.productImageUrls || [];
           const nextUrls = [...prev, ...uploadedUrls];
-          return {
+          nextSession = {
             ...s,
             productImageUrls: nextUrls,
             activeProductImageIndex: nextUrls.length - 1,
             lastError: null,
             step: "input" as const,
           };
+          return nextSession;
         });
+        if (nextSession) {
+          void onSessionPersist?.(nextSession);
+        }
         toast.success(`已上传 ${uploadedUrls.length} 张商品图`);
       }
       if (productFileInputRef.current) productFileInputRef.current.value = "";
     },
-    [activeSession, updateActiveSession, uploadFiles]
+    [activeSession, onSessionPersist, updateActiveSession, uploadFiles]
   );
 
   const handleUploadDetailHero = useCallback(
@@ -81,10 +87,11 @@ export function useUploadHandlers(options: UseUploadHandlersOptions): UploadHand
       if (files.length === 0) return;
       const uploadedUrls = await uploadFiles(files);
       if (uploadedUrls.length > 0) {
+        let nextSession: V2Session | null = null;
         updateActiveSession((s) => {
           const prev = s.detail?.detailImageUrls || [];
           const nextUrls = [...prev, ...uploadedUrls];
-          return {
+          nextSession = {
             ...s,
             detail: {
               ...(s.detail || { selectedTypes: [], generating: false, results: [], lastError: null }),
@@ -93,12 +100,16 @@ export function useUploadHandlers(options: UseUploadHandlersOptions): UploadHand
               lastError: null,
             },
           };
+          return nextSession;
         });
+        if (nextSession) {
+          void onSessionPersist?.(nextSession);
+        }
         toast.success(`已上传 ${uploadedUrls.length} 张参考图`);
       }
       if (detailHeroFileInputRef.current) detailHeroFileInputRef.current.value = "";
     },
-    [activeSession, updateActiveSession, uploadFiles]
+    [activeSession, onSessionPersist, updateActiveSession, uploadFiles]
   );
 
   const handleUploadReferenceImage = useCallback(
@@ -118,11 +129,17 @@ export function useUploadHandlers(options: UseUploadHandlersOptions): UploadHand
         const res = await fetch("/api/upload", { method: "POST", body: formData });
         const data = await res.json();
         if (res.ok && data.data?.url) {
+          let nextSession: V2Session | null = null;
           updateActiveSession((s) => ({
-            ...s,
-            referenceImageUrls: [...(s.referenceImageUrls || []), data.data.url],
-            lastError: null,
+            ...(nextSession = {
+              ...s,
+              referenceImageUrls: [...(s.referenceImageUrls || []), data.data.url],
+              lastError: null,
+            }),
           }));
+          if (nextSession) {
+            void onSessionPersist?.(nextSession);
+          }
           toast.success("参考图上传成功");
         } else {
           toast.error(data.error || "上传失败");
@@ -132,17 +149,23 @@ export function useUploadHandlers(options: UseUploadHandlersOptions): UploadHand
       }
       if (referenceFileInputRef.current) referenceFileInputRef.current.value = "";
     },
-    [activeSession, updateActiveSession]
+    [activeSession, onSessionPersist, updateActiveSession]
   );
 
   const handleRemoveReferenceImage = useCallback(
     (index: number) => {
+      let nextSession: V2Session | null = null;
       updateActiveSession((s) => ({
-        ...s,
-        referenceImageUrls: (s.referenceImageUrls || []).filter((_, i) => i !== index),
+        ...(nextSession = {
+          ...s,
+          referenceImageUrls: (s.referenceImageUrls || []).filter((_, i) => i !== index),
+        }),
       }));
+      if (nextSession) {
+        void onSessionPersist?.(nextSession);
+      }
     },
-    [updateActiveSession]
+    [onSessionPersist, updateActiveSession]
   );
 
   return {
