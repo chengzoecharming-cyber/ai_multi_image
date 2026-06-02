@@ -66,7 +66,32 @@ function V2WorkbenchPageInner() {
 
   const [imageGalleryOpen, setImageGalleryOpen] = useState(false);
 
-  const handleApplyGallery = useCallback((data: GalleryApplyData) => {
+  const ensureLocalTaskImage = useCallback(async (taskId: string | undefined, imageUrl: string) => {
+    if (!imageUrl) return imageUrl;
+    if (typeof window !== "undefined") {
+      const origin = window.location.origin;
+      const isRelative = imageUrl.startsWith("/");
+      const isSameOriginAbsolute = imageUrl.startsWith(origin);
+      if (isRelative || isSameOriginAbsolute) {
+        return isRelative ? imageUrl : imageUrl.slice(origin.length) || imageUrl;
+      }
+    }
+    if (!taskId) return imageUrl;
+    try {
+      const res = await fetch(`/api/ai-image/tasks/${taskId}/persist-image`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl }),
+      });
+      if (!res.ok) return imageUrl;
+      const data = (await res.json()) as { localUrl?: string };
+      return data.localUrl || imageUrl;
+    } catch {
+      return imageUrl;
+    }
+  }, []);
+
+  const handleApplyGallery = useCallback(async (data: GalleryApplyData) => {
     // Try to find an existing session that contains this generated image
     const existingSession = sessions.find((s) =>
       s.generatedImages?.some((g) => g.taskId === data.taskId)
@@ -199,13 +224,17 @@ function V2WorkbenchPageInner() {
                 handleOpenPlanPreview(plan);
                 handleGenerateImage(plan);
               }}
-              onGenerateDetails={(plan, imageUrl) =>
+              onGenerateDetails={async (plan, imageUrl) => {
+                const matchedGenerated = activeSession.generatedImages?.find(
+                  (img) => img.planId === plan.id && img.imageUrl === imageUrl
+                ) || activeSession.generatedImages?.find((img) => img.planId === plan.id);
+                const safeImageUrl = await ensureLocalTaskImage(matchedGenerated?.taskId, imageUrl);
                 createNewSession({
                   workspaceTab: "detail",
                   goal: activeSession.goal,
                   step: "input",
                   detail: {
-                    detailImageUrls: [imageUrl],
+                    detailImageUrls: [safeImageUrl],
                     activeDetailImageIndex: 0,
                     heroPlan: plan,
                     selectedTypes: ["detail", "multi_angle", "lifestyle", "feature", "comparison", "spec"],
@@ -213,8 +242,8 @@ function V2WorkbenchPageInner() {
                     results: [],
                     lastError: null,
                   },
-                })
-              }
+                });
+              }}
               onClosePreview={() => updateActiveSession((s) => ({ ...s, previewPlanId: null, step: "plans" }))}
             />
           )}

@@ -100,7 +100,6 @@ export function useImageGeneration(options: UseImageGenerationOptions): ImageGen
                 },
                 ...s.generatedImages,
               ],
-              productImageUrls: s.productImageUrls.includes(imageUrl) ? s.productImageUrls : [imageUrl, ...s.productImageUrls],
             }),
           }));
           if (nextSession) {
