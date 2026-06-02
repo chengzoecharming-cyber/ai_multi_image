@@ -1,4 +1,4 @@
-import type { V2Session, V2SessionStatus, Step, CreativePlan, V2GeneratedImage, V2DetailState, V2WorkspaceTab } from "../../types";
+import type { V2Session, V2SessionStatus, Step, V2GeneratedImage } from "../../types";
 
 export function nowTs() {
   return Date.now();
@@ -119,32 +119,109 @@ export function createEmptySession(seed?: Partial<V2Session>): V2Session {
   return { ...base, status: deriveSessionStatus(base) };
 }
 
-/** Strip heavy fields from plans before persistence to avoid quota issues. */
-export function stripHeavyPlanFields(plans: CreativePlan[]): Partial<CreativePlan>[] {
-  return plans.map((p) => {
-    const {
-      visualDirection,
-      colorDirection,
-      layoutDirection,
-      imageGenerationPrompt,
-      finalPrompt,
-      planSummaryPrompt,
-      ...rest
-    } = p;
-    return rest;
-  });
+function normalizeImageUrlKey(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("/")) return trimmed;
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.pathname.startsWith("/generated/") || parsed.pathname.startsWith("/uploads/")) {
+      return parsed.pathname;
+    }
+  } catch {
+    return trimmed;
+  }
+  return trimmed;
 }
 
-/** Strip heavy fields from a session before persistence. */
-export function stripHeavySessionFields(session: V2Session): V2Session {
-  return {
+function isGeneratedOutputUrl(url: string, generatedUrlKeys: Set<string>): boolean {
+  const key = normalizeImageUrlKey(url);
+  if (!key) return false;
+  return key.startsWith("/generated/") || generatedUrlKeys.has(key);
+}
+
+function filterInputImageUrls(urls: string[], generatedUrlKeys: Set<string>): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const url of urls || []) {
+    if (typeof url !== "string") continue;
+    const trimmed = url.trim();
+    const key = normalizeImageUrlKey(trimmed);
+    if (!trimmed || !key || seen.has(key) || isGeneratedOutputUrl(trimmed, generatedUrlKeys)) {
+      continue;
+    }
+    seen.add(key);
+    result.push(trimmed);
+  }
+
+  return result;
+}
+
+function clampImageIndex(index: number | undefined, length: number): number {
+  if (length <= 0) return 0;
+  const safeIndex = Number.isFinite(index) ? Number(index) : 0;
+  return Math.max(0, Math.min(length - 1, safeIndex));
+}
+
+function getGeneratedImageMergeKey(image: V2GeneratedImage): string {
+  if (image.taskId) return `task:${image.taskId}`;
+  const urlKey = normalizeImageUrlKey(image.imageUrl || "");
+  if (urlKey) return `url:${urlKey}`;
+  return `id:${image.id}`;
+}
+
+function mergeGeneratedImages(...imageGroups: V2GeneratedImage[][]): V2GeneratedImage[] {
+  const merged = new Map<string, V2GeneratedImage>();
+  for (const images of imageGroups) {
+    for (const image of images || []) {
+      if (!image?.imageUrl) continue;
+      merged.set(getGeneratedImageMergeKey(image), image);
+    }
+  }
+  return Array.from(merged.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
+
+export function normalizeSessionForPersistence(session: V2Session): V2Session {
+  const generatedImages = mergeGeneratedImages(
+    (session.generatedImages || []).map((image) => ({ ...image, imageBase64: undefined }))
+  );
+  const generatedUrlKeys = new Set(generatedImages.map((image) => normalizeImageUrlKey(image.imageUrl)).filter(Boolean));
+  const productImageUrls = filterInputImageUrls(session.productImageUrls || [], generatedUrlKeys);
+  const referenceImageUrls = filterInputImageUrls(session.referenceImageUrls || [], generatedUrlKeys);
+  const detailImageUrls = session.detail?.detailImageUrls || [];
+
+  const normalized: V2Session = {
     ...session,
-    singlePlans: stripHeavyPlanFields(session.singlePlans || []) as CreativePlan[],
-    generatedImages: session.generatedImages.map((g) => {
-      const { imageBase64, ...rest } = g;
-      return rest as V2GeneratedImage;
+    step: reconcileStep({
+      ...session,
+      productImageUrls,
+      referenceImageUrls,
+      generatedImages,
     }),
+    productImageUrls,
+    activeProductImageIndex: clampImageIndex(session.activeProductImageIndex, productImageUrls.length),
+    referenceImageUrls,
+    singlePlans: session.singlePlans || [],
+    generatingImage: false,
+    generatingImagePlanId: null,
+    generatedImages,
+    detail: session.detail
+      ? {
+          ...session.detail,
+          detailImageUrls,
+          activeDetailImageIndex: clampImageIndex(session.detail.activeDetailImageIndex, detailImageUrls.length),
+          generating: false,
+        }
+      : session.detail,
   };
+
+  return { ...normalized, status: deriveSessionStatus(normalized) };
+}
+
+/** Prepare a session snapshot for durable IndexedDB/server persistence. */
+export function stripHeavySessionFields(session: V2Session): V2Session {
+  return normalizeSessionForPersistence(session);
 }
 
 export function mergeSessionsWithServerHistory(localSessions: V2Session[], serverSessions: V2Session[]): V2Session[] {
@@ -152,51 +229,32 @@ export function mergeSessionsWithServerHistory(localSessions: V2Session[], serve
 
   // 1. server 优先写入（作为 baseline）
   for (const session of serverSessions) {
-    merged.set(session.id, session);
+    merged.set(session.id, normalizeSessionForPersistence(session));
   }
 
-  // 2. local 覆盖或补充（同一 id 时，以 updatedAt 大的为准）
+  // 2. local 覆盖配置字段，server 只补充缺失的生成历史
   for (const session of localSessions) {
+    const localSession = normalizeSessionForPersistence(session);
     const existing = merged.get(session.id);
     if (!existing) {
-      merged.set(session.id, session);
+      merged.set(localSession.id, localSession);
       continue;
     }
 
-    const sessionProductImages = session.productImageUrls ?? [];
-    const existingProductImages = existing.productImageUrls ?? [];
-    const mergedProductImages = [...new Set([...existingProductImages, ...sessionProductImages])];
+    const generatedImages = mergeGeneratedImages(existing.generatedImages || [], localSession.generatedImages || []);
+    const singlePlans =
+      (localSession.singlePlans?.length ?? 0) > 0
+        ? localSession.singlePlans
+        : existing.singlePlans || [];
 
-    const sessionRefs = session.referenceImageUrls ?? [];
-    const existingRefs = existing.referenceImageUrls ?? [];
-    const mergedRefs = [...new Set([...existingRefs, ...sessionRefs])];
-
-    const sessionDetailImages = session.detail?.detailImageUrls ?? [];
-    const existingDetailImages = existing.detail?.detailImageUrls ?? [];
-    const mergedDetailImages = [...new Set([...existingDetailImages, ...sessionDetailImages])];
-
-    const mergedSession: V2Session = {
+    const mergedSession = normalizeSessionForPersistence({
       ...existing,
-      ...session,
-      productImageUrls: mergedProductImages,
-      activeProductImageIndex: session.activeProductImageIndex ?? existing.activeProductImageIndex ?? 0,
-      referenceImageUrls: mergedRefs,
-      goal: (session.goal && session.goal.trim()) ? session.goal : (existing.goal || ""),
-      generatedImages:
-        (session.generatedImages?.length ?? 0) > (existing.generatedImages?.length ?? 0)
-          ? session.generatedImages
-          : existing.generatedImages,
-      singlePlans:
-        (session.singlePlans?.length ?? 0) > (existing.singlePlans?.length ?? 0)
-          ? session.singlePlans
-          : existing.singlePlans,
-      detail: {
-        ...(session.detail || existing.detail || { selectedTypes: [], generating: false, results: [], lastError: null }),
-        detailImageUrls: mergedDetailImages,
-        activeDetailImageIndex: session.detail?.activeDetailImageIndex ?? existing.detail?.activeDetailImageIndex ?? 0,
-      },
+      ...localSession,
+      singlePlans,
+      generatedImages,
+      detail: localSession.detail || existing.detail,
       updatedAt: Math.max(existing.updatedAt || 0, session.updatedAt || 0),
-    };
+    });
     merged.set(session.id, mergedSession);
   }
 
