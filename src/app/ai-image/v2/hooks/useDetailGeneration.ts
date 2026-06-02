@@ -8,6 +8,7 @@ import { nowTs } from "./utils/session-utils";
 export interface UseDetailGenerationOptions {
   activeSession: V2Session | null;
   updateActiveSession: (updater: (s: V2Session) => V2Session) => void;
+  onSessionPersist?: (session: V2Session) => Promise<void> | void;
 }
 
 export interface DetailGenerationActions {
@@ -16,7 +17,7 @@ export interface DetailGenerationActions {
 }
 
 export function useDetailGeneration(options: UseDetailGenerationOptions): DetailGenerationActions {
-  const { activeSession, updateActiveSession } = options;
+  const { activeSession, updateActiveSession, onSessionPersist } = options;
 
   const toggleDetailType = useCallback(
     (type: V2DetailType) => {
@@ -48,14 +49,20 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
       return;
     }
 
+    let startedSession: V2Session | null = null;
     updateActiveSession((s) => ({
-      ...s,
-      detail: {
-        ...(s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: false, results: [], lastError: null }),
-        generating: true,
-        lastError: null,
-      },
+      ...(startedSession = {
+        ...s,
+        detail: {
+          ...(s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: false, results: [], lastError: null }),
+          generating: true,
+          lastError: null,
+        },
+      }),
     }));
+    if (startedSession) {
+      void onSessionPersist?.(startedSession);
+    }
 
     try {
       const heroPlan = activeSession.detail?.heroPlan || null;
@@ -94,6 +101,7 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
         }
 
         const now = nowTs();
+        let nextSession: V2Session | null = null;
         updateActiveSession((s) => {
           const prevDetail = s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: false, results: [], lastError: null };
           const newImages = pages
@@ -116,7 +124,7 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
             if (img.detailType) resultPairs.push({ type: img.detailType, imageId: img.id });
           });
 
-          return {
+          return (nextSession = {
             ...s,
             generatedImages: [...newImages, ...(s.generatedImages || [])],
             detail: {
@@ -125,8 +133,11 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
               lastError: null,
               results: [...resultPairs, ...(prevDetail.results || [])],
             },
-          };
+          });
         });
+        if (nextSession) {
+          void onSessionPersist?.(nextSession);
+        }
 
         successCount += pages.length;
       }
@@ -136,14 +147,20 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
           ? `部分生成失败：${failedTypes.map((item) => `${item.type}（${item.error}）`).join("；")}`
           : null;
 
+      let completedSession: V2Session | null = null;
       updateActiveSession((s) => ({
-        ...s,
-        detail: {
-          ...(s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: false, results: [], lastError: null }),
-          generating: false,
-          lastError: errorMessage,
-        },
+        ...(completedSession = {
+          ...s,
+          detail: {
+            ...(s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: false, results: [], lastError: null }),
+            generating: false,
+            lastError: errorMessage,
+          },
+        }),
       }));
+      if (completedSession) {
+        void onSessionPersist?.(completedSession);
+      }
 
       if (successCount > 0 && failedTypes.length === 0) {
         toast.success(`商详图已生成（${successCount}张）`);
@@ -160,16 +177,22 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "网络错误";
       toast.error("网络错误，请重试");
+      let failedSession: V2Session | null = null;
       updateActiveSession((s) => ({
-        ...s,
-        detail: {
-          ...(s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: false, results: [], lastError: null }),
-          generating: false,
-          lastError: msg,
-        },
+        ...(failedSession = {
+          ...s,
+          detail: {
+            ...(s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: false, results: [], lastError: null }),
+            generating: false,
+            lastError: msg,
+          },
+        }),
       }));
+      if (failedSession) {
+        void onSessionPersist?.(failedSession);
+      }
     }
-  }, [activeSession, updateActiveSession]);
+  }, [activeSession, onSessionPersist, updateActiveSession]);
 
   return { toggleDetailType, handleGenerateDetail };
 }

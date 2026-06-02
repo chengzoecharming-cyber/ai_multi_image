@@ -96,7 +96,11 @@ export function useV2Session() {
   });
 
   // ── Detail generation ──
-  const detailGeneration = useDetailGeneration({ activeSession, updateActiveSession });
+  const detailGeneration = useDetailGeneration({
+    activeSession,
+    updateActiveSession,
+    onSessionPersist: persistence.persistSessionImmediately,
+  });
 
   // ── Override: handleUseTemplate needs updateActiveSession ──
   const handleUseTemplate = useCallback(
