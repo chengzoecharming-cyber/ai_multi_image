@@ -141,13 +141,15 @@ export function useSessionStore(): SessionStoreState {
       // 4. Load from IndexedDB
       const indexedDbSessions = await dexieGetAllSessions();
 
-      // 5. Merge: server V2 > IndexedDB > task history
+      // 5. Merge all sources: server V2 + IndexedDB + task history
       let merged: V2Session[] = [];
       if (serverV2.length > 0) {
         merged = serverV2;
-      } else if (indexedDbSessions.length > 0) {
-        merged = mergeSessionsWithServerHistory(indexedDbSessions, serverHistory);
-      } else if (serverHistory.length > 0) {
+      }
+      if (indexedDbSessions.length > 0) {
+        merged = mergeSessionsWithServerHistory(merged, indexedDbSessions);
+      }
+      if (merged.length === 0 && serverHistory.length > 0) {
         merged = serverHistory;
       }
 
