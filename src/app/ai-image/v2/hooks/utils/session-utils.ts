@@ -150,35 +150,30 @@ export function stripHeavySessionFields(session: V2Session): V2Session {
 export function mergeSessionsWithServerHistory(localSessions: V2Session[], serverSessions: V2Session[]): V2Session[] {
   const merged = new Map<string, V2Session>();
 
+  // 1. server 优先写入（作为 baseline）
   for (const session of serverSessions) {
-    const key = getSessionHistoryKey(session) || session.id;
-    merged.set(key, session);
+    merged.set(session.id, session);
   }
 
+  // 2. local 覆盖或补充（同一 id 时，以 updatedAt 大的为准）
   for (const session of localSessions) {
-    const key = getSessionHistoryKey(session);
-    if (!key) {
-      merged.set(`draft:${session.id}`, session);
-      continue;
-    }
-
-    const existing = merged.get(key);
+    const existing = merged.get(session.id);
     if (!existing) {
-      merged.set(key, session);
+      merged.set(session.id, session);
       continue;
     }
 
     const sessionProductImages = session.productImageUrls ?? [];
     const existingProductImages = existing.productImageUrls ?? [];
-    const mergedProductImages = [...sessionProductImages, ...existingProductImages].filter((url, i, arr) => arr.indexOf(url) === i);
+    const mergedProductImages = [...new Set([...existingProductImages, ...sessionProductImages])];
 
     const sessionRefs = session.referenceImageUrls ?? [];
     const existingRefs = existing.referenceImageUrls ?? [];
-    const mergedRefs = [...new Set([...sessionRefs, ...existingRefs])];
+    const mergedRefs = [...new Set([...existingRefs, ...sessionRefs])];
 
     const sessionDetailImages = session.detail?.detailImageUrls ?? [];
     const existingDetailImages = existing.detail?.detailImageUrls ?? [];
-    const mergedDetailImages = [...sessionDetailImages, ...existingDetailImages].filter((url, i, arr) => arr.indexOf(url) === i);
+    const mergedDetailImages = [...new Set([...existingDetailImages, ...sessionDetailImages])];
 
     const mergedSession: V2Session = {
       ...existing,
@@ -188,13 +183,13 @@ export function mergeSessionsWithServerHistory(localSessions: V2Session[], serve
       referenceImageUrls: mergedRefs,
       goal: (session.goal && session.goal.trim()) ? session.goal : (existing.goal || ""),
       generatedImages:
-        (existing.generatedImages && existing.generatedImages.length > 0)
-          ? existing.generatedImages
-          : (session.generatedImages || []),
+        (session.generatedImages?.length ?? 0) > (existing.generatedImages?.length ?? 0)
+          ? session.generatedImages
+          : existing.generatedImages,
       singlePlans:
-        (session.singlePlans && session.singlePlans.length > 0)
+        (session.singlePlans?.length ?? 0) > (existing.singlePlans?.length ?? 0)
           ? session.singlePlans
-          : (existing.singlePlans || []),
+          : existing.singlePlans,
       detail: {
         ...(session.detail || existing.detail || { selectedTypes: [], generating: false, results: [], lastError: null }),
         detailImageUrls: mergedDetailImages,
@@ -202,7 +197,7 @@ export function mergeSessionsWithServerHistory(localSessions: V2Session[], serve
       },
       updatedAt: Math.max(existing.updatedAt || 0, session.updatedAt || 0),
     };
-    merged.set(key, mergedSession);
+    merged.set(session.id, mergedSession);
   }
 
   return Array.from(merged.values()).sort((a, b) => b.updatedAt - a.updatedAt);

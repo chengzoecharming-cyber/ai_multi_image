@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/ai-image/v2/sessions
-// Upsert: create or overwrite a session and all its children
+// Upsert: update existing session incrementally, never delete-and-recreate
 export async function POST(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -49,44 +49,90 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing session.id" }, { status: 400 });
     }
 
+    const existing = await prisma.aiImageV2Session.findFirst({
+      where: { id: session.id, tenantId, userId },
+      include: { plans: true, images: true, detail: true },
+    });
+
+    const sessionInput = toSessionCreateInput(session, tenantId, userId);
+
     await prisma.$transaction(async (tx) => {
-      // 1. Delete existing children
-      await tx.aiImageV2DetailState.deleteMany({ where: { sessionId: session.id, tenantId, userId } });
-      await tx.aiImageV2Plan.deleteMany({ where: { sessionId: session.id, tenantId, userId } });
-      await tx.aiImageV2GeneratedImage.deleteMany({ where: { sessionId: session.id, tenantId, userId } });
-
-      // 2. Delete existing session
-      await tx.aiImageV2Session.deleteMany({ where: { id: session.id, tenantId, userId } });
-
-      // 3. Recreate session
-      await tx.aiImageV2Session.create({
-        data: toSessionCreateInput(session, tenantId, userId),
-      });
-
-      // 4. Recreate plans
-      if (session.singlePlans?.length) {
-        for (let i = 0; i < session.singlePlans.length; i++) {
-          const plan = session.singlePlans[i];
-          await tx.aiImageV2Plan.create({
-            data: toPlanCreateInput(plan, session.id, tenantId, userId, i),
-          });
-        }
-      }
-
-      // 5. Recreate images
-      if (session.generatedImages?.length) {
-        for (const image of session.generatedImages) {
-          await tx.aiImageV2GeneratedImage.create({
-            data: toImageCreateInput(image, session.id, tenantId, userId),
-          });
-        }
-      }
-
-      // 6. Recreate detail state
-      if (session.detail) {
-        await tx.aiImageV2DetailState.create({
-          data: toDetailStateCreateInput(session.detail, session.id, tenantId, userId),
+      if (existing) {
+        // ── Update session core fields ──
+        await tx.aiImageV2Session.update({
+          where: { id: session.id },
+          data: {
+            title: sessionInput.title,
+            workspaceTab: sessionInput.workspaceTab,
+            mode: sessionInput.mode,
+            step: sessionInput.step,
+            status: sessionInput.status,
+            lastError: sessionInput.lastError,
+            productImageUrls: sessionInput.productImageUrls,
+            activeProductImageIndex: sessionInput.activeProductImageIndex,
+            referenceImageUrls: sessionInput.referenceImageUrls,
+            goal: sessionInput.goal,
+            outputWidth: sessionInput.outputWidth,
+            outputHeight: sessionInput.outputHeight,
+            provider: sessionInput.provider,
+            selectedTemplateId: sessionInput.selectedTemplateId,
+            expandedSingleId: sessionInput.expandedSingleId,
+            editingSingleId: sessionInput.editingSingleId,
+            previewPlanId: sessionInput.previewPlanId,
+            copiedId: sessionInput.copiedId,
+            generatingImage: sessionInput.generatingImage,
+            generatingImagePlanId: sessionInput.generatingImagePlanId,
+            updatedAt: new Date(),
+          },
         });
+
+        // ── Replace plans (source of truth from frontend) ──
+        await tx.aiImageV2Plan.deleteMany({ where: { sessionId: session.id, tenantId, userId } });
+        if (session.singlePlans?.length) {
+          await tx.aiImageV2Plan.createMany({
+            data: session.singlePlans.map((plan, i) => toPlanCreateInput(plan, session.id, tenantId, userId, i)),
+          });
+        }
+
+        // ── Merge images: keep server images + append new ones from client ──
+        const existingImageIds = new Set(existing.images.map((img) => img.id));
+        const newImages = (session.generatedImages || []).filter((img) => !existingImageIds.has(img.id));
+        if (newImages.length > 0) {
+          await tx.aiImageV2GeneratedImage.createMany({
+            data: newImages.map((img) => toImageCreateInput(img, session.id, tenantId, userId)),
+          });
+        }
+
+        // ── Replace detail state (source of truth from frontend) ──
+        if (existing.detail) {
+          await tx.aiImageV2DetailState.deleteMany({ where: { sessionId: session.id, tenantId, userId } });
+        }
+        if (session.detail) {
+          await tx.aiImageV2DetailState.create({
+            data: toDetailStateCreateInput(session.detail, session.id, tenantId, userId),
+          });
+        }
+      } else {
+        // ── Create new session with all children ──
+        await tx.aiImageV2Session.create({ data: sessionInput });
+
+        if (session.singlePlans?.length) {
+          await tx.aiImageV2Plan.createMany({
+            data: session.singlePlans.map((plan, i) => toPlanCreateInput(plan, session.id, tenantId, userId, i)),
+          });
+        }
+
+        if (session.generatedImages?.length) {
+          await tx.aiImageV2GeneratedImage.createMany({
+            data: session.generatedImages.map((img) => toImageCreateInput(img, session.id, tenantId, userId)),
+          });
+        }
+
+        if (session.detail) {
+          await tx.aiImageV2DetailState.create({
+            data: toDetailStateCreateInput(session.detail, session.id, tenantId, userId),
+          });
+        }
       }
     });
 

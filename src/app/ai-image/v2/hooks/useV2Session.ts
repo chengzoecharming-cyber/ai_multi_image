@@ -13,11 +13,8 @@ import { useImageGeneration } from "./useImageGeneration";
 import { useDetailGeneration } from "./useDetailGeneration";
 import { useTemplateLibrary } from "./useTemplateLibrary";
 import { useSessionPersistence } from "./useSessionPersistence";
-import { useSessionIdentity } from "./useSessionIdentity";
 
 export function useV2Session() {
-  const identity = useSessionIdentity();
-
   // ── Core session state ──
   const {
     sessions,
@@ -27,15 +24,15 @@ export function useV2Session() {
     activeSession,
     updateActiveSession,
     isHydrated,
-  } = useSessionStore(identity.tenantId, identity.userId, identity.ownerKey, identity.isReady);
+  } = useSessionStore("default", "default", "default::default", true);
 
   // ── Server sync ──
   const persistence = useSessionPersistence({
     sessions,
-    isHydrated: isHydrated && identity.isReady,
-    tenantId: identity.tenantId,
-    userId: identity.userId,
-    ownerKey: identity.ownerKey,
+    isHydrated,
+    tenantId: "default",
+    userId: "default",
+    ownerKey: "default::default",
   });
 
   // ── Workspace tab (UI state, synced with active session) ──
@@ -190,6 +187,6 @@ export function useV2Session() {
 
     // Hydration flag (for future sync hooks)
     isHydrated,
-    identityReady: identity.isReady,
+    identityReady: true,
   };
 }

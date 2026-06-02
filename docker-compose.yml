@@ -8,6 +8,9 @@ services:
     env_file:
       - .env
     volumes:
+      # 上传的参考图（持久化，避免容器重启丢失）
       - ./public/uploads:/app/public/uploads
+      # 生成的图片（持久化，避免容器重启丢失）
       - ./public/generated:/app/public/generated
+      # SQLite 数据库文件持久化
       - ./prisma:/app/prisma

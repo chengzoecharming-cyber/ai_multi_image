@@ -172,6 +172,10 @@ function resolveUrl(origin: string, maybeUrl: unknown): string | null {
 
 export async function POST(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const tenantId = searchParams.get("tenantId") || "default";
+    const userId = searchParams.get("userId") || "default";
+
     const body = await request.json();
     const {
       heroImageUrl,
@@ -237,8 +241,8 @@ export async function POST(request: NextRequest) {
 
       const task = await prisma.aiImageTask.create({
         data: {
-          tenantId: "default",
-          userId: "default",
+          tenantId,
+          userId,
           promptSnapshot: prompt,
           userPrompt: typeof productDescription === "string" ? productDescription.trim() : null,
           negativePromptSnapshot: negativePrompt,
