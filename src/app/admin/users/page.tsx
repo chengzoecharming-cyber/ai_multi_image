@@ -89,6 +89,7 @@ export default function AdminUsersPage() {
   const [editingCode, setEditingCode] = useState<AuthorizationCodeRow | null>(null);
   const [quotaMax, setQuotaMax] = useState(50);
   const [resetHours, setResetHours] = useState(24);
+  const [batchCount, setBatchCount] = useState(1);
   const [status, setStatus] = useState("normal");
   const [note, setNote] = useState("");
   const [bindEmail, setBindEmail] = useState("");
@@ -131,6 +132,7 @@ export default function AdminUsersPage() {
     setEditingCode(null);
     setQuotaMax(50);
     setResetHours(24);
+    setBatchCount(1);
     setStatus("normal");
     setNote("");
     setBindEmail("");
@@ -161,7 +163,7 @@ export default function AdminUsersPage() {
         const res = await fetch("/api/admin/authorization-codes", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ quotaMax, resetHours, note }),
+          body: JSON.stringify({ quotaMax, resetHours, note, count: batchCount }),
         });
         if (!res.ok) throw new Error("Create failed");
       }
@@ -337,6 +339,13 @@ export default function AdminUsersPage() {
               <Label>配额上限</Label>
               <Input type="number" min={0} value={quotaMax} onChange={(e) => setQuotaMax(Math.max(0, Math.floor(Number(e.target.value) || 0)))} />
             </div>
+            {!editingCode && (
+              <div className="space-y-1.5">
+                <Label>生成数量</Label>
+                <Input type="number" min={1} max={100} value={batchCount} onChange={(e) => setBatchCount(Math.min(100, Math.max(1, Math.floor(Number(e.target.value) || 1))))} />
+                <p className="text-xs text-gray-400">最多一次生成 100 个授权码</p>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label>重置时间（小时）</Label>
               <Input type="number" min={1} value={resetHours} onChange={(e) => setResetHours(Math.max(1, Math.floor(Number(e.target.value) || 1)))} />

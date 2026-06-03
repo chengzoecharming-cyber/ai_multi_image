@@ -9,12 +9,13 @@ function effectiveStatus(status: string, quota: number): string {
   return status;
 }
 
-async function generateUniqueCode(): Promise<string> {
+async function generateUniqueCode(reservedCodes = new Set<string>()): Promise<string> {
   for (let attempt = 0; attempt < 20; attempt++) {
     let code = "";
     for (let i = 0; i < 6; i++) {
       code += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
     }
+    if (reservedCodes.has(code)) continue;
     const exists = await prisma.authorizationCode.findUnique({ where: { code }, select: { id: true } });
     if (!exists) return code;
   }
@@ -92,7 +93,12 @@ export async function POST(request: NextRequest) {
       quotaMax?: number;
       resetHours?: number;
       note?: string;
+      count?: number;
     };
+    const count =
+      typeof body.count === "number" && Number.isFinite(body.count)
+        ? Math.min(100, Math.max(1, Math.floor(body.count)))
+        : 1;
     const quotaMax =
       typeof body.quotaMax === "number" && Number.isFinite(body.quotaMax)
         ? Math.max(0, Math.floor(body.quotaMax))
@@ -101,11 +107,18 @@ export async function POST(request: NextRequest) {
       typeof body.resetHours === "number" && Number.isFinite(body.resetHours)
         ? Math.max(1, Math.floor(body.resetHours))
         : 24;
-    const code = await generateUniqueCode();
     const resetAt = new Date(Date.now() + resetHours * 60 * 60 * 1000);
+    const reservedCodes = new Set<string>();
+    const codes: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const code = await generateUniqueCode(reservedCodes);
+      reservedCodes.add(code);
+      codes.push(code);
+    }
 
-    const created = await prisma.authorizationCode.create({
-      data: {
+    const created = await prisma.$transaction(
+      codes.map((code) => prisma.authorizationCode.create({
+        data: {
         code,
         quota: quotaMax,
         quotaMax,
@@ -117,9 +130,12 @@ export async function POST(request: NextRequest) {
       include: {
         user: { select: { id: true, name: true, email: true, role: true } },
       },
-    });
+      }))
+    );
 
-    return NextResponse.json({ data: { ...created, effectiveStatus: effectiveStatus(created.status, created.quota) } });
+    return NextResponse.json({
+      data: created.map((item) => ({ ...item, effectiveStatus: effectiveStatus(item.status, item.quota) })),
+    });
   } catch (error) {
     console.error("[Admin AuthorizationCodes] POST error:", error);
     return NextResponse.json({ error: "生成授权码失败" }, { status: 500 });

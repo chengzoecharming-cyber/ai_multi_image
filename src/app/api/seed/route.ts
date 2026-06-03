@@ -1,9 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@better-auth/utils/password";
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    const seedSecret = process.env.SEED_SECRET;
+    if (!seedSecret || request.headers.get("x-seed-secret") !== seedSecret) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     // Seed admin user if not exists
     const adminExists = await prisma.user.findUnique({
       where: { email: "admin@example.com" },
