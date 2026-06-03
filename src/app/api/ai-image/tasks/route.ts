@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { auth } from "@/lib/auth";
-
-async function getAuthUserId(request: NextRequest): Promise<string | null> {
-  const session = await auth.api.getSession({ headers: request.headers });
-  return session?.user?.id ?? null;
-}
+import { getAuthScope, scopedTenantUserWhere } from "@/lib/auth-scope";
 
 // GET /api/ai-image/tasks
 export async function GET(request: NextRequest) {
   try {
-    const userId = await getAuthUserId(request);
-    if (!userId) {
+    const scope = await getAuthScope(request);
+    if (!scope) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
     }
     const { searchParams } = new URL(request.url);
@@ -19,7 +14,7 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(searchParams.get("limit") || "10", 10), 50);
     const offset = parseInt(searchParams.get("offset") || "0", 10);
 
-    const where: Record<string, unknown> = { tenantId, userId };
+    const where = scopedTenantUserWhere(scope, tenantId);
 
     const tasks = await prisma.aiImageTask.findMany({
       where,

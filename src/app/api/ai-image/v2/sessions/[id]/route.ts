@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { auth } from "@/lib/auth";
 import { deserializeSession } from "@/lib/v2-serialization";
-
-async function getAuthUserId(request: NextRequest): Promise<string | null> {
-  const session = await auth.api.getSession({ headers: request.headers });
-  return session?.user?.id ?? null;
-}
+import { getAuthScope, scopedTenantUserWhere } from "@/lib/auth-scope";
 
 // GET /api/ai-image/v2/sessions/:id
 export async function GET(
@@ -14,15 +9,15 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = await getAuthUserId(request);
-    if (!userId) {
+    const scope = await getAuthScope(request);
+    if (!scope) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
     }
     const tenantId = "default";
     const { id } = await params;
 
     const row = await prisma.aiImageV2Session.findFirst({
-      where: { id, tenantId, userId },
+      where: { id, ...scopedTenantUserWhere(scope, tenantId) },
       include: { plans: true, images: true, detail: true },
     });
 
@@ -43,15 +38,15 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = await getAuthUserId(request);
-    if (!userId) {
+    const scope = await getAuthScope(request);
+    if (!scope) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
     }
     const tenantId = "default";
     const { id } = await params;
 
     await prisma.aiImageV2Session.deleteMany({
-      where: { id, tenantId, userId },
+      where: { id, ...scopedTenantUserWhere(scope, tenantId) },
     });
 
     return NextResponse.json({ success: true });

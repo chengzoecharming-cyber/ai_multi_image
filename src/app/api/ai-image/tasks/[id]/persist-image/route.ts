@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getAuthScope, scopedTenantUserWhere } from "@/lib/auth-scope";
 import { writeFile, mkdir, access } from "fs/promises";
 import path from "path";
 import crypto from "crypto";
@@ -43,6 +44,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const scope = await getAuthScope(request);
+    if (!scope) {
+      return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
+    const tenantId = "default";
     const { id: taskId } = await params;
     const body = (await request.json()) as { imageUrl?: string };
     const imageUrl = body.imageUrl;
@@ -59,8 +65,8 @@ export async function POST(
     }
 
     // Read current task to get resultImageUrl array
-    const task = await prisma.aiImageTask.findUnique({
-      where: { id: taskId },
+    const task = await prisma.aiImageTask.findFirst({
+      where: { id: taskId, ...scopedTenantUserWhere(scope, tenantId) },
       select: { resultImageUrl: true },
     });
 

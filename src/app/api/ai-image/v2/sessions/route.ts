@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { auth } from "@/lib/auth";
 import type { V2Session } from "@/app/ai-image/v2/types";
+import { getAuthScope, scopedTenantUserWhere } from "@/lib/auth-scope";
 import {
   deserializeSession,
   toSessionCreateInput,
@@ -9,11 +9,6 @@ import {
   toImageCreateInput,
   toDetailStateCreateInput,
 } from "@/lib/v2-serialization";
-
-async function getAuthUserId(request: NextRequest): Promise<string | null> {
-  const session = await auth.api.getSession({ headers: request.headers });
-  return session?.user?.id ?? null;
-}
 
 function isUniqueConstraintError(error: unknown): error is { code: "P2002" } {
   return (
@@ -53,8 +48,8 @@ function toSessionUpdateData(sessionInput: ReturnType<typeof toSessionCreateInpu
 // GET /api/ai-image/v2/sessions
 export async function GET(request: NextRequest) {
   try {
-    const userId = await getAuthUserId(request);
-    if (!userId) {
+    const scope = await getAuthScope(request);
+    if (!scope) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
     }
     const { searchParams } = new URL(request.url);
@@ -63,7 +58,7 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get("offset") || "0");
 
     const rows = await prisma.aiImageV2Session.findMany({
-      where: { tenantId, userId },
+      where: scopedTenantUserWhere(scope, tenantId),
       include: { plans: true, images: true, detail: true },
       orderBy: { updatedAt: "desc" },
       take: limit,
@@ -83,8 +78,8 @@ export async function GET(request: NextRequest) {
 // Upsert: update existing session incrementally, never delete-and-recreate
 export async function POST(request: NextRequest) {
   try {
-    const userId = await getAuthUserId(request);
-    if (!userId) {
+    const scope = await getAuthScope(request);
+    if (!scope) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
     }
     const tenantId = "default";
@@ -100,7 +95,18 @@ export async function POST(request: NextRequest) {
       select: { userId: true, tenantId: true },
     });
 
-    if (existingById && (existingById.userId !== userId || existingById.tenantId !== tenantId)) {
+    if (
+      existingById &&
+      !scope.isAdmin &&
+      (existingById.userId !== scope.userId || existingById.tenantId !== tenantId)
+    ) {
+      return NextResponse.json(
+        { error: "Session id conflict", code: "SESSION_ID_CONFLICT" },
+        { status: 409 }
+      );
+    }
+
+    if (existingById && existingById.tenantId !== tenantId) {
       return NextResponse.json(
         { error: "Session id conflict", code: "SESSION_ID_CONFLICT" },
         { status: 409 }
@@ -109,12 +115,13 @@ export async function POST(request: NextRequest) {
 
     const existing = existingById
       ? await prisma.aiImageV2Session.findFirst({
-          where: { id: session.id, tenantId, userId },
+          where: { id: session.id, ...scopedTenantUserWhere(scope, tenantId) },
           include: { plans: true, images: true, detail: true },
         })
       : null;
 
-    const sessionInput = toSessionCreateInput(session, tenantId, userId);
+    const ownerUserId = existingById?.userId ?? scope.userId;
+    const sessionInput = toSessionCreateInput(session, tenantId, ownerUserId);
 
     await prisma.$transaction(async (tx) => {
       if (existing) {
@@ -125,10 +132,10 @@ export async function POST(request: NextRequest) {
         });
 
         // ── Replace plans (source of truth from frontend) ──
-        await tx.aiImageV2Plan.deleteMany({ where: { sessionId: session.id, tenantId, userId } });
+        await tx.aiImageV2Plan.deleteMany({ where: { sessionId: session.id, tenantId, userId: ownerUserId } });
         if (session.singlePlans?.length) {
           await tx.aiImageV2Plan.createMany({
-            data: session.singlePlans.map((plan, i) => toPlanCreateInput(plan, session.id, tenantId, userId, i)),
+            data: session.singlePlans.map((plan, i) => toPlanCreateInput(plan, session.id, tenantId, ownerUserId, i)),
           });
         }
 
@@ -137,17 +144,17 @@ export async function POST(request: NextRequest) {
         const newImages = (session.generatedImages || []).filter((img) => !existingImageIds.has(img.id));
         if (newImages.length > 0) {
           await tx.aiImageV2GeneratedImage.createMany({
-            data: newImages.map((img) => toImageCreateInput(img, session.id, tenantId, userId)),
+            data: newImages.map((img) => toImageCreateInput(img, session.id, tenantId, ownerUserId)),
           });
         }
 
         // ── Replace detail state (source of truth from frontend) ──
         if (existing.detail) {
-          await tx.aiImageV2DetailState.deleteMany({ where: { sessionId: session.id, tenantId, userId } });
+          await tx.aiImageV2DetailState.deleteMany({ where: { sessionId: session.id, tenantId, userId: ownerUserId } });
         }
         if (session.detail) {
           await tx.aiImageV2DetailState.create({
-            data: toDetailStateCreateInput(session.detail, session.id, tenantId, userId),
+            data: toDetailStateCreateInput(session.detail, session.id, tenantId, ownerUserId),
           });
         }
       } else {
@@ -165,7 +172,7 @@ export async function POST(request: NextRequest) {
             select: { userId: true, tenantId: true },
           });
 
-          if (!conflict || conflict.userId !== userId || conflict.tenantId !== tenantId) {
+          if (!conflict || conflict.userId !== ownerUserId || conflict.tenantId !== tenantId) {
             throw error;
           }
 
@@ -177,26 +184,26 @@ export async function POST(request: NextRequest) {
         }
 
         if (createCollidedWithSameUser) {
-          await tx.aiImageV2Plan.deleteMany({ where: { sessionId: session.id, tenantId, userId } });
-          await tx.aiImageV2GeneratedImage.deleteMany({ where: { sessionId: session.id, tenantId, userId } });
-          await tx.aiImageV2DetailState.deleteMany({ where: { sessionId: session.id, tenantId, userId } });
+          await tx.aiImageV2Plan.deleteMany({ where: { sessionId: session.id, tenantId, userId: ownerUserId } });
+          await tx.aiImageV2GeneratedImage.deleteMany({ where: { sessionId: session.id, tenantId, userId: ownerUserId } });
+          await tx.aiImageV2DetailState.deleteMany({ where: { sessionId: session.id, tenantId, userId: ownerUserId } });
         }
 
         if (session.singlePlans?.length) {
           await tx.aiImageV2Plan.createMany({
-            data: session.singlePlans.map((plan, i) => toPlanCreateInput(plan, session.id, tenantId, userId, i)),
+            data: session.singlePlans.map((plan, i) => toPlanCreateInput(plan, session.id, tenantId, ownerUserId, i)),
           });
         }
 
         if (session.generatedImages?.length) {
           await tx.aiImageV2GeneratedImage.createMany({
-            data: session.generatedImages.map((img) => toImageCreateInput(img, session.id, tenantId, userId)),
+            data: session.generatedImages.map((img) => toImageCreateInput(img, session.id, tenantId, ownerUserId)),
           });
         }
 
         if (session.detail) {
           await tx.aiImageV2DetailState.create({
-            data: toDetailStateCreateInput(session.detail, session.id, tenantId, userId),
+            data: toDetailStateCreateInput(session.detail, session.id, tenantId, ownerUserId),
           });
         }
       }
