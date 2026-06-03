@@ -1,15 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { auth } from "@/lib/auth";
+
+async function getAuthUserId(request: NextRequest): Promise<string | null> {
+  const session = await auth.api.getSession({ headers: request.headers });
+  return session?.user?.id ?? null;
+}
 
 // GET /api/ai-image/prompt-groups/:id
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const userId = await getAuthUserId(request);
+    if (!userId) {
+      return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
+    const tenantId = "default";
     const { id } = await params;
-    const group = await prisma.aiPromptGroup.findUnique({
-      where: { id },
+    const group = await prisma.aiPromptGroup.findFirst({
+      where: { id, tenantId, userId },
       include: {
         references: {
           orderBy: { sortOrder: "asc" },
@@ -34,6 +45,11 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const userId = await getAuthUserId(request);
+    if (!userId) {
+      return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
+    const tenantId = "default";
     const { id } = await params;
     const body = await request.json();
     const {
@@ -106,12 +122,17 @@ export async function PUT(
 
 // DELETE /api/ai-image/prompt-groups/:id
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const userId = await getAuthUserId(request);
+    if (!userId) {
+      return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
+    const tenantId = "default";
     const { id } = await params;
-    await prisma.aiPromptGroup.delete({ where: { id } });
+    await prisma.aiPromptGroup.deleteMany({ where: { id, tenantId, userId } });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Failed to delete prompt group:", error);

@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getImageProvider } from "@/lib/image-providers";
 import { persistGeneratedImage } from "@/lib/image-persist";
 import { prisma } from "@/lib/db";
+import { auth } from "@/lib/auth";
+import { checkAndResetQuota, deductQuota, quotaErrorMessage } from "@/lib/quota";
 import type { CreativePlan } from "@/app/ai-image/v2/types";
+
+async function getAuthUserId(request: NextRequest): Promise<string | null> {
+  const session = await auth.api.getSession({ headers: request.headers });
+  return session?.user?.id ?? null;
+}
 
 type DetailType = "detail" | "multi_angle" | "lifestyle" | "feature" | "comparison" | "spec";
 
@@ -172,9 +179,20 @@ function resolveUrl(origin: string, maybeUrl: unknown): string | null {
 
 export async function POST(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const tenantId = searchParams.get("tenantId") || "default";
-    const userId = searchParams.get("userId") || "default";
+    const userId = await getAuthUserId(request);
+    if (!userId) {
+      return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
+    const tenantId = "default";
+
+    // 配额检查（将在解析 selectedTypes 后扣除对应数量）
+    const quotaCheck = await checkAndResetQuota(userId);
+    if (!quotaCheck.ok) {
+      return NextResponse.json(
+        { error: quotaErrorMessage(quotaCheck.hoursUntilReset), code: "QUOTA_EXHAUSTED" },
+        { status: 429 }
+      );
+    }
 
     const body = await request.json();
     const {
@@ -215,6 +233,14 @@ export async function POST(request: NextRequest) {
       : [];
     if (types.length === 0) {
       return NextResponse.json({ error: "selectedTypes 不能为空" }, { status: 400 });
+    }
+
+    // 检查剩余配额是否足够生成所选类别数量
+    if (quotaCheck.remaining < types.length) {
+      return NextResponse.json(
+        { error: quotaErrorMessage(quotaCheck.hoursUntilReset), code: "QUOTA_EXHAUSTED" },
+        { status: 429 }
+      );
     }
 
     const width = Number.isFinite(Number(output?.width)) ? Number(output?.width) : 1024;
@@ -322,7 +348,10 @@ export async function POST(request: NextRequest) {
       index++;
     }
 
-    return NextResponse.json({ pages });
+    // 扣除配额（按选择的类别数量）
+    const remainingQuota = await deductQuota(userId, types.length);
+
+    return NextResponse.json({ pages, remainingQuota });
   } catch (error) {
     console.error("[v2/detail/generate] Failed:", error);
     return NextResponse.json({ error: "生成失败" }, { status: 500 });

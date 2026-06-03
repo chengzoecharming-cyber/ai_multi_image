@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { auth } from "@/lib/auth";
 import type { V2Session } from "@/app/ai-image/v2/types";
 import {
   deserializeSession,
@@ -9,12 +10,20 @@ import {
   toDetailStateCreateInput,
 } from "@/lib/v2-serialization";
 
+async function getAuthUserId(request: NextRequest): Promise<string | null> {
+  const session = await auth.api.getSession({ headers: request.headers });
+  return session?.user?.id ?? null;
+}
+
 // GET /api/ai-image/v2/sessions
 export async function GET(request: NextRequest) {
   try {
+    const userId = await getAuthUserId(request);
+    if (!userId) {
+      return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
     const { searchParams } = new URL(request.url);
-    const tenantId = searchParams.get("tenantId") || "default";
-    const userId = searchParams.get("userId") || "default";
+    const tenantId = "default";
     const limit = parseInt(searchParams.get("limit") || "100");
     const offset = parseInt(searchParams.get("offset") || "0");
 
@@ -39,9 +48,11 @@ export async function GET(request: NextRequest) {
 // Upsert: update existing session incrementally, never delete-and-recreate
 export async function POST(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const tenantId = searchParams.get("tenantId") || "default";
-    const userId = searchParams.get("userId") || "default";
+    const userId = await getAuthUserId(request);
+    if (!userId) {
+      return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
+    const tenantId = "default";
 
     const body = (await request.json()) as { session: V2Session };
     const session = body.session;

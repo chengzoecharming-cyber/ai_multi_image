@@ -1,16 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { auth } from "@/lib/auth";
+
+async function getAuthUserId(request: NextRequest): Promise<string | null> {
+  const session = await auth.api.getSession({ headers: request.headers });
+  return session?.user?.id ?? null;
+}
 
 // POST /api/ai-image/prompt-groups/:id/duplicate
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const userId = await getAuthUserId(request);
+    if (!userId) {
+      return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
+    const tenantId = "default";
     const { id } = await params;
 
-    const original = await prisma.aiPromptGroup.findUnique({
-      where: { id },
+    const original = await prisma.aiPromptGroup.findFirst({
+      where: { id, tenantId, userId },
       include: {
         references: {
           orderBy: { sortOrder: "asc" },
@@ -24,8 +35,8 @@ export async function POST(
 
     const duplicated = await prisma.aiPromptGroup.create({
       data: {
-        tenantId: original.tenantId,
-        userId: original.userId,
+        tenantId,
+        userId,
         name: `${original.name} (复制)`,
         promptContent: original.promptContent,
         negativePrompt: original.negativePrompt,

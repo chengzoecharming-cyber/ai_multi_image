@@ -13,8 +13,15 @@ import { useImageGeneration } from "./useImageGeneration";
 import { useDetailGeneration } from "./useDetailGeneration";
 import { useTemplateLibrary } from "./useTemplateLibrary";
 import { useSessionPersistence } from "./useSessionPersistence";
+import { useSession } from "@/lib/auth-client";
 
 export function useV2Session() {
+  const { data: session, isPending } = useSession();
+  const tenantId = "default";
+  const userId = session?.user?.id ?? "";
+  const ownerKey = userId ? `${tenantId}::${userId}` : "";
+  const identityReady = !isPending && !!userId;
+
   // ── Core session state ──
   const {
     sessions,
@@ -24,15 +31,15 @@ export function useV2Session() {
     activeSession,
     updateActiveSession,
     isHydrated,
-  } = useSessionStore("default", "default", "default::default", true);
+  } = useSessionStore(tenantId, userId, ownerKey, identityReady);
 
   // ── Server sync ──
   const persistence = useSessionPersistence({
     sessions,
     isHydrated,
-    tenantId: "default",
-    userId: "default",
-    ownerKey: "default::default",
+    tenantId,
+    userId,
+    ownerKey,
   });
 
   // ── Workspace tab (UI state, synced with active session) ──

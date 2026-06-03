@@ -113,7 +113,7 @@ export function useSessionPersistence(options: UseSessionPersistenceOptions): Pe
   const pullFromServer = useCallback(async (): Promise<V2Session[]> => {
     try {
       const res = await fetch(
-        `/api/ai-image/v2/sessions?tenantId=${encodeURIComponent(tenantId)}&userId=${encodeURIComponent(userId)}&limit=100`
+        `/api/ai-image/v2/sessions?limit=100`
       );
       if (!res.ok) return [];
       const json = (await res.json()) as { data?: V2Session[] };
@@ -133,7 +133,7 @@ export function useSessionPersistence(options: UseSessionPersistenceOptions): Pe
     async (id: string) => {
       try {
         await fetch(
-          `/api/ai-image/v2/sessions/${id}?tenantId=${encodeURIComponent(tenantId)}&userId=${encodeURIComponent(userId)}`,
+          `/api/ai-image/v2/sessions/${id}`,
           { method: "DELETE" }
         );
         await dexieDeleteSession(id, ownerKey);
@@ -141,7 +141,7 @@ export function useSessionPersistence(options: UseSessionPersistenceOptions): Pe
         console.error("[useSessionPersistence] Delete failed:", e);
       }
     },
-    [ownerKey, tenantId, userId]
+    [ownerKey]
   );
 
   return { syncNow, pushToServer, persistSessionImmediately, pullFromServer, deleteFromServer };
@@ -167,7 +167,7 @@ export async function hydrateSessions(
   // 2. Try server first
   try {
     const res = await fetch(
-      `/api/ai-image/v2/sessions?tenantId=${encodeURIComponent(tenantId)}&userId=${encodeURIComponent(userId)}&limit=100`
+      `/api/ai-image/v2/sessions?limit=100`
     );
     if (res.ok) {
       const json = (await res.json()) as { data?: V2Session[] };
@@ -206,9 +206,9 @@ export async function hydrateSessions(
 // Internal
 // ============================================================
 
-async function postSessionToServer(session: V2Session, tenantId: string, userId: string): Promise<void> {
+async function postSessionToServer(session: V2Session, _tenantId: string, _userId: string): Promise<void> {
   const res = await fetch(
-    `/api/ai-image/v2/sessions?tenantId=${encodeURIComponent(tenantId)}&userId=${encodeURIComponent(userId)}`,
+    `/api/ai-image/v2/sessions`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },

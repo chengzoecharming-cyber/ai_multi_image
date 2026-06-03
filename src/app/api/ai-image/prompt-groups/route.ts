@@ -1,13 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { auth } from "@/lib/auth";
+
+async function getAuthUserId(request: NextRequest): Promise<string | null> {
+  const session = await auth.api.getSession({ headers: request.headers });
+  return session?.user?.id ?? null;
+}
 
 // GET /api/ai-image/prompt-groups
 export async function GET(request: NextRequest) {
   try {
+    const userId = await getAuthUserId(request);
+    if (!userId) {
+      return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search");
-    const tenantId = searchParams.get("tenantId") || "default";
-    const userId = searchParams.get("userId") || "default";
+    const tenantId = "default";
 
     const where: {
       tenantId: string;
@@ -37,6 +46,11 @@ export async function GET(request: NextRequest) {
 // POST /api/ai-image/prompt-groups
 export async function POST(request: NextRequest) {
   try {
+    const userId = await getAuthUserId(request);
+    if (!userId) {
+      return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
+    const tenantId = "default";
     const body = await request.json();
     const {
       name,
@@ -48,8 +62,6 @@ export async function POST(request: NextRequest) {
       remark,
       coverImageUrl,
       references,
-      tenantId = "default",
-      userId = "default",
     } = body;
 
     if (!name?.trim()) {

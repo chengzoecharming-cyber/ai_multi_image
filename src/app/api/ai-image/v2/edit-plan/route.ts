@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import type { CreativePlan } from "@/app/ai-image/v2/types";
 import {
   buildPlanBriefFromSystemTemplate,
@@ -6,6 +7,11 @@ import {
 } from "@/app/ai-image/v2/domain/plan-brief";
 import { buildPromptFromBrief } from "../plan/lib/brief-prompt-builder";
 import { LLM_API_URL, LLM_MODEL } from "../plan/lib/llm-client";
+
+async function getAuthUserId(request: NextRequest): Promise<string | null> {
+  const session = await auth.api.getSession({ headers: request.headers });
+  return session?.user?.id ?? null;
+}
 
 interface EditPlanRequest {
   plan: CreativePlan;
@@ -18,6 +24,10 @@ function safeTrim(s: unknown): string {
 
 export async function POST(request: NextRequest) {
   try {
+    const userId = await getAuthUserId(request);
+    if (!userId) {
+      return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
     const body = (await request.json()) as EditPlanRequest;
     const instruction = safeTrim(body.instruction);
     const plan = body.plan as CreativePlan | undefined;

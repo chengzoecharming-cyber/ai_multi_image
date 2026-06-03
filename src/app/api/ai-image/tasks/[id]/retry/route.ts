@@ -1,17 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { auth } from "@/lib/auth";
 import { getImageProvider } from "@/lib/image-providers";
+import { checkAndResetQuota, deductQuota, quotaErrorMessage } from "@/lib/quota";
+
+async function getAuthUserId(request: NextRequest): Promise<string | null> {
+  const session = await auth.api.getSession({ headers: request.headers });
+  return session?.user?.id ?? null;
+}
 
 // POST /api/ai-image/tasks/:id/retry
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const userId = await getAuthUserId(request);
+    if (!userId) {
+      return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
+    const tenantId = "default";
+
+    // 配额检查
+    const quotaCheck = await checkAndResetQuota(userId);
+    if (!quotaCheck.ok) {
+      return NextResponse.json(
+        { error: quotaErrorMessage(quotaCheck.hoursUntilReset), code: "QUOTA_EXHAUSTED" },
+        { status: 429 }
+      );
+    }
+
     const { id } = await params;
 
-    const task = await prisma.aiImageTask.findUnique({
-      where: { id },
+    const task = await prisma.aiImageTask.findFirst({
+      where: { id, tenantId, userId },
     });
 
     if (!task) {
@@ -68,6 +90,9 @@ export async function POST(
     }
 
     if (imageUrls.length > 0) {
+      // 扣除配额（重试 = 1 张）
+      const remainingQuota = await deductQuota(userId, 1);
+
       const updatedTask = await prisma.aiImageTask.update({
         where: { id },
         data: {
@@ -75,7 +100,7 @@ export async function POST(
           resultImageUrl: JSON.stringify(imageUrls),
         },
       });
-      return NextResponse.json({ data: updatedTask });
+      return NextResponse.json({ data: updatedTask, remainingQuota });
     } else {
       const updatedTask = await prisma.aiImageTask.update({
         where: { id },

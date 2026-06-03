@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import type { CreativePlan, PlanArchetype } from "@/app/ai-image/v2/types";
 import { imageUrlToBase64 } from "./lib/image-utils";
 import { callLLM } from "./lib/llm-client";
@@ -13,6 +14,11 @@ import {
   type PlanBrief,
 } from "@/app/ai-image/v2/domain/plan-brief";
 import { buildPromptFromBrief } from "./lib/brief-prompt-builder";
+
+async function getAuthUserId(request: NextRequest): Promise<string | null> {
+  const session = await auth.api.getSession({ headers: request.headers });
+  return session?.user?.id ?? null;
+}
 
 interface PlanRequest {
   mode: "single";
@@ -81,6 +87,10 @@ function ensurePlanSkeleton(plans: CreativePlan[]): CreativePlan[] {
 
 export async function POST(request: NextRequest) {
   try {
+    const userId = await getAuthUserId(request);
+    if (!userId) {
+      return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
     const body = (await request.json()) as PlanRequest;
     const requestId =
       body.clientRequestId?.trim() ||

@@ -1,20 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { auth } from "@/lib/auth";
+
+async function getAuthUserId(request: NextRequest): Promise<string | null> {
+  const session = await auth.api.getSession({ headers: request.headers });
+  return session?.user?.id ?? null;
+}
 
 // GET /api/ai-image/tasks
 export async function GET(request: NextRequest) {
   try {
+    const userId = await getAuthUserId(request);
+    if (!userId) {
+      return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
     const { searchParams } = new URL(request.url);
-    const tenantId = searchParams.get("tenantId");
-    const userId = searchParams.get("userId");
+    const tenantId = "default";
     const limit = Math.min(parseInt(searchParams.get("limit") || "10", 10), 50);
     const offset = parseInt(searchParams.get("offset") || "0", 10);
 
-    // Build where clause: if tenantId/userId provided, filter by them;
-    // otherwise return ALL tasks so the image library shows the full history.
-    const where: Record<string, unknown> = {};
-    if (tenantId) where.tenantId = tenantId;
-    if (userId) where.userId = userId;
+    const where: Record<string, unknown> = { tenantId, userId };
 
     const tasks = await prisma.aiImageTask.findMany({
       where,

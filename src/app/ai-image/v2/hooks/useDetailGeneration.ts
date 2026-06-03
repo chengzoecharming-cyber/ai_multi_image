@@ -87,7 +87,13 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
 
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          failedTypes.push({ type: currentType, error: data?.error || "生成失败" });
+          const errMsg = data?.error || "生成失败";
+          if (res.status === 429 && data.code === "QUOTA_EXHAUSTED") {
+            toast.error(errMsg);
+            failedTypes.push({ type: currentType, error: errMsg });
+            break; // 配额耗尽，停止继续生成
+          }
+          failedTypes.push({ type: currentType, error: errMsg });
           continue;
         }
 

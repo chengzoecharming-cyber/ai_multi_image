@@ -1,15 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { auth } from "@/lib/auth";
+
+async function getAuthUserId(request: NextRequest): Promise<string | null> {
+  const session = await auth.api.getSession({ headers: request.headers });
+  return session?.user?.id ?? null;
+}
 
 // GET /api/ai-image/tasks/:id
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const userId = await getAuthUserId(request);
+    if (!userId) {
+      return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
+    const tenantId = "default";
     const { id } = await params;
-    const task = await prisma.aiImageTask.findUnique({
-      where: { id },
+    const task = await prisma.aiImageTask.findFirst({
+      where: { id, tenantId, userId },
       include: {
         promptGroup: true,
       },
@@ -28,13 +39,18 @@ export async function GET(
 
 // DELETE /api/ai-image/tasks/:id
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const userId = await getAuthUserId(request);
+    if (!userId) {
+      return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
+    const tenantId = "default";
     const { id } = await params;
-    await prisma.aiImageTask.delete({
-      where: { id },
+    await prisma.aiImageTask.deleteMany({
+      where: { id, tenantId, userId },
     });
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -112,7 +112,11 @@ export function useImageGeneration(options: UseImageGenerationOptions): ImageGen
           }
           toast.success("图片生成成功");
         } else {
-          toast.error(data.error || "生成失败");
+          if (res.status === 429 && data.code === "QUOTA_EXHAUSTED") {
+            toast.error(data.error || "配额已耗尽");
+          } else {
+            toast.error(data.error || "生成失败");
+          }
           updateActiveSession((s) => ({
             ...s,
             generatingImage: false,
