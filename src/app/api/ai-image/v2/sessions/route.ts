@@ -15,6 +15,41 @@ async function getAuthUserId(request: NextRequest): Promise<string | null> {
   return session?.user?.id ?? null;
 }
 
+function isUniqueConstraintError(error: unknown): error is { code: "P2002" } {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: string }).code === "P2002"
+  );
+}
+
+function toSessionUpdateData(sessionInput: ReturnType<typeof toSessionCreateInput>) {
+  return {
+    title: sessionInput.title,
+    workspaceTab: sessionInput.workspaceTab,
+    mode: sessionInput.mode,
+    step: sessionInput.step,
+    status: sessionInput.status,
+    lastError: sessionInput.lastError,
+    productImageUrls: sessionInput.productImageUrls,
+    activeProductImageIndex: sessionInput.activeProductImageIndex,
+    referenceImageUrls: sessionInput.referenceImageUrls,
+    goal: sessionInput.goal,
+    outputWidth: sessionInput.outputWidth,
+    outputHeight: sessionInput.outputHeight,
+    provider: sessionInput.provider,
+    selectedTemplateId: sessionInput.selectedTemplateId,
+    expandedSingleId: sessionInput.expandedSingleId,
+    editingSingleId: sessionInput.editingSingleId,
+    previewPlanId: sessionInput.previewPlanId,
+    copiedId: sessionInput.copiedId,
+    generatingImage: sessionInput.generatingImage,
+    generatingImagePlanId: sessionInput.generatingImagePlanId,
+    updatedAt: new Date(),
+  };
+}
+
 // GET /api/ai-image/v2/sessions
 export async function GET(request: NextRequest) {
   try {
@@ -60,10 +95,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing session.id" }, { status: 400 });
     }
 
-    const existing = await prisma.aiImageV2Session.findFirst({
-      where: { id: session.id, tenantId, userId },
-      include: { plans: true, images: true, detail: true },
+    const existingById = await prisma.aiImageV2Session.findUnique({
+      where: { id: session.id },
+      select: { userId: true, tenantId: true },
     });
+
+    if (existingById && (existingById.userId !== userId || existingById.tenantId !== tenantId)) {
+      return NextResponse.json(
+        { error: "Session id conflict", code: "SESSION_ID_CONFLICT" },
+        { status: 409 }
+      );
+    }
+
+    const existing = existingById
+      ? await prisma.aiImageV2Session.findFirst({
+          where: { id: session.id, tenantId, userId },
+          include: { plans: true, images: true, detail: true },
+        })
+      : null;
 
     const sessionInput = toSessionCreateInput(session, tenantId, userId);
 
@@ -72,29 +121,7 @@ export async function POST(request: NextRequest) {
         // ── Update session core fields ──
         await tx.aiImageV2Session.update({
           where: { id: session.id },
-          data: {
-            title: sessionInput.title,
-            workspaceTab: sessionInput.workspaceTab,
-            mode: sessionInput.mode,
-            step: sessionInput.step,
-            status: sessionInput.status,
-            lastError: sessionInput.lastError,
-            productImageUrls: sessionInput.productImageUrls,
-            activeProductImageIndex: sessionInput.activeProductImageIndex,
-            referenceImageUrls: sessionInput.referenceImageUrls,
-            goal: sessionInput.goal,
-            outputWidth: sessionInput.outputWidth,
-            outputHeight: sessionInput.outputHeight,
-            provider: sessionInput.provider,
-            selectedTemplateId: sessionInput.selectedTemplateId,
-            expandedSingleId: sessionInput.expandedSingleId,
-            editingSingleId: sessionInput.editingSingleId,
-            previewPlanId: sessionInput.previewPlanId,
-            copiedId: sessionInput.copiedId,
-            generatingImage: sessionInput.generatingImage,
-            generatingImagePlanId: sessionInput.generatingImagePlanId,
-            updatedAt: new Date(),
-          },
+          data: toSessionUpdateData(sessionInput),
         });
 
         // ── Replace plans (source of truth from frontend) ──
@@ -125,7 +152,35 @@ export async function POST(request: NextRequest) {
         }
       } else {
         // ── Create new session with all children ──
-        await tx.aiImageV2Session.create({ data: sessionInput });
+        let createCollidedWithSameUser = false;
+        try {
+          await tx.aiImageV2Session.create({ data: sessionInput });
+        } catch (error) {
+          if (!isUniqueConstraintError(error)) {
+            throw error;
+          }
+
+          const conflict = await tx.aiImageV2Session.findUnique({
+            where: { id: session.id },
+            select: { userId: true, tenantId: true },
+          });
+
+          if (!conflict || conflict.userId !== userId || conflict.tenantId !== tenantId) {
+            throw error;
+          }
+
+          await tx.aiImageV2Session.update({
+            where: { id: session.id },
+            data: toSessionUpdateData(sessionInput),
+          });
+          createCollidedWithSameUser = true;
+        }
+
+        if (createCollidedWithSameUser) {
+          await tx.aiImageV2Plan.deleteMany({ where: { sessionId: session.id, tenantId, userId } });
+          await tx.aiImageV2GeneratedImage.deleteMany({ where: { sessionId: session.id, tenantId, userId } });
+          await tx.aiImageV2DetailState.deleteMany({ where: { sessionId: session.id, tenantId, userId } });
+        }
 
         if (session.singlePlans?.length) {
           await tx.aiImageV2Plan.createMany({
