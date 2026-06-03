@@ -1,8 +1,36 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { hashPassword } from "@better-auth/utils/password";
 
 export async function POST() {
   try {
+    // Seed admin user if not exists
+    const adminExists = await prisma.user.findUnique({
+      where: { email: "admin@example.com" },
+    });
+    if (!adminExists) {
+      const hashed = await hashPassword("adminpass123");
+      const user = await prisma.user.create({
+        data: {
+          name: "Admin",
+          email: "admin@example.com",
+          emailVerified: true,
+          role: "admin",
+          imageQuota: 9999,
+          imageQuotaMax: 9999,
+          quotaResetHours: 24,
+        },
+      });
+      await prisma.account.create({
+        data: {
+          userId: user.id,
+          accountId: user.id,
+          providerId: "credential",
+          password: hashed,
+        },
+      });
+    }
+
     // Seed demo templates if they don't already exist
     const templates = [
       {
