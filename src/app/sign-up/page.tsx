@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Sparkles, Loader2 } from "lucide-react";
-import { signUp } from "@/lib/auth-client";
+import { signIn } from "@/lib/auth-client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -16,10 +16,15 @@ export default function SignUpPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
+  const [authorizationCode, setAuthorizationCode] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!authorizationCode.trim()) {
+      toast.error("请输入授权码");
+      return;
+    }
     if (!email.trim() || !password.trim()) {
       toast.error("请填写邮箱和密码");
       return;
@@ -34,25 +39,55 @@ export default function SignUpPage() {
     }
     setLoading(true);
     try {
-      const result = await signUp.email({
+      const signupRes = await fetch("/api/auth-code/sign-up", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          authorizationCode: authorizationCode.trim(),
+          email: email.trim(),
+          password,
+          name: name.trim(),
+        }),
+      });
+      if (!signupRes.ok) {
+        const data = (await signupRes.json().catch(() => ({}))) as { error?: string };
+        toast.error(data.error || "注册失败");
+        return;
+      }
+
+      const result = await signIn.email({
         email: email.trim(),
         password,
-        name: name.trim() || undefined as unknown as string,
         callbackURL: "/ai-image/v2",
       });
       if (result.error) {
-        toast.error(result.error.message || "注册失败");
+        toast.error(result.error.message || "注册成功，请返回登录页登录");
+        router.push("/sign-in");
+        return;
       } else {
-        toast.success("注册成功，已自动登录");
-        router.push("/ai-image/v2");
-        router.refresh();
+        await activateCode(authorizationCode.trim());
       }
+      toast.success("注册成功，已自动登录");
+      router.push("/ai-image/v2");
+      router.refresh();
     } catch (err) {
       toast.error("注册失败");
     } finally {
       setLoading(false);
     }
   };
+
+  async function activateCode(code: string): Promise<void> {
+    const res = await fetch("/api/auth-code/activate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ authorizationCode: code }),
+    });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(data.error || "授权码激活失败");
+    }
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F6F8FC]">
@@ -66,6 +101,17 @@ export default function SignUpPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="authorizationCode">授权码</Label>
+            <Input
+              id="authorizationCode"
+              type="text"
+              placeholder="6位授权码"
+              value={authorizationCode}
+              onChange={(e) => setAuthorizationCode(e.target.value.toUpperCase().slice(0, 6))}
+              required
+            />
+          </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="name">昵称（可选）</Label>
             <Input

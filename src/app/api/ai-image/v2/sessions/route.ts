@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import type { V2Session } from "@/app/ai-image/v2/types";
-import { getAuthScope, scopedTenantUserWhere } from "@/lib/auth-scope";
+import { getAuthScope, requireActiveAuthorizationCode, scopedTenantUserWhere } from "@/lib/auth-scope";
 import {
   deserializeSession,
   toSessionCreateInput,
@@ -21,6 +21,7 @@ function isUniqueConstraintError(error: unknown): error is { code: "P2002" } {
 
 function toSessionUpdateData(sessionInput: ReturnType<typeof toSessionCreateInput>) {
   return {
+    authorizationCodeId: sessionInput.authorizationCodeId,
     title: sessionInput.title,
     workspaceTab: sessionInput.workspaceTab,
     mode: sessionInput.mode,
@@ -52,6 +53,10 @@ export async function GET(request: NextRequest) {
     if (!scope) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
     }
+    const activeCode = requireActiveAuthorizationCode(scope);
+    if (!activeCode.ok) {
+      return NextResponse.json({ error: activeCode.error }, { status: activeCode.status });
+    }
     const { searchParams } = new URL(request.url);
     const tenantId = "default";
     const limit = parseInt(searchParams.get("limit") || "100");
@@ -59,7 +64,7 @@ export async function GET(request: NextRequest) {
 
     const rows = await prisma.aiImageV2Session.findMany({
       where: scopedTenantUserWhere(scope, tenantId),
-      include: { plans: true, images: true, detail: true },
+      include: { plans: true, images: true, detail: true, authorizationCode: true },
       orderBy: { updatedAt: "desc" },
       take: limit,
       skip: offset,
@@ -81,6 +86,10 @@ export async function POST(request: NextRequest) {
     const scope = await getAuthScope(request);
     if (!scope) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
+    const activeCode = requireActiveAuthorizationCode(scope);
+    if (!activeCode.ok) {
+      return NextResponse.json({ error: activeCode.error }, { status: activeCode.status });
     }
     const tenantId = "default";
 
@@ -116,12 +125,24 @@ export async function POST(request: NextRequest) {
     const existing = existingById
       ? await prisma.aiImageV2Session.findFirst({
           where: { id: session.id, ...scopedTenantUserWhere(scope, tenantId) },
-          include: { plans: true, images: true, detail: true },
+          include: { plans: true, images: true, detail: true, authorizationCode: true },
         })
       : null;
 
+    if (existingById && !existing) {
+      return NextResponse.json(
+        { error: "Session id conflict", code: "SESSION_ID_CONFLICT" },
+        { status: 409 }
+      );
+    }
+
     const ownerUserId = existingById?.userId ?? scope.userId;
-    const sessionInput = toSessionCreateInput(session, tenantId, ownerUserId);
+    const ownerAuthorizationCodeId = existing?.authorizationCodeId ?? scope.authorizationCodeId ?? null;
+    const sessionInput = toSessionCreateInput(
+      { ...session, authorizationCodeId: ownerAuthorizationCodeId },
+      tenantId,
+      ownerUserId
+    );
 
     await prisma.$transaction(async (tx) => {
       if (existing) {

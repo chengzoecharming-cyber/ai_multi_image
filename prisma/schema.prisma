@@ -23,6 +23,8 @@ model User {
   updatedAt     DateTime  @updatedAt @map("updated_at")
   sessions      Session[]
   accounts      Account[]
+  authorizationCodes AuthorizationCode[] @relation("AuthorizationCodeBoundUser")
+  createdAuthorizationCodes AuthorizationCode[] @relation("AuthorizationCodeCreatedBy")
 
   // 扩展字段：角色
   role          String    @default("user")
@@ -43,11 +45,41 @@ model Session {
   expiresAt DateTime @map("expires_at")
   ipAddress String?  @map("ip_address")
   userAgent String?  @map("user_agent")
+  authorizationCodeId String? @map("authorization_code_id")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  authorizationCode AuthorizationCode? @relation(fields: [authorizationCodeId], references: [id], onDelete: SetNull)
 
   @@map("sessions")
+}
+
+model AuthorizationCode {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  status      String   @default("normal")
+  note        String?
+
+  quota       Int      @default(50)
+  quotaMax    Int      @default(50) @map("quota_max")
+  resetHours  Int      @default(24) @map("reset_hours")
+  resetAt     DateTime? @map("reset_at")
+
+  userId      String?  @map("user_id")
+  createdByAdminId String @map("created_by_admin_id")
+  lastUsedAt  DateTime? @map("last_used_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user        User?    @relation("AuthorizationCodeBoundUser", fields: [userId], references: [id], onDelete: SetNull)
+  createdByAdmin User  @relation("AuthorizationCodeCreatedBy", fields: [createdByAdminId], references: [id], onDelete: Cascade)
+  sessions    Session[]
+  tasks       AiImageTask[]
+  v2Sessions  AiImageV2Session[]
+
+  @@index([createdByAdminId, createdAt(sort: Desc)])
+  @@index([userId])
+  @@map("authorization_codes")
 }
 
 model Account {
@@ -131,6 +163,7 @@ model AiImageTask {
   id                      String   @id @default(cuid())
   tenantId                String   @map("tenant_id")
   userId                  String   @map("user_id")
+  authorizationCodeId     String?  @map("authorization_code_id")
   // 关联的模板 ID（如果是从模板生成的）
   promptGroupId           String?  @map("prompt_group_id")
   // 选中的片段 ID 列表（JSON 数组字符串）
@@ -157,7 +190,9 @@ model AiImageTask {
   updatedAt               DateTime @updatedAt @map("updated_at")
 
   promptGroup AiPromptGroup? @relation(fields: [promptGroupId], references: [id])
+  authorizationCode AuthorizationCode? @relation(fields: [authorizationCodeId], references: [id], onDelete: SetNull)
 
+  @@index([tenantId, userId, authorizationCodeId, createdAt(sort: Desc)])
   @@map("ai_image_tasks")
 }
 
@@ -169,6 +204,7 @@ model AiImageV2Session {
   id        String   @id @default(cuid())
   tenantId  String   @map("tenant_id")
   userId    String   @map("user_id")
+  authorizationCodeId String? @map("authorization_code_id")
 
   // 基础信息
   title     String?
@@ -212,8 +248,10 @@ model AiImageV2Session {
   plans      AiImageV2Plan[]
   images     AiImageV2GeneratedImage[]
   detail     AiImageV2DetailState?
+  authorizationCode AuthorizationCode? @relation(fields: [authorizationCodeId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, userId, updatedAt(sort: Desc)])
+  @@index([tenantId, userId, authorizationCodeId, updatedAt(sort: Desc)])
   @@map("ai_image_v2_sessions")
 }
 

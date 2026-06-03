@@ -62,6 +62,12 @@ interface RawDetail {
 
 interface RawSession {
   id: string;
+  authorizationCodeId: string | null;
+  authorizationCode?: {
+    code: string;
+    status: string;
+    note: string | null;
+  } | null;
   title: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -132,6 +138,14 @@ export function deserializeSession(row: RawSession): V2Session {
 
   return {
     id: row.id,
+    authorizationCodeId: row.authorizationCodeId ?? undefined,
+    authorizationCode: row.authorizationCode
+      ? {
+          code: row.authorizationCode.code,
+          status: row.authorizationCode.status,
+          note: row.authorizationCode.note,
+        }
+      : null,
     title: row.title ?? undefined,
     createdAt: new Date(row.createdAt).getTime(),
     updatedAt: new Date(row.updatedAt).getTime(),
@@ -200,6 +214,7 @@ export interface AiImageV2SessionCreateData {
   id: string;
   tenantId: string;
   userId: string;
+  authorizationCodeId: string | null;
   title: string | null;
   workspaceTab: string;
   mode: string;
@@ -288,6 +303,7 @@ export function toSessionCreateInput(
     id: session.id,
     tenantId,
     userId,
+    authorizationCodeId: session.authorizationCodeId ?? null,
     title: session.title ?? null,
     workspaceTab: session.workspaceTab || "product",
     mode: session.mode || "single",

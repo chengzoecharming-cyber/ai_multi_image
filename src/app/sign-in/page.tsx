@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Sparkles, Loader2 } from "lucide-react";
-import { signIn } from "@/lib/auth-client";
+import { signIn, signOut } from "@/lib/auth-client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ export default function SignInPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [authorizationCode, setAuthorizationCode] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -32,6 +33,17 @@ export default function SignInPage() {
       if (result.error) {
         toast.error(result.error.message || "登录失败");
       } else {
+        const activateRes = await fetch("/api/auth-code/activate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ authorizationCode: authorizationCode.trim() }),
+        });
+        if (!activateRes.ok) {
+          const data = (await activateRes.json().catch(() => ({}))) as { error?: string };
+          await signOut();
+          toast.error(data.error || "授权码校验失败");
+          return;
+        }
         toast.success("登录成功");
         router.push("/ai-image/v2");
         router.refresh();
@@ -55,6 +67,16 @@ export default function SignInPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="authorizationCode">授权码</Label>
+            <Input
+              id="authorizationCode"
+              type="text"
+              placeholder="普通用户必填，管理员可留空"
+              value={authorizationCode}
+              onChange={(e) => setAuthorizationCode(e.target.value.toUpperCase().slice(0, 6))}
+            />
+          </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="email">邮箱</Label>
             <Input

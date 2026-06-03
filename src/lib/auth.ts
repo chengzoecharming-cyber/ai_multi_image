@@ -10,6 +10,7 @@ export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL!,
   emailAndPassword: {
     enabled: true,
+    disableSignUp: true,
     // 关闭邮箱验证（内部工具，不需要邮件服务）
     requireEmailVerification: false,
   },

@@ -237,6 +237,12 @@ export interface V2DetailState {
 
 export interface V2Session {
   id: string;
+  authorizationCodeId?: string | null;
+  authorizationCode?: {
+    code: string;
+    status: string;
+    note?: string | null;
+  } | null;
   title?: string;
   createdAt: number;
   updatedAt: number;

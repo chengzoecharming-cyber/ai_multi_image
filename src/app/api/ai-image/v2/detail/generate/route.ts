@@ -2,14 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getImageProvider } from "@/lib/image-providers";
 import { persistGeneratedImage } from "@/lib/image-persist";
 import { prisma } from "@/lib/db";
-import { auth } from "@/lib/auth";
-import { checkAndResetQuota, deductQuota, quotaErrorMessage } from "@/lib/quota";
+import { getAuthScope, requireActiveAuthorizationCode } from "@/lib/auth-scope";
+import { checkAndResetQuotaForScope, deductQuotaForScope, quotaErrorMessage } from "@/lib/quota";
 import type { CreativePlan } from "@/app/ai-image/v2/types";
-
-async function getAuthUserId(request: NextRequest): Promise<string | null> {
-  const session = await auth.api.getSession({ headers: request.headers });
-  return session?.user?.id ?? null;
-}
 
 type DetailType = "detail" | "multi_angle" | "lifestyle" | "feature" | "comparison" | "spec";
 
@@ -179,14 +174,18 @@ function resolveUrl(origin: string, maybeUrl: unknown): string | null {
 
 export async function POST(request: NextRequest) {
   try {
-    const userId = await getAuthUserId(request);
-    if (!userId) {
+    const scope = await getAuthScope(request);
+    if (!scope) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
+    const activeCode = requireActiveAuthorizationCode(scope);
+    if (!activeCode.ok) {
+      return NextResponse.json({ error: activeCode.error }, { status: activeCode.status });
     }
     const tenantId = "default";
 
     // 配额检查（将在解析 selectedTypes 后扣除对应数量）
-    const quotaCheck = await checkAndResetQuota(userId);
+    const quotaCheck = await checkAndResetQuotaForScope(scope);
     if (!quotaCheck.ok) {
       return NextResponse.json(
         { error: quotaErrorMessage(quotaCheck.hoursUntilReset), code: "QUOTA_EXHAUSTED" },
@@ -268,7 +267,8 @@ export async function POST(request: NextRequest) {
       const task = await prisma.aiImageTask.create({
         data: {
           tenantId,
-          userId,
+          userId: scope.userId,
+          authorizationCodeId: scope.authorizationCodeId ?? null,
           promptSnapshot: prompt,
           userPrompt: typeof productDescription === "string" ? productDescription.trim() : null,
           negativePromptSnapshot: negativePrompt,
@@ -349,7 +349,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 扣除配额（按选择的类别数量）
-    const remainingQuota = await deductQuota(userId, types.length);
+    const remainingQuota = await deductQuotaForScope(scope, types.length);
 
     return NextResponse.json({ pages, remainingQuota });
   } catch (error) {

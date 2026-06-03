@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getAuthScope, scopedTenantUserWhere } from "@/lib/auth-scope";
+import { getAuthScope, requireActiveAuthorizationCode, scopedTenantUserWhere } from "@/lib/auth-scope";
 
 // GET /api/ai-image/tasks
 export async function GET(request: NextRequest) {
@@ -8,6 +8,10 @@ export async function GET(request: NextRequest) {
     const scope = await getAuthScope(request);
     if (!scope) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
+    const activeCode = requireActiveAuthorizationCode(scope);
+    if (!activeCode.ok) {
+      return NextResponse.json({ error: activeCode.error }, { status: activeCode.status });
     }
     const { searchParams } = new URL(request.url);
     const tenantId = "default";

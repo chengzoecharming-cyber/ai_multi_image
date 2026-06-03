@@ -1,16 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getAuthScope, requireActiveAuthorizationCode } from "@/lib/auth-scope";
 import { getImageProvider } from "@/lib/image-providers";
 import { buildPrompt, getFragmentsByIds, buildPromptFromTemplate } from "@/lib/prompt";
-import { checkAndResetQuota, deductQuota, quotaErrorMessage } from "@/lib/quota";
+import { checkAndResetQuotaForScope, deductQuotaForScope, quotaErrorMessage } from "@/lib/quota";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
-
-async function getAuthUserId(request: NextRequest): Promise<string | null> {
-  const session = await auth.api.getSession({ headers: request.headers });
-  return session?.user?.id ?? null;
-}
 
 const LOCAL_GENERATED_DIR = path.join(process.cwd(), "public", "generated");
 
@@ -70,14 +65,18 @@ function deriveStableSeed(parts: Array<string | number | boolean | null | undefi
 // POST /api/ai-image/generate
 export async function POST(request: NextRequest) {
   try {
-    const userId = await getAuthUserId(request);
-    if (!userId) {
+    const scope = await getAuthScope(request);
+    if (!scope) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
+    const activeCode = requireActiveAuthorizationCode(scope);
+    if (!activeCode.ok) {
+      return NextResponse.json({ error: activeCode.error }, { status: activeCode.status });
     }
     const tenantId = "default";
 
     // 配额检查
-    const quotaCheck = await checkAndResetQuota(userId);
+    const quotaCheck = await checkAndResetQuotaForScope(scope);
     if (!quotaCheck.ok) {
       return NextResponse.json(
         { error: quotaErrorMessage(quotaCheck.hoursUntilReset), code: "QUOTA_EXHAUSTED" },
@@ -221,7 +220,8 @@ const providerName = body.provider || process.env.IMAGE_PROVIDER || "chatgpt2api
     const task = await prisma.aiImageTask.create({
       data: {
         tenantId,
-        userId,
+        userId: scope.userId,
+        authorizationCodeId: scope.authorizationCodeId ?? null,
         promptGroupId: promptGroupId || null,
         selectedFragmentIds: config?.selectedFragmentIds?.length > 0
           ? JSON.stringify(config.selectedFragmentIds)
@@ -316,7 +316,7 @@ const providerName = body.provider || process.env.IMAGE_PROVIDER || "chatgpt2api
       }
 
       // 扣除配额（单张图生成 = 1）
-      const remainingQuota = await deductQuota(userId, 1);
+      const remainingQuota = await deductQuotaForScope(scope, 1);
 
       const updatedTask = await prisma.aiImageTask.update({
         where: { id: task.id },

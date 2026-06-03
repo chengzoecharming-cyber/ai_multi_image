@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getAuthScope, scopedTenantUserWhere } from "@/lib/auth-scope";
+import { getAuthScope, requireActiveAuthorizationCode, scopedTenantUserWhere } from "@/lib/auth-scope";
 import { writeFile, mkdir, access } from "fs/promises";
 import path from "path";
 import crypto from "crypto";
@@ -47,6 +47,10 @@ export async function POST(
     const scope = await getAuthScope(request);
     if (!scope) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
+    }
+    const activeCode = requireActiveAuthorizationCode(scope);
+    if (!activeCode.ok) {
+      return NextResponse.json({ error: activeCode.error }, { status: activeCode.status });
     }
     const tenantId = "default";
     const { id: taskId } = await params;
