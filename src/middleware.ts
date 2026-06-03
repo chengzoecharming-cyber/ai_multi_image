@@ -4,6 +4,14 @@ import type { NextRequest } from "next/server";
 // Routes that require authentication
 const PROTECTED_ROUTES = ["/ai-image/v2", "/ai-image/prompt-groups"];
 const ADMIN_ROUTES = ["/admin"];
+const SESSION_COOKIE_NAMES = [
+  "better-auth.session_token",
+  "__Secure-better-auth.session_token",
+];
+
+function hasSessionCookie(request: NextRequest): boolean {
+  return SESSION_COOKIE_NAMES.some((name) => Boolean(request.cookies.get(name)?.value));
+}
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -15,9 +23,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check for Better Auth session cookie
-  const sessionCookie = request.cookies.get("better-auth.session_token");
-  if (!sessionCookie?.value) {
+  // Check for Better Auth session cookie. HTTPS deployments use the __Secure- prefix.
+  if (!hasSessionCookie(request)) {
     const signInUrl = new URL("/sign-in", request.url);
     signInUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(signInUrl);
