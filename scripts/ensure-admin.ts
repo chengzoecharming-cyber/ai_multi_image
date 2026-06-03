@@ -1,5 +1,7 @@
 import { hashPassword } from "@better-auth/utils/password";
-import { prisma } from "../src/lib/db";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
 
 async function main() {
   const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
@@ -49,10 +51,10 @@ async function main() {
   } else {
     await prisma.account.create({
       data: {
-      userId: user.id,
-      accountId: user.id,
-      providerId: "credential",
-      password: hashed,
+        userId: user.id,
+        accountId: user.id,
+        providerId: "credential",
+        password: hashed,
       },
     });
   }
