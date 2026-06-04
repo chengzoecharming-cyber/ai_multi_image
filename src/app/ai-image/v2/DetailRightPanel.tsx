@@ -14,6 +14,8 @@ export function DetailRightPanel({ activeSession }: { activeSession: V2Session }
   const activeDetailImageIndex = detail?.activeDetailImageIndex ?? 0;
   const heroUrl = detailImageUrls[activeDetailImageIndex] || null;
   const generating = detail?.generating || false;
+  const generatingTypes = detail?.generatingTypes || [];
+  const activeGeneratingType = detail?.activeGeneratingType || null;
 
   const detailImages = (activeSession.generatedImages || []).filter(isDetailImage);
 
@@ -24,6 +26,14 @@ export function DetailRightPanel({ activeSession }: { activeSession: V2Session }
     arr.push(img);
     grouped.set(t, arr);
   }
+
+  const displayTypes = Array.from(
+    new Set<V2DetailType>([
+      ...(detail?.selectedTypes || []),
+      ...(Array.from(grouped.keys()) as V2DetailType[]),
+      ...generatingTypes,
+    ])
+  );
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -49,15 +59,7 @@ export function DetailRightPanel({ activeSession }: { activeSession: V2Session }
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
-        {generating ? (
-          <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
-            <div className="text-center">
-              <div className="text-sm font-medium text-gray-600">正在生成商详图...</div>
-              <div className="text-xs text-gray-400 mt-1">AI 正在根据参考图与描述生成配套素材</div>
-            </div>
-          </div>
-        ) : detailImages.length === 0 ? (
+        {detailImages.length === 0 && !generating ? (
           <div className="h-full flex items-center justify-center text-gray-400">
             <div className="text-center">
               <div className="text-sm font-medium text-gray-500 mb-1">还没有生成商详素材图</div>
@@ -65,26 +67,49 @@ export function DetailRightPanel({ activeSession }: { activeSession: V2Session }
             </div>
           </div>
         ) : (
-          <div className="space-y-8">
-            {(Array.from(grouped.entries()) as Array<[V2DetailType, typeof detailImages]>).map(([type, imgs]) => (
-              <section key={type}>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="text-sm font-semibold text-gray-700">{V2_DETAIL_TYPE_LABELS[type] || type}</div>
-                  <div className="text-xs text-gray-400">{imgs.length} 张</div>
-                </div>
-                <div className="grid grid-cols-4 gap-3">
-                  {imgs.map((img) => (
-                    <div key={img.id} className="rounded-xl overflow-hidden border border-gray-200 bg-white">
-                      <img src={img.imageUrl} alt="商详图" className="w-full aspect-square object-cover" />
-                      <div className="px-3 py-2 text-[10px] text-gray-400 truncate">
-                        {new Date(img.createdAt).toLocaleString()}
-                      </div>
+          <div className="flex flex-wrap gap-8 content-start">
+            {displayTypes.map((type) => {
+              const imgs = grouped.get(type) || [];
+              const isQueued = generatingTypes.includes(type);
+              const isActive = activeGeneratingType === type;
+              return (
+                <section key={type} className="w-[180px]">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-sm font-semibold text-gray-700">{V2_DETAIL_TYPE_LABELS[type] || type}</div>
+                    <div className="text-xs text-gray-400">
+                      {isActive ? "生成中" : isQueued ? "排队中" : `${imgs.length} 张`}
                     </div>
-                  ))}
+                  </div>
+                  <div className="space-y-3">
+                    {isQueued && (
+                      <div className="rounded-xl border border-dashed border-indigo-200 bg-indigo-50/50 h-[180px] flex flex-col items-center justify-center text-center px-4">
+                        <Loader2 className="w-7 h-7 animate-spin text-indigo-400 mb-3" />
+                        <div className="text-sm font-medium text-gray-700">{V2_DETAIL_TYPE_LABELS[type] || type}</div>
+                        <div className="text-xs text-gray-400 mt-1">
+                          {isActive ? "AI 正在生成" : "已加入生成队列"}
+                        </div>
+                      </div>
+                    )}
+                    {imgs.map((img) => (
+                      <div key={img.id} className="rounded-xl overflow-hidden border border-gray-200 bg-white">
+                        <img src={img.imageUrl} alt={V2_DETAIL_TYPE_LABELS[type] || "商详图"} className="w-full aspect-square object-cover" />
+                        <div className="px-3 py-2 text-[10px] text-gray-400 truncate">
+                          {new Date(img.createdAt).toLocaleString()}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+            {generating && displayTypes.length === 0 && (
+              <div className="rounded-xl border border-dashed border-indigo-200 bg-indigo-50/50 w-[180px] h-[180px] flex flex-col items-center justify-center text-center px-4">
+                <Loader2 className="w-7 h-7 animate-spin text-indigo-400 mb-3" />
+                <div className="text-sm font-medium text-gray-700">商详图</div>
+                <div className="text-xs text-gray-400 mt-1">AI 正在生成</div>
+              </div>
+            )}
                 </div>
-              </section>
-            ))}
-          </div>
         )}
       </div>
     </div>

@@ -231,6 +231,8 @@ export interface V2DetailState {
   heroPlan?: CreativePlan | null;
   selectedTypes: V2DetailType[];
   generating: boolean;
+  generatingTypes?: V2DetailType[];
+  activeGeneratingType?: V2DetailType | null;
   results: Array<{ type: V2DetailType; imageId: string }>;
   lastError?: string | null;
 }
@@ -242,6 +244,14 @@ export interface V2Session {
     code: string;
     status: string;
     note?: string | null;
+    quota?: number;
+    quotaMax?: number;
+    resetHours?: number;
+    resetAt?: number | null;
+    user?: {
+      name: string | null;
+      email: string;
+    } | null;
   } | null;
   title?: string;
   createdAt: number;

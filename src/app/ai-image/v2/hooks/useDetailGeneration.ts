@@ -56,6 +56,8 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
         detail: {
           ...(s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: false, results: [], lastError: null }),
           generating: true,
+          generatingTypes: selectedTypes,
+          activeGeneratingType: selectedTypes[0] || null,
           lastError: null,
         },
       }),
@@ -69,7 +71,19 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
       const failedTypes: Array<{ type: V2DetailType; error: string }> = [];
       let successCount = 0;
 
-      for (const currentType of selectedTypes) {
+      for (let index = 0; index < selectedTypes.length; index++) {
+        const currentType = selectedTypes[index];
+        updateActiveSession((s) => ({
+          ...s,
+          detail: {
+            ...(s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: true, results: [], lastError: null }),
+            generating: true,
+            generatingTypes: selectedTypes.slice(index),
+            activeGeneratingType: currentType,
+            lastError: null,
+          },
+        }));
+
         const res = await fetch("/api/ai-image/v2/detail/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -94,6 +108,16 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
             break; // 配额耗尽，停止继续生成
           }
           failedTypes.push({ type: currentType, error: errMsg });
+          updateActiveSession((s) => ({
+            ...s,
+            detail: {
+              ...(s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: true, results: [], lastError: null }),
+              generating: true,
+              generatingTypes: selectedTypes.slice(index + 1),
+              activeGeneratingType: selectedTypes[index + 1] || null,
+              lastError: null,
+            },
+          }));
           continue;
         }
 
@@ -103,6 +127,16 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
 
         if (pages.length === 0) {
           failedTypes.push({ type: currentType, error: "未返回图片结果" });
+          updateActiveSession((s) => ({
+            ...s,
+            detail: {
+              ...(s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: true, results: [], lastError: null }),
+              generating: true,
+              generatingTypes: selectedTypes.slice(index + 1),
+              activeGeneratingType: selectedTypes[index + 1] || null,
+              lastError: null,
+            },
+          }));
           continue;
         }
 
@@ -136,6 +170,8 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
             detail: {
               ...prevDetail,
               generating: true,
+              generatingTypes: selectedTypes.slice(index + 1),
+              activeGeneratingType: selectedTypes[index + 1] || null,
               lastError: null,
               results: [...resultPairs, ...(prevDetail.results || [])],
             },
@@ -160,6 +196,8 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
           detail: {
             ...(s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: false, results: [], lastError: null }),
             generating: false,
+            generatingTypes: [],
+            activeGeneratingType: null,
             lastError: errorMessage,
           },
         }),
@@ -190,6 +228,8 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
           detail: {
             ...(s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: false, results: [], lastError: null }),
             generating: false,
+            generatingTypes: [],
+            activeGeneratingType: null,
             lastError: msg,
           },
         }),

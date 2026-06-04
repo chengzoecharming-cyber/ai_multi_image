@@ -71,25 +71,55 @@ export function LeftPanel({
   const maxReferenceImages = isChatGPT2API ? 0 : 3;
 
   const isPreset = (p: { w: number; h: number }) => outputWidth === p.w && outputHeight === p.h;
+  const authCode = activeSession.authorizationCode;
+  const authStatus = authCode?.status === "normal" && (authCode.quota ?? 1) <= 0 ? "limited" : authCode?.status;
+  const statusDotClass =
+    authStatus === "disabled"
+      ? "bg-gray-400"
+      : authStatus === "error"
+        ? "bg-red-500"
+        : authStatus === "limited"
+          ? "bg-amber-400"
+          : "bg-emerald-500";
+  const authResetTime = authCode?.resetAt
+    ? new Date(authCode.resetAt).toLocaleString("zh-CN", { hour12: false })
+    : "未设置";
 
   return (
     <div className="w-[320px] h-full flex flex-col border-r border-gray-200 bg-white overflow-hidden shrink-0">
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {activeSession.authorizationCode?.code && (
-          <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-            <div className="text-[11px] text-gray-400 mb-1">授权码</div>
+        {authCode?.code && (
+          <div className="group rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 hover:bg-white hover:border-indigo-200 hover:shadow-sm transition-all">
             <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0 flex items-center gap-2">
+                <span className={cn("w-2 h-2 rounded-full shrink-0", statusDotClass)} />
               <span className="font-mono text-sm font-semibold text-gray-800">
-                {activeSession.authorizationCode.code}
+                  {authCode.code}
               </span>
-              <Badge variant="outline" className="text-[10px] h-5">
-                {activeSession.authorizationCode.status}
-              </Badge>
+              </div>
+              <span className="text-xs text-gray-500 truncate max-w-[120px]">
+                {authCode.user?.name || "未绑定用户"}
+              </span>
             </div>
-            {activeSession.authorizationCode.note && (
-              <p className="text-xs text-gray-500 mt-1 line-clamp-2">{activeSession.authorizationCode.note}</p>
-            )}
+            <div className="hidden group-hover:grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-gray-100">
+              <div className="rounded-md border border-gray-100 bg-white px-2 py-1.5">
+                <div className="text-[10px] text-gray-400">用户邮箱</div>
+                <div className="text-xs text-gray-700 truncate">{authCode.user?.email || "未绑定"}</div>
+              </div>
+              <div className="rounded-md border border-gray-100 bg-white px-2 py-1.5">
+                <div className="text-[10px] text-gray-400">备注</div>
+                <div className="text-xs text-gray-700 truncate">{authCode.note || "无"}</div>
+              </div>
+              <div className="rounded-md border border-gray-100 bg-white px-2 py-1.5">
+                <div className="text-[10px] text-gray-400">配额</div>
+                <div className="text-xs text-gray-700">{authCode.quota ?? "-"} / {authCode.quotaMax ?? "-"}</div>
+              </div>
+              <div className="rounded-md border border-gray-100 bg-white px-2 py-1.5">
+                <div className="text-[10px] text-gray-400">重置时间</div>
+                <div className="text-xs text-gray-700 truncate">{authResetTime}</div>
+              </div>
+            </div>
           </div>
         )}
 

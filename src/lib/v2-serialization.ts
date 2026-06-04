@@ -67,6 +67,14 @@ interface RawSession {
     code: string;
     status: string;
     note: string | null;
+    quota: number;
+    quotaMax: number;
+    resetHours: number;
+    resetAt: Date | null;
+    user?: {
+      name: string | null;
+      email: string;
+    } | null;
   } | null;
   title: string | null;
   createdAt: Date;
@@ -144,6 +152,16 @@ export function deserializeSession(row: RawSession): V2Session {
           code: row.authorizationCode.code,
           status: row.authorizationCode.status,
           note: row.authorizationCode.note,
+          quota: row.authorizationCode.quota,
+          quotaMax: row.authorizationCode.quotaMax,
+          resetHours: row.authorizationCode.resetHours,
+          resetAt: row.authorizationCode.resetAt ? new Date(row.authorizationCode.resetAt).getTime() : null,
+          user: row.authorizationCode.user
+            ? {
+                name: row.authorizationCode.user.name,
+                email: row.authorizationCode.user.email,
+              }
+            : null,
         }
       : null,
     title: row.title ?? undefined,

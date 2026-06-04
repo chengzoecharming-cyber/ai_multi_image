@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ChevronDown, ChevronRight, Loader2, Pencil, Plus, RefreshCw, Shield, Trash2, User, X } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, Loader2, Pencil, Plus, RefreshCw, Shield, Trash2, User } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -185,12 +185,6 @@ export default function AdminUsersPage() {
     await fetchCodes();
   };
 
-  const handleDeleteBoundUser = async (id: string) => {
-    if (!confirm("确定删除此授权码绑定的用户？授权码会保留但解绑。")) return;
-    await fetch(`/api/admin/authorization-codes/${id}/user`, { method: "DELETE" });
-    await fetchCodes();
-  };
-
   if (isPending || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F6F8FC]">
@@ -258,7 +252,6 @@ export default function AdminUsersPage() {
                     <div className="flex items-center justify-end gap-1">
                       <Button variant="ghost" size="sm" onClick={() => openEdit(row)}><Pencil className="w-3.5 h-3.5" /></Button>
                       <Button variant="ghost" size="sm" onClick={() => handleRefresh(row.id)}><RefreshCw className="w-3.5 h-3.5" /></Button>
-                      {row.user && <Button variant="ghost" size="sm" onClick={() => handleDeleteBoundUser(row.id)}><X className="w-3.5 h-3.5" /></Button>}
                       <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700" onClick={() => handleDeleteCode(row.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
                     </div>
                   </td>

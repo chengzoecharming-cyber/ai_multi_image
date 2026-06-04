@@ -3,6 +3,12 @@ import { prisma } from "@/lib/db";
 import { deserializeSession } from "@/lib/v2-serialization";
 import { getAuthScope, requireActiveAuthorizationCode, scopedTenantUserWhere } from "@/lib/auth-scope";
 
+const authorizationCodeInclude = {
+  include: {
+    user: { select: { name: true, email: true } },
+  },
+};
+
 // GET /api/ai-image/v2/sessions/:id
 export async function GET(
   request: NextRequest,
@@ -22,7 +28,7 @@ export async function GET(
 
     const row = await prisma.aiImageV2Session.findFirst({
       where: { id, ...scopedTenantUserWhere(scope, tenantId) },
-      include: { plans: true, images: true, detail: true, authorizationCode: true },
+      include: { plans: true, images: true, detail: true, authorizationCode: authorizationCodeInclude },
     });
 
     if (!row) {

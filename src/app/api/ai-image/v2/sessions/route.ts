@@ -10,6 +10,12 @@ import {
   toDetailStateCreateInput,
 } from "@/lib/v2-serialization";
 
+const authorizationCodeInclude = {
+  include: {
+    user: { select: { name: true, email: true } },
+  },
+};
+
 function isUniqueConstraintError(error: unknown): error is { code: "P2002" } {
   return (
     typeof error === "object" &&
@@ -64,7 +70,7 @@ export async function GET(request: NextRequest) {
 
     const rows = await prisma.aiImageV2Session.findMany({
       where: scopedTenantUserWhere(scope, tenantId),
-      include: { plans: true, images: true, detail: true, authorizationCode: true },
+      include: { plans: true, images: true, detail: true, authorizationCode: authorizationCodeInclude },
       orderBy: { updatedAt: "desc" },
       take: limit,
       skip: offset,
@@ -125,7 +131,7 @@ export async function POST(request: NextRequest) {
     const existing = existingById
       ? await prisma.aiImageV2Session.findFirst({
           where: { id: session.id, ...scopedTenantUserWhere(scope, tenantId) },
-          include: { plans: true, images: true, detail: true, authorizationCode: true },
+          include: { plans: true, images: true, detail: true, authorizationCode: authorizationCodeInclude },
         })
       : null;
 
