@@ -276,8 +276,8 @@ export function LeftPanel({
           </Label>
           <div className="grid grid-cols-2 gap-2">
             {[
-              { id: "volcano", label: "火山引擎" },
-              { id: "chatgpt2api", label: "ChatGPT2API" },
+              { id: "volcano", label: "Seedream 5.0" },
+              { id: "chatgpt2api", label: "GPT Image" },
             ].map((p) => (
               <button
                 key={p.id}
