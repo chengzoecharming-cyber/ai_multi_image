@@ -168,7 +168,10 @@ export async function POST(request: NextRequest) {
 
         // ── Merge images: keep server images + append new ones from client ──
         const existingImageIds = new Set(existing.images.map((img) => img.id));
-        const newImages = (session.generatedImages || []).filter((img) => !existingImageIds.has(img.id));
+        const existingTaskIds = new Set(existing.images.map((img) => img.taskId).filter(Boolean));
+        const newImages = (session.generatedImages || []).filter(
+          (img) => !existingImageIds.has(img.id) && !(img.taskId && existingTaskIds.has(img.taskId))
+        );
         if (newImages.length > 0) {
           await tx.aiImageV2GeneratedImage.createMany({
             data: newImages.map((img) => toImageCreateInput(img, session.id, tenantId, ownerUserId)),

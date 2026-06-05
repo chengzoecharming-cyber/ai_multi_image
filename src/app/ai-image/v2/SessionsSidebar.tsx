@@ -3,8 +3,6 @@
 import {
   LayoutGrid,
   Plus,
-  Clock,
-  AlertCircle,
   MoreHorizontal,
   Copy,
   Trash2,
@@ -17,6 +15,7 @@ import type { V2Session, V2SessionStatus, V2WorkspaceTab } from "./types";
 
 function deriveSessionStatus(session: V2Session): V2SessionStatus {
   if ((session.workspaceTab || "product") === "detail") {
+    if ((session.detail?.failedTypes?.length || 0) > 0) return "failed";
     if (session.detail?.lastError) return "failed";
     if (session.detail?.generating) return "generating";
     if ((session.generatedImages?.filter((g) => (g.tab || "product") === "detail").length || 0) > 0) return "done";
@@ -202,13 +201,6 @@ export function SessionsSidebar({
                     ? "bg-blue-400"
                     : "bg-gray-300";
 
-          const statusIcon =
-            status === "planning" || status === "generating" ? (
-              <Clock className="w-3 h-3" />
-            ) : status === "failed" ? (
-              <AlertCircle className="w-3 h-3" />
-            ) : null;
-
           return (
             <div key={s.id} className="relative group">
               <button
@@ -217,7 +209,8 @@ export function SessionsSidebar({
                   isActive ? "bg-indigo-50 border-indigo-200" : "bg-white border-transparent hover:bg-gray-50"
                 }`}
               >
-                <div className="flex items-start justify-between gap-1.5">
+                <div className="flex items-start gap-2">
+                  <span className={`shrink-0 w-2 h-2 rounded-full mt-1.5 ${statusColor}`} title={statusLabel} />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium text-gray-800 truncate">
                       {s.goal?.trim() ? (isCollapsed ? s.goal.trim().slice(0, 4) : s.goal.trim().slice(0, 18)) : "新会话"}
@@ -230,31 +223,11 @@ export function SessionsSidebar({
                       </div>
                     )}
                   </div>
-                  {isCollapsed ? (
-                    <span className={`shrink-0 w-2 h-2 rounded-full mt-1.5 ${statusColor}`} title={statusLabel} />
-                  ) : (
-                    <span
-                      className={`shrink-0 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border ${
-                        status === "failed"
-                          ? "bg-red-50 text-red-700 border-red-200"
-                          : status === "done"
-                            ? "bg-green-50 text-green-700 border-green-200"
-                            : status === "planning" || status === "generating"
-                              ? "bg-amber-50 text-amber-700 border-amber-200"
-                              : status === "needs_review"
-                                ? "bg-blue-50 text-blue-700 border-blue-200"
-                                : "bg-gray-50 text-gray-600 border-gray-200"
-                      }`}
-                    >
-                      {statusIcon}
-                      {statusLabel}
-                    </span>
-                  )}
                 </div>
               </button>
 
               {!isCollapsed && (
-                <div className="absolute right-2 bottom-2">
+                <div className="absolute right-0 top-0 bottom-0 w-12 rounded-r-lg bg-gradient-to-l from-white via-white/95 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();

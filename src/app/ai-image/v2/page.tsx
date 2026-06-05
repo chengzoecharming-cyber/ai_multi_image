@@ -60,6 +60,7 @@ function V2WorkbenchPageInner() {
     setWorkspaceTab,
     toggleDetailType,
     handleGenerateDetail,
+    handleRetryDetailType,
     workspaceTab,
     lastDebugPrompt,
   } = useV2Session();
@@ -240,6 +241,9 @@ function V2WorkbenchPageInner() {
                     heroPlan: plan,
                     selectedTypes: ["detail", "multi_angle", "lifestyle", "feature", "comparison", "spec"],
                     generating: false,
+                    generatingTypes: [],
+                    activeGeneratingType: null,
+                    failedTypes: [],
                     results: [],
                     lastError: null,
                   },
@@ -250,7 +254,7 @@ function V2WorkbenchPageInner() {
           )}
 
             {tab === "detail" && (
-              <DetailRightPanel activeSession={activeSession} />
+              <DetailRightPanel activeSession={activeSession} onRetryType={handleRetryDetailType} />
             )}
           </div>
 

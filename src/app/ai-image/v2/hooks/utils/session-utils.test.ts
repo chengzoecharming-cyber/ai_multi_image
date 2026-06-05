@@ -133,6 +133,59 @@ test("refresh merge prefers IndexedDB config and merges generated history separa
   assert.equal(merged.updatedAt, 3_000);
 });
 
+test("server generated images clear stale local failure state", () => {
+  const serverOutput = generatedImage({
+    id: "server-img",
+    taskId: "task-server",
+    tab: "detail",
+    detailType: "feature",
+    imageUrl: "/generated/task-server.png",
+    createdAt: 4_000,
+  });
+  const serverSession = makeSession({
+    updatedAt: 4_000,
+    workspaceTab: "detail",
+    generatedImages: [serverOutput],
+    detail: {
+      detailImageUrls: ["/uploads/detail-ref.png"],
+      activeDetailImageIndex: 0,
+      heroPlan: null,
+      selectedTypes: ["feature"],
+      generating: false,
+      results: [{ type: "feature", imageId: "server-img" }],
+      lastError: null,
+    },
+  });
+  const indexedDbSession = makeSession({
+    updatedAt: 3_000,
+    workspaceTab: "detail",
+    generatedImages: [],
+    lastError: "生成失败",
+    detail: {
+      detailImageUrls: ["/uploads/detail-ref.png"],
+      activeDetailImageIndex: 0,
+      heroPlan: null,
+      selectedTypes: ["feature"],
+      generating: true,
+      generatingTypes: ["feature"],
+      activeGeneratingType: "feature",
+      results: [],
+      lastError: "生成失败",
+    },
+  });
+
+  const [merged] = mergeSessionsWithServerHistory([indexedDbSession], [serverSession]);
+
+  assert.deepEqual(merged.generatedImages.map((image) => image.taskId), ["task-server"]);
+  assert.equal(merged.generatingImage, false);
+  assert.equal(merged.lastError, null);
+  assert.equal(merged.detail?.generating, false);
+  assert.deepEqual(merged.detail?.generatingTypes, []);
+  assert.equal(merged.detail?.activeGeneratingType, null);
+  assert.equal(merged.detail?.lastError, null);
+  assert.equal(merged.status, "done");
+});
+
 test("IndexedDB snapshot keeps complete plan prompts and visual directions", () => {
   const plan = {
     id: "plan-1",

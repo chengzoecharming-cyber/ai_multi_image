@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { AuthCodeAuditCard } from "./components/AuthCodeAuditCard";
 import type { V2DetailType, V2Session } from "./types";
 import { V2_DETAIL_TYPE_LABELS } from "./types";
 
@@ -49,6 +50,8 @@ export function DetailLeftPanel({
   return (
     <div className="w-[320px] h-full flex flex-col border-r border-gray-200 bg-white overflow-hidden shrink-0">
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <AuthCodeAuditCard authorizationCode={activeSession.authorizationCode} />
+
         {/* Detail Images — Taobao-style: thumbnail strip left + preview right */}
         <div className="space-y-2">
           <Label className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
@@ -90,13 +93,9 @@ export function DetailLeftPanel({
                         onUpdateSession((s) => ({
                           ...s,
                           detail: {
+                            ...(s.detail || { detailImageUrls: [], selectedTypes: [], generating: false, results: [], lastError: null }),
                             detailImageUrls: s.detail?.detailImageUrls ?? [],
                             activeDetailImageIndex: idx,
-                            heroPlan: s.detail?.heroPlan ?? null,
-                            selectedTypes: s.detail?.selectedTypes ?? [],
-                            generating: s.detail?.generating ?? false,
-                            results: s.detail?.results ?? [],
-                            lastError: s.detail?.lastError ?? null,
                           },
                         }))
                       }
@@ -112,12 +111,9 @@ export function DetailLeftPanel({
                             return {
                               ...s,
                               detail: {
+                                ...(s.detail || { detailImageUrls: [], selectedTypes: [], generating: false, results: [], lastError: null }),
                                 detailImageUrls: next,
                                 activeDetailImageIndex: Math.min(s.detail?.activeDetailImageIndex ?? 0, Math.max(0, next.length - 1)),
-                                heroPlan: s.detail?.heroPlan ?? null,
-                                selectedTypes: s.detail?.selectedTypes ?? [],
-                                generating: s.detail?.generating ?? false,
-                                results: s.detail?.results ?? [],
                                 lastError: null,
                               },
                             };

@@ -233,6 +233,7 @@ export interface V2DetailState {
   generating: boolean;
   generatingTypes?: V2DetailType[];
   activeGeneratingType?: V2DetailType | null;
+  failedTypes?: Array<{ type: V2DetailType; error: string }>;
   results: Array<{ type: V2DetailType; imageId: string }>;
   lastError?: string | null;
 }

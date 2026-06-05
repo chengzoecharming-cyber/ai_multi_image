@@ -56,6 +56,8 @@ export function useImageGeneration(options: UseImageGenerationOptions): ImageGen
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            sessionId: activeSession.id,
+            planId: plan.id,
             promptContent,
             productImageUrl: activeProductImage,
             styleReferenceUrls: styleRefs,

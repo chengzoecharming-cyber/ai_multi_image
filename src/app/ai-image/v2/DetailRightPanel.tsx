@@ -1,6 +1,7 @@
 "use client";
 
-import { ImageIcon, Loader2 } from "lucide-react";
+import { ImageIcon, Loader2, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { V2DetailType, V2Session } from "./types";
 import { V2_DETAIL_TYPE_LABELS } from "./types";
 
@@ -8,7 +9,13 @@ function isDetailImage(img: { tab?: string; detailType?: V2DetailType }) {
   return (img.tab || "product") === "detail";
 }
 
-export function DetailRightPanel({ activeSession }: { activeSession: V2Session }) {
+export function DetailRightPanel({
+  activeSession,
+  onRetryType,
+}: {
+  activeSession: V2Session;
+  onRetryType?: (type: V2DetailType) => void;
+}) {
   const detail = activeSession.detail;
   const detailImageUrls = detail?.detailImageUrls || [];
   const activeDetailImageIndex = detail?.activeDetailImageIndex ?? 0;
@@ -16,6 +23,8 @@ export function DetailRightPanel({ activeSession }: { activeSession: V2Session }
   const generating = detail?.generating || false;
   const generatingTypes = detail?.generatingTypes || [];
   const activeGeneratingType = detail?.activeGeneratingType || null;
+  const failedTypes = detail?.failedTypes || [];
+  const failedMap = new Map(failedTypes.map((item) => [item.type, item.error]));
 
   const detailImages = (activeSession.generatedImages || []).filter(isDetailImage);
 
@@ -32,6 +41,7 @@ export function DetailRightPanel({ activeSession }: { activeSession: V2Session }
       ...(detail?.selectedTypes || []),
       ...(Array.from(grouped.keys()) as V2DetailType[]),
       ...generatingTypes,
+      ...failedTypes.map((item) => item.type),
     ])
   );
 
@@ -59,7 +69,7 @@ export function DetailRightPanel({ activeSession }: { activeSession: V2Session }
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
-        {detailImages.length === 0 && !generating ? (
+        {detailImages.length === 0 && !generating && failedTypes.length === 0 ? (
           <div className="h-full flex items-center justify-center text-gray-400">
             <div className="text-center">
               <div className="text-sm font-medium text-gray-500 mb-1">还没有生成商详素材图</div>
@@ -72,22 +82,44 @@ export function DetailRightPanel({ activeSession }: { activeSession: V2Session }
               const imgs = grouped.get(type) || [];
               const isQueued = generatingTypes.includes(type);
               const isActive = activeGeneratingType === type;
+              const failedError = imgs.length === 0 && !isQueued ? failedMap.get(type) : null;
               return (
                 <section key={type} className="w-[180px]">
                   <div className="flex items-center justify-between mb-3">
                     <div className="text-sm font-semibold text-gray-700">{V2_DETAIL_TYPE_LABELS[type] || type}</div>
                     <div className="text-xs text-gray-400">
-                      {isActive ? "生成中" : isQueued ? "排队中" : `${imgs.length} 张`}
+                      {isActive ? "生成中" : isQueued ? "排队中" : failedError ? "失败" : `${imgs.length} 张`}
                     </div>
                   </div>
                   <div className="space-y-3">
                     {isQueued && (
-                      <div className="rounded-xl border border-dashed border-indigo-200 bg-indigo-50/50 h-[180px] flex flex-col items-center justify-center text-center px-4">
-                        <Loader2 className="w-7 h-7 animate-spin text-indigo-400 mb-3" />
-                        <div className="text-sm font-medium text-gray-700">{V2_DETAIL_TYPE_LABELS[type] || type}</div>
-                        <div className="text-xs text-gray-400 mt-1">
+                      <div className="relative rounded-xl border border-dashed border-indigo-200 bg-indigo-50/50 h-[180px] flex flex-col items-center justify-center text-center px-4 overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/70 via-white/40 to-violet-100/70 animate-pulse" />
+                        <div className="absolute inset-3 rounded-lg bg-white/35 animate-pulse" />
+                        <Loader2 className="relative w-7 h-7 animate-spin text-indigo-400 mb-3" />
+                        <div className="relative text-sm font-medium text-gray-700">{V2_DETAIL_TYPE_LABELS[type] || type}</div>
+                        <div className="relative text-xs text-gray-400 mt-1">
                           {isActive ? "AI 正在生成" : "已加入生成队列"}
                         </div>
+                      </div>
+                    )}
+                    {failedError && (
+                      <div className="rounded-xl border border-red-100 bg-red-50/70 h-[180px] flex flex-col items-center justify-center text-center px-4">
+                        <div className="w-9 h-9 rounded-full bg-white text-red-500 flex items-center justify-center mb-3">
+                          <RefreshCw className="w-4 h-4" />
+                        </div>
+                        <div className="text-sm font-medium text-gray-700">{V2_DETAIL_TYPE_LABELS[type] || type}</div>
+                        <div className="text-xs text-red-400 mt-1 line-clamp-2">{failedError}</div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="mt-3 h-7 px-2 text-xs bg-white"
+                          onClick={() => onRetryType?.(type)}
+                          disabled={!onRetryType || generating}
+                        >
+                          重新生成
+                        </Button>
                       </div>
                     )}
                     {imgs.map((img) => (

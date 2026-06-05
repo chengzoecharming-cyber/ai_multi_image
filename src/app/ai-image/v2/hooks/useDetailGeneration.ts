@@ -14,6 +14,7 @@ export interface UseDetailGenerationOptions {
 export interface DetailGenerationActions {
   toggleDetailType: (type: V2DetailType) => void;
   handleGenerateDetail: () => Promise<void>;
+  handleRetryDetailType: (type: V2DetailType) => Promise<void>;
 }
 
 export function useDetailGeneration(options: UseDetailGenerationOptions): DetailGenerationActions {
@@ -31,11 +32,11 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
     [updateActiveSession]
   );
 
-  const handleGenerateDetail = useCallback(async () => {
+  const handleGenerateDetailTypes = useCallback(async (overrideTypes?: V2DetailType[]) => {
     if (!activeSession) return;
     const detail = activeSession.detail;
     const activeDetailImage = detail?.detailImageUrls?.[detail?.activeDetailImageIndex ?? 0] || null;
-    const selectedTypes = detail?.selectedTypes || [];
+    const selectedTypes = overrideTypes?.length ? overrideTypes : detail?.selectedTypes || [];
     if (!activeDetailImage) {
       toast.error("请先上传参考图");
       return;
@@ -58,6 +59,7 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
           generating: true,
           generatingTypes: selectedTypes,
           activeGeneratingType: selectedTypes[0] || null,
+          failedTypes: (s.detail?.failedTypes || []).filter((item) => !selectedTypes.includes(item.type)),
           lastError: null,
         },
       }),
@@ -80,6 +82,7 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
             generating: true,
             generatingTypes: selectedTypes.slice(index),
             activeGeneratingType: currentType,
+            failedTypes: (s.detail?.failedTypes || []).filter((item) => item.type !== currentType),
             lastError: null,
           },
         }));
@@ -88,6 +91,7 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            sessionId: activeSession.id,
             heroImageUrl: activeDetailImage,
             detailImageUrls: detail?.detailImageUrls || [],
             activeDetailImageIndex: detail?.activeDetailImageIndex ?? 0,
@@ -115,6 +119,10 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
               generating: true,
               generatingTypes: selectedTypes.slice(index + 1),
               activeGeneratingType: selectedTypes[index + 1] || null,
+              failedTypes: [
+                ...(s.detail?.failedTypes || []).filter((item) => item.type !== currentType),
+                { type: currentType, error: errMsg },
+              ],
               lastError: null,
             },
           }));
@@ -134,6 +142,10 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
               generating: true,
               generatingTypes: selectedTypes.slice(index + 1),
               activeGeneratingType: selectedTypes[index + 1] || null,
+              failedTypes: [
+                ...(s.detail?.failedTypes || []).filter((item) => item.type !== currentType),
+                { type: currentType, error: "未返回图片结果" },
+              ],
               lastError: null,
             },
           }));
@@ -172,6 +184,7 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
               generating: true,
               generatingTypes: selectedTypes.slice(index + 1),
               activeGeneratingType: selectedTypes[index + 1] || null,
+              failedTypes: (prevDetail.failedTypes || []).filter((item) => !newImages.some((img) => img.detailType === item.type)),
               lastError: null,
               results: [...resultPairs, ...(prevDetail.results || [])],
             },
@@ -198,6 +211,13 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
             generating: false,
             generatingTypes: [],
             activeGeneratingType: null,
+            failedTypes:
+              failedTypes.length > 0
+                ? [
+                    ...(s.detail?.failedTypes || []).filter((item) => !failedTypes.some((failed) => failed.type === item.type)),
+                    ...failedTypes,
+                  ]
+                : (s.detail?.failedTypes || []).filter((item) => !selectedTypes.includes(item.type)),
             lastError: errorMessage,
           },
         }),
@@ -230,6 +250,10 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
             generating: false,
             generatingTypes: [],
             activeGeneratingType: null,
+            failedTypes: [
+              ...(s.detail?.failedTypes || []).filter((item) => !selectedTypes.includes(item.type)),
+              ...selectedTypes.map((type) => ({ type, error: msg })),
+            ],
             lastError: msg,
           },
         }),
@@ -240,5 +264,12 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
     }
   }, [activeSession, onSessionPersist, updateActiveSession]);
 
-  return { toggleDetailType, handleGenerateDetail };
+  const handleGenerateDetail = useCallback(() => handleGenerateDetailTypes(), [handleGenerateDetailTypes]);
+
+  const handleRetryDetailType = useCallback(
+    (type: V2DetailType) => handleGenerateDetailTypes([type]),
+    [handleGenerateDetailTypes]
+  );
+
+  return { toggleDetailType, handleGenerateDetail, handleRetryDetailType };
 }

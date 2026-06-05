@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getAuthScope, requireActiveAuthorizationCode } from "@/lib/auth-scope";
+import { getAuthScope, requireActiveAuthorizationCode, scopedTenantUserWhere } from "@/lib/auth-scope";
 import { getImageProvider } from "@/lib/image-providers";
 import { buildPrompt, getFragmentsByIds, buildPromptFromTemplate } from "@/lib/prompt";
 import { checkAndResetQuotaForScope, deductQuotaForScope, quotaErrorMessage } from "@/lib/quota";
@@ -94,7 +94,11 @@ export async function POST(request: NextRequest) {
       productImageUrl,
       styleReferenceUrls,
       config,
+      sessionId,
+      planId,
     } = body;
+    const v2SessionId = typeof sessionId === "string" ? sessionId : null;
+    const v2PlanId = typeof planId === "string" ? planId : null;
 
     // Resolve relative reference image URLs (e.g. "/uploads/xxx.png") to absolute URLs
     // so the server-side provider can fetch them correctly in dev (port may not be 3000).
@@ -212,6 +216,8 @@ export async function POST(request: NextRequest) {
       quality: config?.quality || "standard",
       strictSize,
       seed,
+      sessionId: v2SessionId || undefined,
+      planId: v2PlanId || undefined,
     });
 
 const providerName = body.provider || process.env.IMAGE_PROVIDER || "chatgpt2api";
@@ -326,6 +332,36 @@ const providerName = body.provider || process.env.IMAGE_PROVIDER || "chatgpt2api
           thumbImageUrl: effectiveThumbUrl,
         },
       });
+      if (v2SessionId) {
+        const v2Session = await prisma.aiImageV2Session.findFirst({
+          where: { id: v2SessionId, ...scopedTenantUserWhere(scope, tenantId) },
+          select: { id: true, userId: true },
+        });
+        if (v2Session) {
+          const existingImage = await prisma.aiImageV2GeneratedImage.findFirst({
+            where: { sessionId: v2SessionId, taskId: task.id },
+            select: { id: true },
+          });
+          if (!existingImage) {
+            await prisma.aiImageV2GeneratedImage.create({
+              data: {
+                sessionId: v2SessionId,
+                tenantId,
+                userId: v2Session.userId,
+                planId: v2PlanId,
+                taskId: task.id,
+                tab: "product",
+                imageUrl: effectiveImageUrl,
+                imageBase64: imageBase64 || null,
+              },
+            });
+            await prisma.aiImageV2Session.update({
+              where: { id: v2SessionId },
+              data: { updatedAt: new Date() },
+            });
+          }
+        }
+      }
       return NextResponse.json({
         data: updatedTask,
         imageBase64,

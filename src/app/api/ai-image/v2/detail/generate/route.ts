@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getImageProvider } from "@/lib/image-providers";
 import { persistGeneratedImage } from "@/lib/image-persist";
 import { prisma } from "@/lib/db";
-import { getAuthScope, requireActiveAuthorizationCode } from "@/lib/auth-scope";
+import { getAuthScope, requireActiveAuthorizationCode, scopedTenantUserWhere } from "@/lib/auth-scope";
 import { checkAndResetQuotaForScope, deductQuotaForScope, quotaErrorMessage } from "@/lib/quota";
 import type { CreativePlan } from "@/app/ai-image/v2/types";
 
@@ -202,6 +202,7 @@ export async function POST(request: NextRequest) {
       selectedTypes,
       output,
       heroPlan,
+      sessionId,
     } = body as {
       heroImageUrl?: unknown;
       detailImageUrls?: unknown;
@@ -210,7 +211,9 @@ export async function POST(request: NextRequest) {
       selectedTypes?: unknown;
       output?: { width?: unknown; height?: unknown };
       heroPlan?: unknown;
+      sessionId?: unknown;
     };
+    const v2SessionId = typeof sessionId === "string" ? sessionId : null;
 
     const origin = request.nextUrl?.origin || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const resolvedHeroImageUrl = resolveUrl(origin, heroImageUrl);
@@ -272,7 +275,7 @@ export async function POST(request: NextRequest) {
           promptSnapshot: prompt,
           userPrompt: typeof productDescription === "string" ? productDescription.trim() : null,
           negativePromptSnapshot: negativePrompt,
-          configSnapshot: JSON.stringify({ width, height, detailType: type, strictSize: true, model: "default", quality: "standard" }),
+          configSnapshot: JSON.stringify({ width, height, detailType: type, sessionId: v2SessionId || undefined, strictSize: true, model: "default", quality: "standard" }),
           referenceImagesSnapshot: JSON.stringify({ productImageUrl: activeRefUrl, styleReferenceUrls: referenceUrls }),
           status: "processing",
           provider: providerName,
@@ -343,6 +346,35 @@ export async function POST(request: NextRequest) {
           resultImageUrl: JSON.stringify([effectiveUrl]),
         },
       });
+      if (v2SessionId) {
+        const v2Session = await prisma.aiImageV2Session.findFirst({
+          where: { id: v2SessionId, ...scopedTenantUserWhere(scope, tenantId) },
+          select: { id: true, userId: true },
+        });
+        if (v2Session) {
+          const existingImage = await prisma.aiImageV2GeneratedImage.findFirst({
+            where: { sessionId: v2SessionId, taskId: task.id },
+            select: { id: true },
+          });
+          if (!existingImage) {
+            await prisma.aiImageV2GeneratedImage.create({
+              data: {
+                sessionId: v2SessionId,
+                tenantId,
+                userId: v2Session.userId,
+                taskId: task.id,
+                tab: "detail",
+                detailType: type,
+                imageUrl: effectiveUrl,
+              },
+            });
+            await prisma.aiImageV2Session.update({
+              where: { id: v2SessionId },
+              data: { updatedAt: new Date() },
+            });
+          }
+        }
+      }
 
       pages.push({ type, imageUrl: effectiveUrl, taskId: task.id });
       index++;

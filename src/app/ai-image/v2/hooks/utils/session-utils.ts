@@ -51,6 +51,7 @@ export function getSessionHistoryKey(session: V2Session): string | null {
 export function deriveSessionStatus(session: V2Session): V2SessionStatus {
   if (session.lastError) return "failed";
   if (session.detail?.lastError) return "failed";
+  if ((session.detail?.failedTypes?.length || 0) > 0) return "failed";
   if (session.generatingImage || session.detail?.generating) return "generating";
   if (session.step === "generating") return "planning";
   if ((session.generatedImages?.length || 0) > 0) return "done";
@@ -111,6 +112,9 @@ export function createEmptySession(seed?: Partial<V2Session>): V2Session {
       heroPlan: seed?.detail?.heroPlan ?? null,
       selectedTypes: seed?.detail?.selectedTypes ?? [],
       generating: false,
+      generatingTypes: seed?.detail?.generatingTypes ?? [],
+      activeGeneratingType: seed?.detail?.activeGeneratingType ?? null,
+      failedTypes: seed?.detail?.failedTypes ?? [],
       results: seed?.detail?.results ?? [],
       lastError: seed?.detail?.lastError ?? null,
     },
@@ -182,6 +186,11 @@ function mergeGeneratedImages(...imageGroups: V2GeneratedImage[][]): V2Generated
   return Array.from(merged.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 }
 
+function hasImagesMissingFromLocal(serverImages: V2GeneratedImage[], localImages: V2GeneratedImage[]): boolean {
+  const localKeys = new Set((localImages || []).map(getGeneratedImageMergeKey));
+  return (serverImages || []).some((image) => !localKeys.has(getGeneratedImageMergeKey(image)));
+}
+
 export function normalizeSessionForPersistence(session: V2Session): V2Session {
   const generatedImages = mergeGeneratedImages(
     (session.generatedImages || []).map((image) => ({ ...image, imageBase64: undefined }))
@@ -242,17 +251,33 @@ export function mergeSessionsWithServerHistory(localSessions: V2Session[], serve
     }
 
     const generatedImages = mergeGeneratedImages(existing.generatedImages || [], localSession.generatedImages || []);
+    const serverHasNewGeneratedHistory = hasImagesMissingFromLocal(
+      existing.generatedImages || [],
+      localSession.generatedImages || []
+    );
     const singlePlans =
       (localSession.singlePlans?.length ?? 0) > 0
         ? localSession.singlePlans
         : existing.singlePlans || [];
+    const detail = localSession.detail || existing.detail;
 
     const mergedSession = normalizeSessionForPersistence({
       ...existing,
       ...localSession,
+      lastError: serverHasNewGeneratedHistory ? null : localSession.lastError ?? existing.lastError,
+      generatingImage: serverHasNewGeneratedHistory ? false : localSession.generatingImage,
+      generatingImagePlanId: serverHasNewGeneratedHistory ? null : localSession.generatingImagePlanId,
       singlePlans,
       generatedImages,
-      detail: localSession.detail || existing.detail,
+      detail: detail
+        ? {
+            ...detail,
+            generating: serverHasNewGeneratedHistory ? false : detail.generating,
+            generatingTypes: serverHasNewGeneratedHistory ? [] : detail.generatingTypes,
+            activeGeneratingType: serverHasNewGeneratedHistory ? null : detail.activeGeneratingType,
+            lastError: serverHasNewGeneratedHistory ? null : detail.lastError,
+          }
+        : detail,
       updatedAt: Math.max(existing.updatedAt || 0, session.updatedAt || 0),
     });
     merged.set(session.id, mergedSession);
