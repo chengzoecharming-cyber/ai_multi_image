@@ -258,7 +258,7 @@ function chooseColorTheme(layoutType: LayoutType, layoutDirection: string): Colo
       accent: "#3b82f6",
     };
   }
-  // Default industrial blue-dark
+  // Default dark blue-gray fallback
   return {
     primary: "#0f172a",
     secondary: "#1e293b",

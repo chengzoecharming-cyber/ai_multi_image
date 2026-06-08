@@ -67,8 +67,6 @@ export function useImageGeneration(options: UseImageGenerationOptions): ImageGen
               width: activeSession.outputWidth,
               height: activeSession.outputHeight,
               model: "default",
-              generationModeId: "commercial_showcase",
-              editStrength: 0.75,
               strictSize: true,
             },
           }),

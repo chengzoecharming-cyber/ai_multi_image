@@ -11,8 +11,8 @@ export type PlanBriefSourceType =
   | "saved_template"
   | "detail_asset";
 
-/** 空模板推断的明暗模式 */
-export type EmptyTemplateMode = "light" | "dark" | "mixed";
+/** 空模板推断的明暗模式（已废弃，保留兼容） */
+export type EmptyTemplateMode = "light" | "dark" | "mixed" | "free";
 
 /** 空模板方案类型 */
 export type EmptyTemplatePlanType =
@@ -26,8 +26,8 @@ export type EmptyTemplatePlanType =
 export interface EmptyTemplatePlanConfig {
   /** 方案类型 */
   type: EmptyTemplatePlanType;
-  /** 明暗模式 */
-  mode: "light" | "dark";
+  /** 明暗模式（已废弃，保留兼容。模型自由决定） */
+  mode: "light" | "dark" | "free";
   /** 分配的视觉风格 */
   styleId: string;
   /** 版式布局 */

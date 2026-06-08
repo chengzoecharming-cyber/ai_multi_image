@@ -1,23 +1,11 @@
-import type { PlanBrief, StyleStrategy, EmptyTemplateMode, EmptyTemplatePlanConfig, EmptyTemplatePlanType } from "./types";
+import type { PlanBrief, StyleStrategy, EmptyTemplatePlanConfig, EmptyTemplatePlanType } from "./types";
 import type { SavedTemplate } from "../templates";
 import type { StyleWorldId } from "../style-worlds";
 import type { V2DetailType } from "../detail-assets";
 import { getSystemTemplateProfile } from "../templates";
 import { DETAIL_ASSET_TO_IMAGE_TYPE, IMAGE_TYPE_TO_ALLOWED_LAYOUTS, IMAGE_TYPE_TO_DEFAULT_COPY_DENSITY } from "../taxonomy";
-import type { VisualStyleId } from "../visual-styles";
 import { getStyleWorldById } from "../style-worlds";
 import { adaptStyleWorldsForRuntime } from "./style-world-adapter";
-
-/**
- * 默认视觉风格策略：从候选池选出 3 个不同风格。
- */
-function defaultStyleStrategy(pool: string[]): StyleStrategy {
-  return {
-    mode: "pick_from_pool",
-    pool: pool as StyleStrategy["pool"],
-    count: 3,
-  };
-}
 
 function freeStyleStrategy(): StyleStrategy {
   return {
@@ -28,153 +16,12 @@ function freeStyleStrategy(): StyleStrategy {
 }
 
 // ============================================================
-// 空模板 Light/Dark 推断引擎
-// ============================================================
-
-const LIGHT_KEYWORDS = [
-  "白底", "干净", "简约", "清新", "家居", "白色", "浅色", "明亮",
-  "clean", "white", "light", "bright", "minimal", "fresh", "home",
-];
-
-const DARK_KEYWORDS = [
-  "科技", "力量", "高端", "工业", "暗色", "黑色", "深色", "暗调",
-  "tech", "power", "premium", "industrial", "dark", "black", "night",
-  "machining", "cnc", "cutting", "metal", "steel", "carbide",
-];
-
-const DARK_MATERIALS = [
-  "metal", "steel", "carbide", "titanium", "aluminum", "iron",
-  "chrome", "nickel", "carbon", " alloy",
-];
-
-const DARK_CATEGORIES = [
-  "drill", "mill", "cutter", "bit", "tool", "blade", "gear",
-  "flange", "bearing", "fastener", "screw", "bolt", "nut",
-  "cnc", "machined", "industrial", "hardware",
-];
-
-/**
- * 从产品名称/goal 中提取关键词进行 Light/Dark 评分。
- * 这是简化版推断引擎（MVP），后续可接入 LLM 视觉分析。
- */
-function inferEmptyTemplateMode(
-  userGoal: string = "",
-  productContext?: { productName?: string; productType?: string }
-): EmptyTemplateMode {
-  const text = `${userGoal} ${productContext?.productName || ""} ${productContext?.productType || ""}`.toLowerCase();
-
-  let lightScore = 0;
-  let darkScore = 0;
-
-  // 关键词匹配
-  for (const kw of LIGHT_KEYWORDS) {
-    if (text.includes(kw.toLowerCase())) lightScore += 2;
-  }
-  for (const kw of DARK_KEYWORDS) {
-    if (text.includes(kw.toLowerCase())) darkScore += 2;
-  }
-
-  // 材质推断
-  for (const mat of DARK_MATERIALS) {
-    if (text.includes(mat)) darkScore += 1.5;
-  }
-
-  // 产品类别推断
-  for (const cat of DARK_CATEGORIES) {
-    if (text.includes(cat)) darkScore += 1;
-  }
-
-  // 判断
-  if (darkScore > lightScore + 1.5) {
-    return "dark";
-  }
-  if (lightScore > darkScore + 1.5) {
-    return "light";
-  }
-  return "mixed";
-}
-
-/**
- * 根据推断模式，为 3 个方案分配 type + mode + style。
- *
- * 空模版 3 方案 = 主图 / 详情图 范畴，聚焦电商营销直接转化：
- * 方案 A: platform_hero — 第一眼主图（冲击力最大化）
- * 方案 B: feature_showcase — 卖点爆破图（信息+美学平衡）
- * 方案 C: info_dense — 高密度信息板（参数/优势/信任状全开）
- *
- * 注意：应用场景 lifestyle 图已提取为独立系统模板 tpl-lifestyle-scene，
- *       不在空模版中混排。
- */
-function buildEmptyTemplatePlanConfigs(
-  mode: EmptyTemplateMode
-): EmptyTemplatePlanConfig[] {
-  const lightStyles: VisualStyleId[] = [
-    "empty_light_clean",
-    "empty_light_bold",
-    "empty_light_technical",
-  ];
-  const darkStyles: VisualStyleId[] = [
-    "empty_dark_tech",
-    "empty_dark_luxury",
-    "empty_dark_dynamic",
-  ];
-
-  // 分配函数：确保 3 个方案用 3 个不同风格
-  const assign = (
-    type: EmptyTemplatePlanConfig["type"],
-    planMode: "light" | "dark",
-    styleIndex: number,
-    layoutType: string,
-    description: string
-  ): EmptyTemplatePlanConfig => ({
-    type,
-    mode: planMode,
-    styleId: planMode === "light" ? lightStyles[styleIndex] : darkStyles[styleIndex],
-    layoutType,
-    description,
-  });
-
-  if (mode === "dark") {
-    return [
-      assign("platform_hero", "dark", 0, "premium_center_product_minimal_text",
-        "第一眼主图：产品占画面 65-80%，大到近乎出界；深色背景+强烈轮廓光+极简超大标题；拒绝居中对称，产品必须倾斜/旋转/打破画面平衡，有侵略性张力"),
-      assign("feature_showcase", "dark", 1, "hero_right_product_left_features",
-        "卖点爆破图：产品占 40-50%，深色玻璃态/毛玻璃信息卡片环绕产品；3-4 个卖点以几何区块+单色图标组织；信息丰富但层次分明"),
-      assign("info_dense", "dark", 2, "large_headline_with_bottom_info_bar",
-        "高密度信息板：顶部超大标题+产品主体 45-55%+底部信息条贯穿；同时展示核心参数、优势对比条、信任徽章；像一张完整的产品海报，信息满载但不杂乱"),
-    ];
-  }
-
-  if (mode === "light") {
-    return [
-      assign("platform_hero", "light", 0, "premium_center_product_minimal_text",
-        "第一眼主图：产品占画面 65-80%，大到近乎出界；浅色背景+强烈方向投影+极简超大标题；拒绝居中对称，产品必须倾斜/旋转/打破画面平衡，有侵略性张力"),
-      assign("feature_showcase", "light", 1, "hero_right_product_left_features",
-        "卖点爆破图：产品占 40-50%，浅色卡片式信息面板环绕；3-4 个卖点以几何区块+深色图标组织；信息清晰可信，有目录级精致感"),
-      assign("info_dense", "light", 2, "large_headline_with_bottom_info_bar",
-        "高密度信息板：顶部超大标题+产品主体 45-55%+底部信息条贯穿；同时展示核心参数、优势对比条、信任徽章；像一张完整的产品海报，信息满载但呼吸感充足"),
-    ];
-  }
-
-  // Mixed：默认 Dark 略多（工业品场景倾向）
-  return [
-    assign("platform_hero", "dark", 0, "premium_center_product_minimal_text",
-      "第一眼主图：深色科技风，产品 65-80% 大到出界，强烈轮廓光，拒绝对称，倾斜构图有侵略性"),
-    assign("feature_showcase", "light", 1, "hero_right_product_left_features",
-      "卖点爆破图：浅色 clean 风，产品 40-50%，卡片式卖点环绕，信息清晰易读"),
-    assign("info_dense", "dark", 2, "large_headline_with_bottom_info_bar",
-      "高密度信息板：深色背景，顶部标题+产品主体+底部信息条全开，参数/优势/信任状密集呈现"),
-  ];
-}
-
-// ============================================================
 // 空模板通用约束
 // ============================================================
 
 const EMPTY_TEMPLATE_RISK_RULES: string[] = [
-  "不得虚构技术参数（硬度、转速、扭矩、材质等级、涂层类型、寿命、保修、价格、认证）",
   "不得编造品牌名、型号、价格",
-  "所有画面文字必须是简洁的英文",
+  "不得虚构未提供的技术参数",
 ];
 
 const EMPTY_TEMPLATE_MANDATORY_RULES: string[] = [
@@ -182,27 +29,10 @@ const EMPTY_TEMPLATE_MANDATORY_RULES: string[] = [
   "产品与背景必须有清晰边缘分离",
 ];
 
-const EMPTY_TEMPLATE_AVOID_RULES: string[] = [
-  "禁止产品与背景融为一体",
-];
-
-const EMPTY_TEMPLATE_COPY_RULES: string[] = [
-  "文案使用简洁英文",
-];
-
 // ============================================================
 // PlanBrief builders
 // ============================================================
 
-/**
- * 构建空模板 PlanBrief。
- *
- * 空模板是"智能开放生成模式"：
- * - 自动推断 Light/Dark 倾向，但不强制
- * - 给出 3 个方案的方向参考，由 LLM 根据产品特征自行决定最佳组合
- * - 提供通用电商约束 + 产品特征上下文，让 LLM 自行发挥构图创意
- */
-// v2.1: 空模板默认 styleWorld 池（确保三方案差异）
 const EMPTY_DEFAULT_STYLE_WORLDS: StyleWorldId[] = [
   "editorial_product_ad",
   "gradient_modern_showcase",
@@ -212,13 +42,7 @@ const EMPTY_DEFAULT_STYLE_WORLDS: StyleWorldId[] = [
   "diagram_light",
 ];
 
-/**
- * v2.1: 从默认池为 3 个方案分配不同的 styleWorld + copyMode。
- */
-function assignEmptyStyleWorlds(
-  _inferredMode: EmptyTemplateMode
-): { styleWorldId: StyleWorldId; copyMode: string }[] {
-  // 分配 3 个差异明显的组合，且允许极简无卖点方案。
+function assignEmptyStyleWorlds(): { styleWorldId: StyleWorldId; copyMode: string }[] {
   return [
     { styleWorldId: "editorial_product_ad", copyMode: "headline_only" },
     { styleWorldId: "gradient_modern_showcase", copyMode: "feature_cards" },
@@ -226,73 +50,38 @@ function assignEmptyStyleWorlds(
   ];
 }
 
-function hashStringSeed(input: string): number {
-  let h = 0;
-  for (let i = 0; i < input.length; i++) {
-    h = (h << 5) - h + input.charCodeAt(i);
-    h |= 0;
-  }
-  return Math.abs(h);
-}
-
-function pickEmptyLayoutDirections(userGoal: string, mode: EmptyTemplateMode) {
-  const seed = hashStringSeed(`${mode}::${userGoal || "default"}`);
-  const pools = [
-    [
-      "premium_center_product_minimal_text",
-      "diagonal_product_with_side_features",
-      "technical_callout_with_insets",
-    ],
-    [
-      "hero_left_text_right_product",
-      "four_panel_application_grid",
-      "exploded_layer_explanation",
-    ],
-    [
-      "premium_center_product_minimal_text",
-      "hero_right_product_left_features",
-      "large_headline_with_bottom_info_bar",
-    ],
-    [
-      "diagonal_product_with_side_features",
-      "comparison_two_columns",
-      "four_panel_application_grid",
-    ],
-  ] as const;
-
-  return pools[seed % pools.length];
-}
-
+/**
+ * 构建空模板 PlanBrief。
+ *
+ * 空模板是"完全自由生成模式"：
+ * - 不预设明暗倾向，由模型根据产品图自行判断
+ * - 不固定布局方向，由模型自由发挥
+ * - 仅提供安全红线 + 用户目标，让模型全权决定视觉策略
+ */
 export function buildEmptyPlanBrief(
   userGoal?: string,
   productContext?: { productName?: string; productType?: string }
 ): PlanBrief {
-  const inferredMode = inferEmptyTemplateMode(userGoal, productContext);
+  const assigned = assignEmptyStyleWorlds();
 
-  const assigned = assignEmptyStyleWorlds(inferredMode);
-
-  const [layoutA, layoutB, layoutC] = pickEmptyLayoutDirections(userGoal || "", inferredMode);
-
-  // 方案方向参考：不强制绑定，作为 LLM 的参考池
   const suggestedPlanDirections = [
     {
       type: "platform_hero" as EmptyTemplatePlanType,
-      description: "方向A（可极简）：第一眼主图，强调视觉冲击与产品主体。允许仅标题、仅短说明、或完全无卖点文案。",
-      layoutType: layoutA,
+      description: "方向A：由模型根据产品特征和用户目标自由决定。可以是主图风、场景风、极简风或信息风。",
+      layoutType: "",
     },
     {
       type: "feature_showcase" as EmptyTemplatePlanType,
-      description: "方向B（说明优先）：可用卖点、技术说明或场景注释，不强制固定条数或固定底栏。",
-      layoutType: layoutB,
+      description: "方向B：由模型根据产品特征和用户目标自由决定。与方向A在视觉风格上必须明显不同。",
+      layoutType: "",
     },
     {
       type: "info_dense" as EmptyTemplatePlanType,
-      description: "方向C（自由组合）：允许高信息密度，也允许轻量信息；核心是表达清楚、便于用户 review。",
-      layoutType: layoutC,
+      description: "方向C：由模型根据产品特征和用户目标自由决定。与方向A、B在视觉风格上必须明显不同。",
+      layoutType: "",
     },
   ];
 
-  // 通过 adapter 获取 runtime 可用的 fallback visualStyleIds + hints
   const { visualStyleIds, styleWorldPool, primaryHints, resolvedFreedom } =
     adaptStyleWorldsForRuntime(assigned.map((a) => a.styleWorldId), userGoal);
 
@@ -314,15 +103,13 @@ export function buildEmptyPlanBrief(
     userGoal,
     productContext,
     mandatoryVisualRules: EMPTY_TEMPLATE_MANDATORY_RULES,
-    avoidRules: EMPTY_TEMPLATE_AVOID_RULES,
-    copyRules: EMPTY_TEMPLATE_COPY_RULES,
-    inferredMode,
+    inferredMode: undefined,
     emptyTemplatePlans: suggestedPlanDirections.map((d, i) => ({
       type: d.type,
-      mode: inferredMode === "mixed" ? "dark" : inferredMode,
+      mode: "free",
       styleId: visualStyleIds[i] || "free",
       layoutType: d.layoutType,
-      description: `${d.description} [StyleWorld: ${assigned[i].styleWorldId}, copyMode: ${assigned[i].copyMode}]`,
+      description: d.description,
       styleWorldId: assigned[i].styleWorldId,
       copyMode: assigned[i].copyMode,
     })),
@@ -384,7 +171,7 @@ export function buildPlanBriefFromSystemTemplate(
     allowedLayoutTypes: template.allowedLayoutTypes,
     defaultCopyDensity: template.defaultCopyDensity,
     riskRules: template.riskRules,
-    styleStrategy: defaultStyleStrategy(template.allowedStyleIds),
+    styleStrategy: freeStyleStrategy(),
     variants: template.variants,
     userGoal,
     mandatoryVisualRules: template.mandatoryVisualRules,
