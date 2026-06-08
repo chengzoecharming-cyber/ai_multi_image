@@ -4,6 +4,7 @@ import type { CreativePlan, V2GeneratedImage, V2Session } from "../../types";
 import {
   mergeSessionsWithServerHistory,
   stripHeavySessionFields,
+  normalizeSessionForPersistence,
 } from "./session-utils";
 
 function generatedImage(overrides: Partial<V2GeneratedImage> = {}): V2GeneratedImage {
@@ -218,4 +219,41 @@ test("IndexedDB snapshot keeps complete plan prompts and visual directions", () 
   assert.equal(persisted.singlePlans[0].planSummaryPrompt, "summary prompt");
   assert.equal(persisted.singlePlans[0].imageGenerationPrompt, "image generation prompt");
   assert.equal(persisted.singlePlans[0].finalPrompt, "final prompt");
+});
+
+test("server data with dirty productImageUrls is normalized when IndexedDB is empty", () => {
+  const output = generatedImage();
+  const serverSession = makeSession({
+    updatedAt: 3_000,
+    productImageUrls: ["/uploads/source.png", "/generated/task-1.png"],
+    referenceImageUrls: ["/generated/task-1.png", "/uploads/style.png"],
+    generatedImages: [output],
+  });
+
+  const normalized = normalizeSessionForPersistence(serverSession);
+
+  assert.deepEqual(normalized.productImageUrls, ["/uploads/source.png"]);
+  assert.deepEqual(normalized.referenceImageUrls, ["/uploads/style.png"]);
+  assert.deepEqual(normalized.generatedImages.map((image) => image.imageUrl), ["/generated/task-1.png"]);
+});
+
+test("persistSessionImmediately sends stripped (clean) data to server", () => {
+  const firstGenerated = generatedImage();
+  const dirtySession = makeSession({
+    productImageUrls: ["/uploads/source.png", "/generated/task-1.png"],
+    referenceImageUrls: ["/generated/task-1.png"],
+    generatedImages: [firstGenerated],
+    generatingImage: true,
+    generatingImagePlanId: "plan-1",
+    step: "generating" as const,
+  });
+
+  const stripped = stripHeavySessionFields(dirtySession);
+
+  // This is the data that should be sent to server (not the original dirtySession)
+  assert.deepEqual(stripped.productImageUrls, ["/uploads/source.png"]);
+  assert.deepEqual(stripped.referenceImageUrls, []);
+  assert.equal(stripped.generatingImage, false);
+  assert.equal(stripped.generatingImagePlanId, null);
+  assert.equal(stripped.step, "plans");
 });

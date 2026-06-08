@@ -101,7 +101,7 @@ export function useSessionPersistence(options: UseSessionPersistenceOptions): Pe
       try {
         const stripped = stripHeavySessionFields(session);
         await dexieSaveSession(stripped, true, ownerKey);
-        await postSessionToServer(session, tenantId, userId);
+        await postSessionToServer(stripped, tenantId, userId);
         await dexieMarkClean(session.id, ownerKey);
       } catch (e) {
         console.error("[useSessionPersistence] Immediate persist failed:", e);

@@ -7,6 +7,7 @@ import {
   createEmptySession,
   deriveSessionStatus,
   mergeSessionsWithServerHistory,
+  normalizeSessionForPersistence,
 } from "./utils/session-utils";
 import {
   dexieGetAllSessions,
@@ -85,7 +86,7 @@ export function useSessionStore(tenantId: string, userId: string, ownerKey: stri
       // 4. Merge server V2 + IndexedDB
       let merged: V2Session[] = [];
       if (serverV2.length > 0) {
-        merged = serverV2;
+        merged = serverV2.map(normalizeSessionForPersistence);
       }
       if (indexedDbSessions.length > 0) {
         merged = mergeSessionsWithServerHistory(indexedDbSessions, merged);
