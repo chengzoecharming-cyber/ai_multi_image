@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+      - branch/v2plus
   workflow_dispatch:
 
 env:
