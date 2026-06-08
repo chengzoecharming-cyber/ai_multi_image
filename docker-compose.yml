@@ -1,7 +1,7 @@
 services:
   ai-image-mvp:
     # 使用 GitHub Container Registry 预构建镜像
-    image: ghcr.io/limincheng1/ai_multi_image:latest
+    image: ghcr.io/chengzoecharming-cyber/ai_multi_image:latest
     # 如需本地构建，可临时改为 build: .
     # build: .
     container_name: ai-image-mvp
