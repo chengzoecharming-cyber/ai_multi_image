@@ -25,9 +25,21 @@ export class ChatGPT2APIProvider implements ImageProvider {
           resolvedUrl = resolvedUrl.replace("localhost:3002", "47.237.113.100:3002");
         }
         let file;
-        if (resolvedUrl.includes("/uploads/") || resolvedUrl.includes("localhost")) {
-          const fileName = resolvedUrl.split("/uploads/")[1] || path.basename(resolvedUrl);
-          const filePath = path.join(process.cwd(), "public", "uploads", fileName);
+        const isLocalUpload = resolvedUrl.includes("/uploads/");
+        const isLocalGenerated = resolvedUrl.includes("/generated/");
+        const isLocalhost = resolvedUrl.includes("localhost");
+        if (isLocalUpload || isLocalGenerated || isLocalhost) {
+          let filePath;
+          if (isLocalUpload) {
+            const fileName = resolvedUrl.split("/uploads/")[1] || path.basename(resolvedUrl);
+            filePath = path.join(process.cwd(), "public", "uploads", fileName);
+          } else if (isLocalGenerated) {
+            const fileName = resolvedUrl.split("/generated/")[1] || path.basename(resolvedUrl);
+            filePath = path.join(process.cwd(), "public", "generated", fileName);
+          } else {
+            const fileName = path.basename(resolvedUrl);
+            filePath = path.join(process.cwd(), "public", "uploads", fileName);
+          }
           try {
             const buffer = fs.readFileSync(filePath);
             file = new File([buffer], "reference.png", { type: "image/png" });
