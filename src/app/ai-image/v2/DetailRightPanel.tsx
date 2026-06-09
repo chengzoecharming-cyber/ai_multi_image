@@ -1,9 +1,105 @@
 "use client";
 
-import { ImageIcon, Loader2, RefreshCw } from "lucide-react";
+import { useState, useCallback } from "react";
+import { ImageIcon, Loader2, RefreshCw, X, Copy, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import type { V2DetailType, V2Session } from "./types";
 import { V2_DETAIL_TYPE_LABELS } from "./types";
+
+interface LightboxProps {
+  imageUrl: string;
+  onClose: () => void;
+}
+
+function Lightbox({ imageUrl, onClose }: LightboxProps) {
+  const handleCopy = async () => {
+    try {
+      const res = await fetch(imageUrl);
+      const blob = await res.blob();
+      if (navigator.clipboard && navigator.clipboard.write) {
+        await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+        toast.success("图片已复制到剪贴板");
+      } else {
+        toast.error("当前浏览器不支持复制图片");
+      }
+    } catch {
+      toast.error("复制失败，请重试");
+    }
+  };
+
+  const handleDownload = async () => {
+    try {
+      if (imageUrl.startsWith("data:")) {
+        const a = document.createElement("a");
+        a.href = imageUrl;
+        a.download = `image-${Date.now()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        toast.success("下载已开始");
+        return;
+      }
+      const res = await fetch(imageUrl);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `image-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("下载已开始");
+    } catch {
+      toast.error("下载失败，请重试");
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/70"
+      onClick={onClose}
+    >
+      {/* Close button */}
+      <button
+        onClick={onClose}
+        className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
+      >
+        <X className="w-5 h-5" />
+      </button>
+
+      {/* Image */}
+      <div className="flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+        <img
+          src={imageUrl}
+          alt=""
+          className="max-w-[85vw] max-h-[70vh] object-contain rounded-lg"
+        />
+
+        {/* Toolbar */}
+        <div className="mt-6 inline-flex items-center gap-6 px-8 py-3 rounded-full bg-white/90 backdrop-blur-sm shadow-lg">
+          <button
+            onClick={handleCopy}
+            className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors"
+          >
+            <Copy className="w-4 h-4" />
+            复制
+          </button>
+          <div className="w-px h-4 bg-gray-300" />
+          <button
+            onClick={handleDownload}
+            className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            下载
+          </button>
+        </div>
+      </div>
+
+    </div>
+  );
+}
 
 function isDetailImage(img: { tab?: string; detailType?: V2DetailType }) {
   return (img.tab || "product") === "detail";
@@ -16,6 +112,11 @@ export function DetailRightPanel({
   activeSession: V2Session;
   onRetryType?: (type: V2DetailType) => void;
 }) {
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+
+  const openLightbox = useCallback((url: string) => setLightboxUrl(url), []);
+  const closeLightbox = useCallback(() => setLightboxUrl(null), []);
+
   const detail = activeSession.detail;
   const detailImageUrls = detail?.detailImageUrls || [];
   const activeDetailImageIndex = detail?.activeDetailImageIndex ?? 0;
@@ -123,7 +224,12 @@ export function DetailRightPanel({
                       </div>
                     )}
                     {imgs.map((img) => (
-                      <div key={img.id} className="rounded-xl overflow-hidden border border-gray-200 bg-white">
+                      <div
+                        key={img.id}
+                        className="rounded-xl overflow-hidden border border-gray-200 bg-white cursor-pointer hover:ring-2 hover:ring-indigo-300 transition-all"
+                        onDoubleClick={() => openLightbox(img.imageUrl)}
+                        title="双击放大"
+                      >
                         <img src={img.imageUrl} alt={V2_DETAIL_TYPE_LABELS[type] || "商详图"} className="w-full aspect-square object-cover" />
                         <div className="px-3 py-2 text-[10px] text-gray-400 truncate">
                           {new Date(img.createdAt).toLocaleString()}
@@ -144,6 +250,8 @@ export function DetailRightPanel({
                 </div>
         )}
       </div>
+
+      {lightboxUrl && <Lightbox imageUrl={lightboxUrl} onClose={closeLightbox} />}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { RefObject } from "react";
+import { RefObject, useState, useCallback } from "react";
 import {
   ImageIcon, Upload, Sparkles, Aperture, Focus, Layers, Box,
   FileText, LayoutGrid, Scale, Ruler, X, Plus,
@@ -12,6 +12,22 @@ import { cn } from "@/lib/utils";
 import { AuthCodeAuditCard } from "./components/AuthCodeAuditCard";
 import type { V2DetailType, V2Session } from "./types";
 import { V2_DETAIL_TYPE_LABELS } from "./types";
+
+function SimpleLightbox({ imageUrl, onClose }: { imageUrl: string; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70"
+      onClick={onClose}
+    >
+      <img
+        src={imageUrl}
+        alt=""
+        className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg"
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
+  );
+}
 
 export function DetailLeftPanel({
   activeSession,
@@ -28,6 +44,10 @@ export function DetailLeftPanel({
   onToggleDetailType?: (type: V2DetailType) => void;
   onGenerate: () => void;
 }) {
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const openLightbox = useCallback((url: string) => setLightboxUrl(url), []);
+  const closeLightbox = useCallback(() => setLightboxUrl(null), []);
+
   if (!activeSession) return null;
 
   const productDescription = activeSession.goal;
@@ -99,7 +119,8 @@ export function DetailLeftPanel({
                           },
                         }))
                       }
-                      title="点击查看大图"
+                      onDoubleClick={() => openLightbox(url)}
+                      title="单击切换，双击放大"
                     >
                       <img src={url} alt={`参考图 ${idx + 1}`} className="w-full h-full object-cover" />
                       <button
@@ -137,7 +158,11 @@ export function DetailLeftPanel({
 
                 {/* Large preview */}
                 <div className="flex-1 min-w-0">
-                  <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-[#F5F6F8]">
+                  <div
+                    className="relative rounded-xl overflow-hidden border border-gray-200 bg-[#F5F6F8] cursor-pointer"
+                    onDoubleClick={() => openLightbox(activeDetailImage || detailImageUrls[0])}
+                    title="双击放大"
+                  >
                     <img
                       src={activeDetailImage || detailImageUrls[0]}
                       alt="参考图预览"
@@ -233,6 +258,8 @@ export function DetailLeftPanel({
           )}
         </Button>
       </div>
+
+      {lightboxUrl && <SimpleLightbox imageUrl={lightboxUrl} onClose={closeLightbox} />}
     </div>
   );
 }
