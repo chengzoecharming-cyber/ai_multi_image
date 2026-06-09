@@ -116,6 +116,7 @@ export async function POST(request: NextRequest) {
     let finalPrompt: string;
     let finalNegativePrompt: string;
     let isDirectPromptPath = false;
+    const generationModeId: string = config?.generationModeId || "conservative_enhancement";
     const strictSize: boolean = config?.strictSize !== false;
 
     // Template-based generation (new path)
@@ -148,6 +149,7 @@ export async function POST(request: NextRequest) {
         userNegativePrompt: negativePrompt || "",
         hasProductImage: !!resolvedProductImageUrl,
         hasStyleReferences: resolvedStyleReferenceUrls.length > 0,
+        generationModeId,
       });
       finalPrompt = builderResult.positivePrompt;
       finalNegativePrompt = builderResult.negativePrompt;
@@ -167,17 +169,38 @@ export async function POST(request: NextRequest) {
     const seed =
       typeof config?.seed === "number" && Number.isFinite(config.seed)
         ? Math.floor(config.seed)
-        : !!resolvedProductImageUrl
+        : generationModeId === "conservative_enhancement" && !!resolvedProductImageUrl
           ? deriveStableSeed([resolvedProductImageUrl, finalPrompt, finalNegativePrompt || "", width, height, model])
           : undefined;
 
     const requestedStrengthRaw =
       (config as Record<string, unknown>)?.editStrength ??
       (config as Record<string, unknown>)?.strength;
-    const editStrength =
+    const requestedStrength =
       typeof requestedStrengthRaw === "number" && Number.isFinite(requestedStrengthRaw)
         ? Math.max(0, Math.min(1, requestedStrengthRaw))
         : undefined;
+
+    let editStrength =
+      !!resolvedProductImageUrl
+        ? generationModeId === "conservative_enhancement"
+          ? 0.35
+          : generationModeId === "commercial_showcase"
+            ? 0.55
+            : 0.75
+        : undefined;
+
+    // Allow explicit override from client.
+    if (requestedStrength !== undefined && editStrength !== undefined) {
+      editStrength = requestedStrength;
+    }
+
+    // For long "direct prompt" (V2 rich prompt) paths, keep the product closer to
+    // the reference image by default. High strength often causes product drift.
+    if (isDirectPromptPath && editStrength !== undefined) {
+      // Still cap, but allow enough change to avoid "original image" outputs.
+      editStrength = Math.min(editStrength, 0.75);
+    }
 
     const configSnapshot = JSON.stringify({
       ...config,
@@ -185,6 +208,7 @@ export async function POST(request: NextRequest) {
       variableValues: variableValues || undefined,
       userDescription: userDescription || undefined,
       selectedFragmentIds: config?.selectedFragmentIds || [],
+      generationModeId,
       ratio: config?.ratio || "1:1",
       width,
       height,
@@ -343,6 +367,7 @@ const providerName = body.provider || process.env.IMAGE_PROVIDER || "chatgpt2api
         imageBase64,
         remainingQuota,
         debug: {
+          generationModeId,
           model,
           size: `${width}x${height}`,
           editStrength: editStrength ?? null,
@@ -365,6 +390,7 @@ const providerName = body.provider || process.env.IMAGE_PROVIDER || "chatgpt2api
       return NextResponse.json({
         data: updatedTask,
         debug: {
+          generationModeId,
           model,
           size: `${width}x${height}`,
           editStrength: editStrength ?? null,
