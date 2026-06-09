@@ -32,8 +32,9 @@ export async function generateImage(params: GenerateImageParams): Promise<Genera
   }
   return res.json();
 }
-export async function editImage(params: { prompt: string; image: File; model?: string; n?: number }): Promise<GenerateImageResponse> {
+export async function editImage(params: { prompt: string; image: File; model?: string; n?: number; size?: string }): Promise<GenerateImageResponse> {
   const fd = new FormData(); fd.append("model", params.model || "gpt-image-2"); fd.append("prompt", params.prompt); fd.append("n", String(params.n || 1)); fd.append("image", params.image);
+  if (params.size) fd.append("size", params.size);
   const res = await fetch(`${BASE_URL}/images/edits`, { method: "POST", headers: { Authorization: `Bearer ${AUTH_KEY}` }, body: fd });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));

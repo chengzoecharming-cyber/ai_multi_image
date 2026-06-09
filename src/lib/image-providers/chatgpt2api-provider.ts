@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import sharp from "sharp";
 import { ImageProvider, GenerateImageParams, GenerateImageResult } from "./types";
 import { generateImage, editImage } from "@/lib/chatgpt2api";
 const VALID_SIZES = ["1024x1024", "1024x1536", "1536x1024"] as const;
@@ -24,7 +25,7 @@ export class ChatGPT2APIProvider implements ImageProvider {
         if (resolvedUrl.includes("localhost:3002")) {
           resolvedUrl = resolvedUrl.replace("localhost:3002", "47.237.113.100:3002");
         }
-        let file;
+        let buffer: Buffer;
         const isLocalUpload = resolvedUrl.includes("/uploads/");
         const isLocalGenerated = resolvedUrl.includes("/generated/");
         const isLocalhost = resolvedUrl.includes("localhost");
@@ -41,18 +42,26 @@ export class ChatGPT2APIProvider implements ImageProvider {
             filePath = path.join(process.cwd(), "public", "uploads", fileName);
           }
           try {
-            const buffer = fs.readFileSync(filePath);
-            file = new File([buffer], "reference.png", { type: "image/png" });
+            buffer = fs.readFileSync(filePath);
           } catch (e) {
             return { success: false, error: `无法读取参考图: ${e instanceof Error ? e.message : String(e)}` };
           }
         } else {
           const imageRes = await fetch(resolvedUrl, { signal: params.signal });
           if (!imageRes.ok) return { success: false, error: `无法获取参考图: ${imageRes.status}` };
-          const blob = await imageRes.blob();
-          file = new File([blob], "reference.png", { type: blob.type || "image/png" });
+          buffer = Buffer.from(await imageRes.arrayBuffer());
         }
-        const result = await editImage({ prompt: params.prompt, image: file, model: params.model && params.model !== "default" ? params.model : undefined });
+
+        // Resize reference image to match target aspect ratio before sending to edit API.
+        // This prevents the API from inheriting a mismatched aspect ratio.
+        const [targetW, targetH] = size.split("x").map(Number);
+        const processedBuffer = await sharp(buffer)
+          .resize(targetW, targetH, { fit: "cover", position: "center" })
+          .png()
+          .toBuffer();
+        const file = new File([new Uint8Array(processedBuffer)], "reference.png", { type: "image/png" });
+
+        const result = await editImage({ prompt: params.prompt, image: file, model: params.model && params.model !== "default" ? params.model : undefined, size });
         const imageUrlResult = result.data?.[0]?.url;
         if (!imageUrlResult) return { success: false, error: "ChatGPT2API 未返回图片 URL" };
         return { success: true, imageUrl: imageUrlResult };
