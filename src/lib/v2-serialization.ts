@@ -21,6 +21,7 @@ interface RawPlan {
   layoutDirection: string;
   visualDirection: string;
   colorDirection: string;
+  visualPresentation: string | null;
   copyDensity: string | null;
   productAnalysisJson: string | null;
   productName: string;
@@ -28,6 +29,10 @@ interface RawPlan {
   subtitle: string | null;
   sellingPoints: string | null;
   copyBlocks: string | null;
+  headlineCn: string | null;
+  subtitleCn: string | null;
+  sellingPointsCn: string | null;
+  copyBlocksCn: string | null;
   copySource: string;
   copyNotes: string | null;
   visualStyleId: string | null;
@@ -205,12 +210,17 @@ function deserializePlan(row: RawPlan): CreativePlan {
     layoutDirection: row.layoutDirection,
     visualDirection: row.visualDirection,
     colorDirection: row.colorDirection,
+    visualPresentation: row.visualPresentation ?? undefined,
     productAnalysis: safeParseJson<ProductAnalysis>(row.productAnalysisJson) ?? undefined,
     productName: row.productName,
     headline: row.headline,
     subtitle: row.subtitle ?? undefined,
     sellingPoints: safeParseJson<string[]>(row.sellingPoints) || [],
     copyBlocks: safeParseJson<CopyBlock[]>(row.copyBlocks) || [],
+    headlineCn: row.headlineCn ?? undefined,
+    subtitleCn: row.subtitleCn ?? undefined,
+    sellingPointsCn: safeParseJson<string[]>(row.sellingPointsCn) || undefined,
+    copyBlocksCn: safeParseJson<CopyBlock[]>(row.copyBlocksCn) || undefined,
     copySource: (row.copySource as CopySource) || "ai_rewritten",
     copyNotes: safeParseJson<string[]>(row.copyNotes) ?? undefined,
     visualStyleId: (row.visualStyleId as VisualStyleId) ?? undefined,
@@ -268,6 +278,7 @@ export interface AiImageV2PlanCreateData {
   layoutDirection: string;
   visualDirection: string;
   colorDirection: string;
+  visualPresentation: string | null;
   copyDensity: string | null;
   productAnalysisJson: string | null;
   productName: string;
@@ -275,6 +286,10 @@ export interface AiImageV2PlanCreateData {
   subtitle: string | null;
   sellingPoints: string;
   copyBlocks: string;
+  headlineCn: string | null;
+  subtitleCn: string | null;
+  sellingPointsCn: string;
+  copyBlocksCn: string;
   copySource: string;
   copyNotes: string | null;
   visualStyleId: string | null;
@@ -365,6 +380,7 @@ export function toPlanCreateInput(
     layoutDirection: plan.layoutDirection || "",
     visualDirection: plan.visualDirection || "",
     colorDirection: plan.colorDirection || "",
+    visualPresentation: plan.visualPresentation ?? null,
     copyDensity: plan.copyDensity ?? null,
     productAnalysisJson: plan.productAnalysis ? JSON.stringify(plan.productAnalysis) : null,
     productName: plan.productName,
@@ -372,6 +388,10 @@ export function toPlanCreateInput(
     subtitle: plan.subtitle ?? null,
     sellingPoints: JSON.stringify(plan.sellingPoints || []),
     copyBlocks: JSON.stringify(plan.copyBlocks || []),
+    headlineCn: plan.headlineCn ?? null,
+    subtitleCn: plan.subtitleCn ?? null,
+    sellingPointsCn: JSON.stringify(plan.sellingPointsCn || []),
+    copyBlocksCn: JSON.stringify(plan.copyBlocksCn || []),
     copySource: plan.copySource,
     copyNotes: plan.copyNotes ? JSON.stringify(plan.copyNotes) : null,
     visualStyleId: plan.visualStyleId ?? null,

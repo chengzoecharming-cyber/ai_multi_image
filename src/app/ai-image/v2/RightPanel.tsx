@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from "react";
 import {
   Wand2, Sparkles, Save, Info, ChevronLeft, ChevronRight,
-  Grid3x3, Eye, Copy, Download,
+  Grid3x3, Eye, Copy, Download, Languages,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -131,21 +131,28 @@ function PlanCard({
             </div>
           )}
 
-          {/* 方向说明 — 2列网格 */}
-          <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+          {/* 方向说明 — 视觉呈现（新版）或兼容旧版 */}
+          {plan.visualPresentation ? (
             <div>
-              <div className="text-xs font-medium text-gray-500 mb-0.5">版式方向</div>
-              <p className="text-xs text-gray-700 leading-snug line-clamp-2">{plan.layoutDirection}</p>
+              <div className="text-xs font-medium text-gray-500 mb-0.5">视觉呈现</div>
+              <p className="text-xs text-gray-700 leading-snug line-clamp-3">{plan.visualPresentation}</p>
             </div>
-            <div>
-              <div className="text-xs font-medium text-gray-500 mb-0.5">视觉方向</div>
-              <p className="text-xs text-gray-700 leading-snug line-clamp-2">{plan.visualDirection}</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+              <div>
+                <div className="text-xs font-medium text-gray-500 mb-0.5">版式方向</div>
+                <p className="text-xs text-gray-700 leading-snug line-clamp-2">{plan.layoutDirection}</p>
+              </div>
+              <div>
+                <div className="text-xs font-medium text-gray-500 mb-0.5">视觉方向</div>
+                <p className="text-xs text-gray-700 leading-snug line-clamp-2">{plan.visualDirection}</p>
+              </div>
+              <div className="col-span-2">
+                <div className="text-xs font-medium text-gray-500 mb-0.5">色彩方向</div>
+                <p className="text-xs text-gray-700 leading-snug line-clamp-2">{plan.colorDirection}</p>
+              </div>
             </div>
-            <div className="col-span-2">
-              <div className="text-xs font-medium text-gray-500 mb-0.5">色彩方向</div>
-              <p className="text-xs text-gray-700 leading-snug line-clamp-2">{plan.colorDirection}</p>
-            </div>
-          </div>
+          )}
 
           {/* CopyBlocks */}
           {topCopyBlocks.length > 0 && (
@@ -398,6 +405,8 @@ function ImagePreviewPanel({
   onSave: (plan: CreativePlan) => void;
   onOpenInfo: (plan: CreativePlan) => void;
 }) {
+  const [showCn, setShowCn] = useState(false);
+  const hasCn = !!(plan.headlineCn || plan.subtitleCn || (plan.sellingPointsCn && plan.sellingPointsCn.length > 0));
   const meta = getPlanMeta(plan);
   const imageSrc = generatedImage?.imageBase64 || generatedImage?.imageUrl || null;
 
@@ -425,6 +434,18 @@ function ImagePreviewPanel({
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          {hasCn && (
+            <button
+              onClick={() => setShowCn((v) => !v)}
+              className={cn(
+                "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
+                showCn ? "bg-indigo-100 text-indigo-600" : "hover:bg-gray-100 text-gray-500"
+              )}
+              title={showCn ? "显示英文" : "显示中文"}
+            >
+              <Languages className="w-4 h-4" />
+            </button>
+          )}
           <button
             onClick={() => onSave(plan)}
             className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors"
@@ -538,24 +559,36 @@ function ImagePreviewPanel({
             </Button>
           )}
 
-          {/* 文案释义 */}
+          {/* 双语文案展示 */}
           <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-2">
-            <div className="text-xs font-semibold text-gray-700 mb-2">图片文案（中文释义）</div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs font-semibold text-gray-700">{showCn ? "图片文案（中文）" : "图片文案（English）"}</div>
+              {hasCn && (
+                <button
+                  onClick={() => setShowCn((v) => !v)}
+                  className="text-[11px] text-indigo-600 hover:text-indigo-700 font-medium"
+                >
+                  {showCn ? "切换英文" : "切换中文"}
+                </button>
+              )}
+            </div>
             <div className="space-y-1">
               <div className="text-[11px] text-gray-600">
-                <span className="font-medium text-gray-700">主标题：</span>{plan.headline || "—"}
+                <span className="font-medium text-gray-700">主标题：</span>
+                {showCn && plan.headlineCn ? plan.headlineCn : plan.headline || "—"}
               </div>
-              {plan.subtitle && (
+              {(showCn && plan.subtitleCn ? plan.subtitleCn : plan.subtitle) && (
                 <div className="text-[11px] text-gray-600">
-                  <span className="font-medium text-gray-700">副标题：</span>{plan.subtitle}
+                  <span className="font-medium text-gray-700">副标题：</span>
+                  {showCn && plan.subtitleCn ? plan.subtitleCn : plan.subtitle}
                 </div>
               )}
-              {(plan.sellingPoints || []).slice(0, 6).map((s, idx) => (
+              {(showCn && plan.sellingPointsCn ? plan.sellingPointsCn : plan.sellingPoints || []).slice(0, 6).map((s, idx) => (
                 <div key={idx} className="text-[11px] text-gray-600">
                   <span className="font-medium text-gray-700">文案要点{idx + 1}：</span>{s}
                 </div>
               ))}
-              {(plan.sellingPoints || []).length === 0 && (plan.copyBlocks || []).length > 0 && (
+              {(showCn && plan.sellingPointsCn ? plan.sellingPointsCn : plan.sellingPoints || []).length === 0 && (plan.copyBlocks || []).length > 0 && (
                 <div className="text-[11px] text-gray-600">
                   <span className="font-medium text-gray-700">说明：</span>本方案以 copyBlocks 组织文案，不强制卖点列表。
                 </div>

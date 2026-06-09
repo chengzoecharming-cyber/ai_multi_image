@@ -268,10 +268,13 @@ model AiImageV2Plan {
   imageType     String @map("image_type")
   sortOrder     Int    @default(0) @map("sort_order")
 
-  // 方向
+  // 方向（兼容旧数据）
   layoutDirection String @map("layout_direction")
   visualDirection String @map("visual_direction")
   colorDirection  String @map("color_direction")
+
+  // 视觉呈现（新版：合并版式+色彩方向）
+  visualPresentation String? @map("visual_presentation")
 
   // 文案密度（新增，兼容旧字段）
   copyDensity String? @map("copy_density")
@@ -279,12 +282,18 @@ model AiImageV2Plan {
   // 产品分析（JSON）
   productAnalysisJson String? @map("product_analysis_json")
 
-  // 文案
+  // 文案（英文，用于图片生成）
   productName  String @map("product_name")
   headline     String
   subtitle     String?
   sellingPoints String? @map("selling_points") // JSON array
   copyBlocks    String? @map("copy_blocks")    // JSON array
+
+  // 文案（中文，用于前端展示）
+  headlineCn     String? @map("headline_cn")
+  subtitleCn     String? @map("subtitle_cn")
+  sellingPointsCn String? @map("selling_points_cn") // JSON array
+  copyBlocksCn    String? @map("copy_blocks_cn")    // JSON array
 
   copySource String @default("ai_rewritten") @map("copy_source")
   copyNotes  String? @map("copy_notes")        // JSON array

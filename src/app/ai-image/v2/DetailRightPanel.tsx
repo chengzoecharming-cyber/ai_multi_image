@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { ImageIcon, Loader2, RefreshCw, X, Copy, Download } from "lucide-react";
+import { ImageIcon, Loader2, RefreshCw, X, Copy, Download, Languages } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { V2DetailType, V2Session } from "./types";
@@ -146,6 +147,10 @@ export function DetailRightPanel({
     ])
   );
 
+  const heroPlan = detail?.heroPlan;
+  const hasCn = !!(heroPlan?.headlineCn || heroPlan?.subtitleCn || (heroPlan?.sellingPointsCn && heroPlan.sellingPointsCn.length > 0));
+  const [showCn, setShowCn] = useState(false);
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-200 bg-white">
@@ -159,15 +164,51 @@ export function DetailRightPanel({
               {heroUrl ? "已上传参考图，风格将保持一致" : "未上传参考图：请先上传主图或尺寸图"}
             </div>
           </div>
-          {heroUrl && (
-            <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2">
+            {hasCn && (
+              <button
+                onClick={() => setShowCn((v) => !v)}
+                className={cn(
+                  "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
+                  showCn ? "bg-indigo-100 text-indigo-600" : "hover:bg-gray-100 text-gray-500"
+                )}
+                title={showCn ? "显示英文" : "显示中文"}
+              >
+                <Languages className="w-4 h-4" />
+              </button>
+            )}
+            {heroUrl && (
               <div className="w-10 h-10 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
                 <img src={heroUrl} alt="参考图" className="w-full h-full object-cover" />
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
+
+      {/* 中文文案展示（来自 heroPlan） */}
+      {hasCn && showCn && (
+        <div className="px-6 py-3 border-b border-gray-100 bg-indigo-50/40">
+          <div className="text-xs font-semibold text-gray-700 mb-1.5">主图文案（中文）</div>
+          <div className="space-y-0.5">
+            {heroPlan?.headlineCn && (
+              <div className="text-[11px] text-gray-600">
+                <span className="font-medium text-gray-700">主标题：</span>{heroPlan.headlineCn}
+              </div>
+            )}
+            {heroPlan?.subtitleCn && (
+              <div className="text-[11px] text-gray-600">
+                <span className="font-medium text-gray-700">副标题：</span>{heroPlan.subtitleCn}
+              </div>
+            )}
+            {(heroPlan?.sellingPointsCn || []).slice(0, 4).map((s, idx) => (
+              <div key={idx} className="text-[11px] text-gray-600">
+                <span className="font-medium text-gray-700">卖点{idx + 1}：</span>{s}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-6">
         {detailImages.length === 0 && !generating && failedTypes.length === 0 ? (

@@ -204,6 +204,24 @@ promo_sales:
 - Copy structure is flexible; no forced block count
 - layoutType candidates: top_headline_bottom_feature_bar, large_headline_with_bottom_info_bar
 
+BILINGUAL OUTPUT REQUIREMENT (文案中英双语):
+For every plan, you MUST provide both English and Chinese versions of all copy content.
+- The English version is used for image generation (on-image text must be English).
+- The Chinese version is for user review and understanding.
+
+Rules for Chinese copy:
+- headlineCn: natural, marketing-oriented Chinese translation of headline. Keep it punchy and e-commerce friendly.
+- subtitleCn: Chinese translation of subtitle, maintaining the tone.
+- sellingPointsCn: array of Chinese translations of sellingPoints. Each should be concise and impactful.
+- copyBlocksCn: array with the same structure as copyBlocks, but title and body in Chinese.
+- Do NOT simply translate word-for-word. Adapt to Chinese e-commerce language habits.
+
+VISUAL PRESENTATION (视觉呈现):
+- Replace the separate "layoutDirection" and "colorDirection" fields with a single "visualPresentation" field.
+- visualPresentation should be a concise Chinese description (2-4 sentences) covering: overall layout concept + key color scheme + atmosphere.
+- Example: "左产品右文案的非对称布局，深石墨色背景搭配电光蓝描边高光，金色点缀营造高端工业质感。"
+- visualDirection remains as the detailed English visual direction description for image generation.
+
 Output JSON shape:
 {
   "plans": [
@@ -218,8 +236,13 @@ Output JSON shape:
       "subtitle": string,
       "sellingPoints": string[],
       "copyBlocks": Array<{ "id": string, "title": string, "body": string, "role": string, "priority": number }>,
-      "layoutDirection": string,
+      "headlineCn": string,
+      "subtitleCn": string,
+      "sellingPointsCn": string[],
+      "copyBlocksCn": Array<{ "id": string, "title": string, "body": string, "role": string, "priority": number }>,
+      "visualPresentation": string,
       "visualDirection": string,
+      "layoutDirection": string,
       "colorDirection": string,
       "visualComplexity": "complex",
       "informationDensity": "high",

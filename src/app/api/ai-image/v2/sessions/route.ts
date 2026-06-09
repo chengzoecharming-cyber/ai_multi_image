@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
       skip: offset,
     });
 
-    const sessions = rows.map(deserializeSession);
+    const sessions = (rows as any[]).map(deserializeSession);
 
     return NextResponse.json({ data: sessions });
   } catch (error) {
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
       ? await prisma.aiImageV2Session.findFirst({
           where: { id: session.id, ...scopedTenantUserWhere(scope, tenantId) },
           include: { plans: true, images: true, detail: true, authorizationCode: authorizationCodeInclude },
-        })
+        }) as any
       : null;
 
     if (existingById && !existing) {
@@ -172,8 +172,8 @@ export async function POST(request: NextRequest) {
         }
 
         // ── Merge images: keep server images + append new ones from client ──
-        const existingImageIds = new Set(existing.images.map((img) => img.id));
-        const existingTaskIds = new Set(existing.images.map((img) => img.taskId).filter(Boolean));
+        const existingImageIds = new Set(existing.images.map((img: any) => img.id));
+        const existingTaskIds = new Set(existing.images.map((img: any) => img.taskId).filter(Boolean));
         const newImages = (session.generatedImages || []).filter(
           (img) => !existingImageIds.has(img.id) && !(img.taskId && existingTaskIds.has(img.taskId))
         );

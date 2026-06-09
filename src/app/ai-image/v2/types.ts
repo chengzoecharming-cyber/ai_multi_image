@@ -133,9 +133,14 @@ export interface CreativePlan {
   /** 文案密度策略（新增）。当未指定时，由 taxonomy 提供默认值。 */
   copyDensity?: CopyDensityId;
 
+  /** @deprecated 保留兼容，新数据使用 visualPresentation */
   layoutDirection: string;
   visualDirection: string;
+  /** @deprecated 保留兼容，新数据使用 visualPresentation */
   colorDirection: string;
+
+  /** 视觉呈现：合并版式方向与色彩方向的中文描述 */
+  visualPresentation?: string;
 
   productAnalysis?: ProductAnalysis;
 
@@ -144,6 +149,12 @@ export interface CreativePlan {
   subtitle?: string;
   sellingPoints: string[];
   copyBlocks: CopyBlock[];
+
+  /** 中文文案（用于前端翻译展示，图片仍使用英文） */
+  headlineCn?: string;
+  subtitleCn?: string;
+  sellingPointsCn?: string[];
+  copyBlocksCn?: CopyBlock[];
 
   copySource: CopySource;
   copyNotes?: string[];
