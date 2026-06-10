@@ -16,6 +16,14 @@ interface HeroPlanContext {
   colorDirection?: string;
   layoutDirection?: string;
   productName?: string;
+  productAnalysis?: {
+    productType?: string;
+    productSubjectDescription?: string;
+    visibleFeatures?: string[];
+    materialGuess?: string;
+    structureRisks?: string[];
+  };
+  copyBlocks?: Array<{ title?: string; body?: string; role?: string }>;
 }
 
 const LLM_API_URL = process.env.LLM_API_URL || `${process.env.NEXT_PUBLIC_CHATGPT2API_URL || "http://localhost:3000/v1"}/chat/completions`;
@@ -32,6 +40,16 @@ function extractHeroContext(plan?: CreativePlan | null): HeroPlanContext | null 
     colorDirection: plan.colorDirection || undefined,
     layoutDirection: plan.layoutDirection || undefined,
     productName: plan.productName || undefined,
+    productAnalysis: plan.productAnalysis
+      ? {
+          productType: plan.productAnalysis.productType || undefined,
+          productSubjectDescription: plan.productAnalysis.productSubjectDescription || undefined,
+          visibleFeatures: plan.productAnalysis.visibleFeatures || undefined,
+          materialGuess: plan.productAnalysis.materialGuess || undefined,
+          structureRisks: plan.productAnalysis.structureRisks || undefined,
+        }
+      : undefined,
+    copyBlocks: plan.copyBlocks?.map((b) => ({ title: b.title, body: b.body, role: b.role })) || undefined,
   };
 }
 
@@ -44,6 +62,29 @@ function buildDetailPrompt(args: {
 }): string {
   const base = (args.productDescription || "").trim();
   const hero = args.heroContext;
+
+  // Build rich product context from heroPlan analysis + user description
+  const productLines: string[] = [];
+  if (hero?.productName) productLines.push(`Product Name: ${hero.productName}`);
+  if (hero?.productAnalysis?.productType) productLines.push(`Category: ${hero.productAnalysis.productType}`);
+  if (hero?.productAnalysis?.productSubjectDescription) productLines.push(`Description: ${hero.productAnalysis.productSubjectDescription}`);
+  if (hero?.productAnalysis?.visibleFeatures && hero.productAnalysis.visibleFeatures.length > 0)
+    productLines.push(`Visible Features: ${hero.productAnalysis.visibleFeatures.join("; ")}`);
+  if (hero?.productAnalysis?.materialGuess) productLines.push(`Material: ${hero.productAnalysis.materialGuess}`);
+  if (hero?.productAnalysis?.structureRisks && hero.productAnalysis.structureRisks.length > 0)
+    productLines.push(`Structure Notes: ${hero.productAnalysis.structureRisks.join("; ")}`);
+  if (hero?.sellingPoints && hero.sellingPoints.length > 0)
+    productLines.push(`Key Selling Points: ${hero.sellingPoints.join(" | ")}`);
+  if (hero?.copyBlocks && hero.copyBlocks.length > 0) {
+    const msgs = hero.copyBlocks
+      .filter((b) => b.title || b.body)
+      .map((b) => (b.body ? `${b.title}: ${b.body}` : b.title))
+      .join(" | ");
+    if (msgs) productLines.push(`Copy Messages: ${msgs}`);
+  }
+  if (base && !hero?.productAnalysis?.productSubjectDescription) productLines.push(`User Description: ${base}`);
+
+  const productBlock = productLines.length > 0 ? productLines.join("\n") : base;
 
   // Hero plan style anchor
   const styleAnchor = hero
@@ -121,7 +162,7 @@ function buildDetailPrompt(args: {
     ].join("\n"),
   };
 
-  return `${common}\n\n${base ? `Product: ${base}\n` : ""}${perType[args.type]}`.trim();
+  return `${common}\n\n${productBlock ? `Product Context:\n${productBlock}\n` : ""}${perType[args.type]}`.trim();
 }
 
 async function shouldRetrySpecFill(imageUrl: string): Promise<boolean> {

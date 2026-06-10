@@ -4,6 +4,14 @@ import { useState, useCallback } from "react";
 import { ImageIcon, Loader2, RefreshCw, X, Copy, Download, Languages } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import type { V2DetailType, V2Session } from "./types";
 import { V2_DETAIL_TYPE_LABELS } from "./types";
@@ -109,11 +117,14 @@ function isDetailImage(img: { tab?: string; detailType?: V2DetailType }) {
 export function DetailRightPanel({
   activeSession,
   onRetryType,
+  onRefreshType,
 }: {
   activeSession: V2Session;
   onRetryType?: (type: V2DetailType) => void;
+  onRefreshType?: (type: V2DetailType) => void;
 }) {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [refreshDialogType, setRefreshDialogType] = useState<V2DetailType | null>(null);
 
   const openLightbox = useCallback((url: string) => setLightboxUrl(url), []);
   const closeLightbox = useCallback(() => setLightboxUrl(null), []);
@@ -229,8 +240,20 @@ export function DetailRightPanel({
                 <section key={type} className="w-[180px]">
                   <div className="flex items-center justify-between mb-3">
                     <div className="text-sm font-semibold text-gray-700">{V2_DETAIL_TYPE_LABELS[type] || type}</div>
-                    <div className="text-xs text-gray-400">
-                      {isActive ? "生成中" : isQueued ? "排队中" : failedError ? "失败" : `${imgs.length} 张`}
+                    <div className="flex items-center gap-1.5">
+                      {!isActive && !isQueued && !failedError && imgs.length > 0 && (
+                        <button
+                          onClick={() => setRefreshDialogType(type)}
+                          className="text-gray-400 hover:text-indigo-500 transition-colors"
+                          title="重新生成（替换当前图片）"
+                          disabled={generating}
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <div className="text-xs text-gray-400">
+                        {isActive ? "生成中" : isQueued ? "排队中" : failedError ? "失败" : `${imgs.length} 张`}
+                      </div>
                     </div>
                   </div>
                   <div className="space-y-3">
@@ -291,6 +314,39 @@ export function DetailRightPanel({
                 </div>
         )}
       </div>
+
+      {/* Refresh confirmation dialog */}
+      <Dialog open={!!refreshDialogType} onOpenChange={(open) => !open && setRefreshDialogType(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>重新生成图片</DialogTitle>
+            <DialogDescription>
+              刷新会替换当前类型的旧图片，新的图片将在同一位置生成。
+              如需保留旧图，请提前下载保存。
+              <br />
+              <span className="text-indigo-600 font-medium mt-1 inline-block">
+                确定要重新生成「{refreshDialogType ? V2_DETAIL_TYPE_LABELS[refreshDialogType] : ""}」吗？
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" size="sm" onClick={() => setRefreshDialogType(null)}>
+              取消
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                if (refreshDialogType) {
+                  onRefreshType?.(refreshDialogType);
+                }
+                setRefreshDialogType(null);
+              }}
+            >
+              确认重新生成
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {lightboxUrl && <Lightbox imageUrl={lightboxUrl} onClose={closeLightbox} />}
     </div>

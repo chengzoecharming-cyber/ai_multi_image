@@ -61,6 +61,7 @@ function V2WorkbenchPageInner() {
     toggleDetailType,
     handleGenerateDetail,
     handleRetryDetailType,
+    handleRefreshDetailType,
     workspaceTab,
     lastDebugPrompt,
   } = useV2Session();
@@ -254,7 +255,11 @@ function V2WorkbenchPageInner() {
           )}
 
             {tab === "detail" && (
-              <DetailRightPanel activeSession={activeSession} onRetryType={handleRetryDetailType} />
+              <DetailRightPanel
+                activeSession={activeSession}
+                onRetryType={handleRetryDetailType}
+                onRefreshType={handleRefreshDetailType}
+              />
             )}
           </div>
 

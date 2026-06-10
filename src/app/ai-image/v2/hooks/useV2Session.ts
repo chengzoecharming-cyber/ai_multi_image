@@ -189,6 +189,7 @@ export function useV2Session() {
     toggleDetailType: detailGeneration.toggleDetailType,
     handleGenerateDetail: detailGeneration.handleGenerateDetail,
     handleRetryDetailType: detailGeneration.handleRetryDetailType,
+    handleRefreshDetailType: detailGeneration.handleRefreshDetailType,
 
     // Debug
     lastDebugPrompt: planGeneration.lastDebugPrompt,

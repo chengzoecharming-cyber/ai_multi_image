@@ -63,6 +63,9 @@ interface RawDetail {
   selectedTypes: string | null;
   generating: boolean;
   lastError: string | null;
+  failedTypes: string | null;
+  generatingTypes: string | null;
+  activeGeneratingType: string | null;
 }
 
 interface RawSession {
@@ -120,6 +123,9 @@ export function deserializeSession(row: RawSession): V2Session {
         heroPlan: safeParseJson<CreativePlan>(row.detail.heroPlanJson) || null,
         selectedTypes: (safeParseJson<string[]>(row.detail.selectedTypes) || []) as V2DetailType[],
         generating: row.detail.generating,
+        generatingTypes: (safeParseJson<string[]>(row.detail.generatingTypes) || []) as V2DetailType[],
+        activeGeneratingType: (row.detail.activeGeneratingType as V2DetailType) || null,
+        failedTypes: safeParseJson<Array<{ type: V2DetailType; error: string }>>(row.detail.failedTypes) || [],
         results: [],
         lastError: row.detail.lastError ?? null,
       }
@@ -325,6 +331,9 @@ export interface AiImageV2DetailStateCreateData {
   selectedTypes: string;
   generating: boolean;
   lastError: string | null;
+  failedTypes: string;
+  generatingTypes: string;
+  activeGeneratingType: string | null;
 }
 
 export function toSessionCreateInput(
@@ -441,6 +450,9 @@ export function toDetailStateCreateInput(
     selectedTypes: JSON.stringify(detail.selectedTypes || []),
     generating: detail.generating ?? false,
     lastError: detail.lastError ?? null,
+    failedTypes: JSON.stringify(detail.failedTypes || []),
+    generatingTypes: JSON.stringify(detail.generatingTypes || []),
+    activeGeneratingType: detail.activeGeneratingType ?? null,
   };
 }
 

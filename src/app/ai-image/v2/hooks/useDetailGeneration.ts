@@ -15,6 +15,7 @@ export interface DetailGenerationActions {
   toggleDetailType: (type: V2DetailType) => void;
   handleGenerateDetail: () => Promise<void>;
   handleRetryDetailType: (type: V2DetailType) => Promise<void>;
+  handleRefreshDetailType: (type: V2DetailType) => void;
 }
 
 export function useDetailGeneration(options: UseDetailGenerationOptions): DetailGenerationActions {
@@ -271,5 +272,27 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
     [handleGenerateDetailTypes]
   );
 
-  return { toggleDetailType, handleGenerateDetail, handleRetryDetailType };
+  const handleRefreshDetailType = useCallback(
+    (type: V2DetailType) => {
+      let cleanedSession: V2Session | null = null;
+      updateActiveSession((s) => {
+        const prevDetail = s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: false, results: [], lastError: null };
+        return (cleanedSession = {
+          ...s,
+          generatedImages: (s.generatedImages || []).filter((img) => img.detailType !== type),
+          detail: {
+            ...prevDetail,
+            results: (prevDetail.results || []).filter((r) => r.type !== type),
+          },
+        });
+      });
+      if (cleanedSession) {
+        void onSessionPersist?.(cleanedSession);
+      }
+      void handleGenerateDetailTypes([type]);
+    },
+    [updateActiveSession, handleGenerateDetailTypes, onSessionPersist]
+  );
+
+  return { toggleDetailType, handleGenerateDetail, handleRetryDetailType, handleRefreshDetailType };
 }

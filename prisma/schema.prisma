@@ -360,6 +360,11 @@ model AiImageV2DetailState {
   generating Boolean @default(false)
   lastError  String? @map("last_error")
 
+  // 生成队列与失败状态（用于持久化 DetailRightPanel 生成/失败状态）
+  failedTypes          String? @map("failed_types")
+  generatingTypes      String? @map("generating_types")
+  activeGeneratingType String? @map("active_generating_type")
+
   createdAt DateTime @default(now()) @map("created_at")
 
   session AiImageV2Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
