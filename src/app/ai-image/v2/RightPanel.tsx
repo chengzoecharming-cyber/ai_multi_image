@@ -3,10 +3,93 @@
 import { useState, useCallback, useRef } from "react";
 import {
   Wand2, Sparkles, Save, Info, ChevronLeft, ChevronRight,
-  Grid3x3, Eye, Copy, Download, Languages,
+  Grid3x3, Eye, Copy, Download, Languages, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+function Lightbox({ imageUrl, onClose }: { imageUrl: string; onClose: () => void }) {
+  const handleCopy = async () => {
+    try {
+      const res = await fetch(imageUrl);
+      const blob = await res.blob();
+      if (navigator.clipboard && navigator.clipboard.write) {
+        await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+        toast.success("图片已复制到剪贴板");
+      } else {
+        toast.error("当前浏览器不支持复制图片");
+      }
+    } catch {
+      toast.error("复制失败，请重试");
+    }
+  };
+
+  const handleDownload = async () => {
+    try {
+      if (imageUrl.startsWith("data:")) {
+        const a = document.createElement("a");
+        a.href = imageUrl;
+        a.download = `image-${Date.now()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        toast.success("下载已开始");
+        return;
+      }
+      const res = await fetch(imageUrl);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `image-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("下载已开始");
+    } catch {
+      toast.error("下载失败，请重试");
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/70"
+      onClick={onClose}
+    >
+      <button
+        onClick={onClose}
+        className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
+      >
+        <X className="w-5 h-5" />
+      </button>
+      <div className="flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+        <img
+          src={imageUrl}
+          alt=""
+          className="max-w-[85vw] max-h-[70vh] object-contain rounded-lg"
+        />
+        <div className="mt-6 inline-flex items-center gap-6 px-8 py-3 rounded-full bg-white/90 backdrop-blur-sm shadow-lg">
+          <button
+            onClick={handleCopy}
+            className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors"
+          >
+            <Copy className="w-4 h-4" />
+            复制
+          </button>
+          <div className="w-px h-4 bg-gray-300" />
+          <button
+            onClick={handleDownload}
+            className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            下载
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { CreativePlan, Step, V2Session, V2GeneratedImage } from "./types";
@@ -170,23 +253,30 @@ function PlanCard({
             </div>
           )}
 
-          {/* CopyBlocks */}
-          {topCopyBlocks.length > 0 && (
-            <div>
-              <div className="text-xs font-medium text-gray-500 mb-1">文案块</div>
-              <div className="space-y-1">
-                {topCopyBlocks.map((block) => (
-                  <div key={block.id} className="text-xs text-gray-700 leading-snug flex items-start gap-1.5">
-                    <span className="shrink-0 text-[10px] px-1 py-0.5 rounded bg-gray-100 text-gray-500 font-medium">{block.role}</span>
-                    <span className="flex-1">{block.title}</span>
-                  </div>
-                ))}
-                {plan.copyBlocks.length > topCopyBlocks.length && (
-                  <p className="text-xs text-gray-400">+{plan.copyBlocks.length - topCopyBlocks.length} 个文案块</p>
-                )}
+          {/* CopyBlocks (bilingual) */}
+          {(() => {
+            const displayBlocks = showCn && plan.copyBlocksCn && plan.copyBlocksCn.length > 0
+              ? plan.copyBlocksCn
+              : plan.copyBlocks || [];
+            const filtered = displayBlocks.filter((b) => b.role !== "headline" && b.role !== "subheadline").slice(0, 4);
+            if (filtered.length === 0) return null;
+            return (
+              <div>
+                <div className="text-xs font-medium text-gray-500 mb-1">{showCn ? "文案块（中文）" : "文案块"}</div>
+                <div className="space-y-1">
+                  {filtered.map((block) => (
+                    <div key={block.id} className="text-xs text-gray-700 leading-snug flex items-start gap-1.5">
+                      <span className="shrink-0 text-[10px] px-1 py-0.5 rounded bg-gray-100 text-gray-500 font-medium">{block.role}</span>
+                      <span className="flex-1">{block.title}</span>
+                    </div>
+                  ))}
+                  {displayBlocks.length > filtered.length && (
+                    <p className="text-xs text-gray-400">+{displayBlocks.length - filtered.length} 个文案块</p>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Risk Warnings */}
           {plan.riskWarnings.length > 0 && (
@@ -425,6 +515,9 @@ function ImagePreviewPanel({
   const hasCn = !!(plan.headlineCn || plan.subtitleCn || (plan.sellingPointsCn && plan.sellingPointsCn.length > 0));
   const meta = getPlanMeta(plan);
   const imageSrc = generatedImage?.imageBase64 || generatedImage?.imageUrl || null;
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const openLightbox = useCallback((url: string) => setLightboxUrl(url), []);
+  const closeLightbox = useCallback(() => setLightboxUrl(null), []);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -491,7 +584,11 @@ function ImagePreviewPanel({
                   <p className="text-sm text-gray-500">正在生成图片...</p>
                 </div>
               ) : imageSrc ? (
-                <div className="relative w-full h-full">
+                <div
+                  className="relative w-full h-full cursor-pointer"
+                  onDoubleClick={() => openLightbox(imageSrc)}
+                  title="双击放大"
+                >
                   <img src={imageSrc} alt="Generated" className="w-full h-full object-contain" />
                   <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2">
                     <button
@@ -575,6 +672,9 @@ function ImagePreviewPanel({
             </Button>
           )}
 
+          {/* Lightbox overlay */}
+          {lightboxUrl && <Lightbox imageUrl={lightboxUrl} onClose={closeLightbox} />}
+
           {/* 双语文案展示 */}
           <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-2">
             <div className="flex items-center justify-between mb-2">
@@ -604,9 +704,20 @@ function ImagePreviewPanel({
                   <span className="font-medium text-gray-700">文案要点{idx + 1}：</span>{s}
                 </div>
               ))}
-              {(showCn && plan.sellingPointsCn ? plan.sellingPointsCn : plan.sellingPoints || []).length === 0 && (plan.copyBlocks || []).length > 0 && (
-                <div className="text-[11px] text-gray-600">
-                  <span className="font-medium text-gray-700">说明：</span>本方案以 copyBlocks 组织文案，不强制卖点列表。
+              {/* copyBlocks 双语文案 */}
+              {(showCn ? plan.copyBlocksCn : plan.copyBlocks) && (showCn ? plan.copyBlocksCn : plan.copyBlocks)!.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  <div className="text-[11px] font-medium text-gray-700">文案块：</div>
+                  {(showCn ? plan.copyBlocksCn : plan.copyBlocks)!.slice(0, 4).map((block, idx) => (
+                    <div key={idx} className="text-[11px] text-gray-600">
+                      <span className="shrink-0 text-[10px] px-1 py-0.5 rounded bg-gray-100 text-gray-500 font-medium">{block.role}</span>
+                      <span className="ml-1">{block.title}</span>
+                      {block.body && <span className="ml-1 text-gray-400">— {block.body}</span>}
+                    </div>
+                  ))}
+                  {(showCn ? plan.copyBlocksCn : plan.copyBlocks)!.length > 4 && (
+                    <div className="text-[11px] text-gray-400">+{(showCn ? plan.copyBlocksCn : plan.copyBlocks)!.length - 4} 个文案块</div>
+                  )}
                 </div>
               )}
             </div>

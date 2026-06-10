@@ -1,12 +1,28 @@
 "use client";
 
-import { RefObject, useState } from "react";
+import { RefObject, useState, useCallback } from "react";
 import {
   ImageIcon, X, Upload, Lightbulb,
   Sparkles, BookOpen, Square, SlidersHorizontal,
   Plus, Server,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+function SimpleLightbox({ imageUrl, onClose }: { imageUrl: string; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70"
+      onClick={onClose}
+    >
+      <img
+        src={imageUrl}
+        alt=""
+        className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg"
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
+  );
+}
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -43,6 +59,10 @@ export function LeftPanel({
   onOpenTemplateLibrary?: () => void;
   onCancelGenerate?: () => void;
 }) {
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const openLightbox = useCallback((url: string) => setLightboxUrl(url), []);
+  const closeLightbox = useCallback(() => setLightboxUrl(null), []);
+
   if (!activeSession) return null;
 
   const step: Step = activeSession.step;
@@ -158,6 +178,7 @@ export function LeftPanel({
                       )}
                       onClick={() => onUpdateSession((s) => ({ ...s, activeProductImageIndex: idx }))}
                       title="点击查看大图"
+                      onDoubleClick={() => openLightbox(url)}
                     >
                       <img src={url} alt={`商品图 ${idx + 1}`} className="w-full h-full object-cover" />
                       <button
@@ -191,7 +212,11 @@ export function LeftPanel({
 
                 {/* Large preview */}
                 <div className="flex-1 min-w-0">
-                  <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-[#F5F6F8]">
+                  <div
+                    className="relative rounded-xl overflow-hidden border border-gray-200 bg-[#F5F6F8] cursor-pointer"
+                    onDoubleClick={() => openLightbox(activeProductImage || productImageUrls[0])}
+                    title="双击放大"
+                  >
                     <img
                       src={activeProductImage || productImageUrls[0]}
                       alt="商品图预览"
@@ -388,7 +413,12 @@ export function LeftPanel({
               />
               <div className="flex flex-wrap gap-2">
                 {referenceImageUrls.map((url, i) => (
-                  <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200 bg-[#F5F6F8] group shrink-0">
+                  <div
+                    key={i}
+                    className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200 bg-[#F5F6F8] group shrink-0 cursor-pointer"
+                    onDoubleClick={() => openLightbox(url)}
+                    title="双击放大"
+                  >
                     <img src={url} alt={`参考图 ${i + 1}`} className="w-full h-full object-cover" />
                     <button
                       onClick={() => onRemoveReference?.(i)}
