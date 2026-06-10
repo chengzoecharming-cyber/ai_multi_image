@@ -14,12 +14,11 @@ import {
   dexieMigrateFromLocalStorage,
   dexieClearLegacyLocalStorage,
 } from "@/lib/v2-dexie";
+import { getV2SessionsUrl } from "./sessionFetch";
 
 async function loadServerV2Sessions(_tenantId: string, _userId: string): Promise<V2Session[]> {
   try {
-    const res = await fetch(
-      `/api/ai-image/v2/sessions?limit=100`
-    );
+    const res = await fetch(getV2SessionsUrl());
     if (!res.ok) return [];
     const json = (await res.json()) as { data?: V2Session[] };
     return json.data || [];

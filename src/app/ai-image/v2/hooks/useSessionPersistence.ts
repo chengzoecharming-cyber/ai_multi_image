@@ -15,6 +15,7 @@ import {
   dexieSetMeta,
 } from "@/lib/v2-dexie";
 import { stripHeavySessionFields } from "./utils/session-utils";
+import { getV2SessionsUrl } from "./sessionFetch";
 
 const SYNC_DEBOUNCE_MS = 2000;
 const FULL_SYNC_INTERVAL_MS = 30000;
@@ -112,9 +113,7 @@ export function useSessionPersistence(options: UseSessionPersistenceOptions): Pe
 
   const pullFromServer = useCallback(async (): Promise<V2Session[]> => {
     try {
-      const res = await fetch(
-        `/api/ai-image/v2/sessions?limit=100`
-      );
+      const res = await fetch(getV2SessionsUrl());
       if (!res.ok) return [];
       const json = (await res.json()) as { data?: V2Session[] };
       const serverSessions = json.data || [];
@@ -166,9 +165,7 @@ export async function hydrateSessions(
 
   // 2. Try server first
   try {
-    const res = await fetch(
-      `/api/ai-image/v2/sessions?limit=100`
-    );
+    const res = await fetch(getV2SessionsUrl());
     if (res.ok) {
       const json = (await res.json()) as { data?: V2Session[] };
       const serverSessions = json.data || [];

@@ -19,6 +19,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "请选择要上传的文件" }, { status: 400 });
     }
 
+    if (file.size <= 0) {
+      return NextResponse.json({ error: "图片文件为空，请重新选择图片" }, { status: 400 });
+    }
+
     if (!ALLOWED_TYPES.includes(file.type)) {
       return NextResponse.json(
         { error: "仅支持 jpg、jpeg、png、webp 格式的图片" },
