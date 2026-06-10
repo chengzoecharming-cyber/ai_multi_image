@@ -53,7 +53,7 @@ export function buildPlanSummaryPrompt(plan: CreativePlan): string {
       parts.push(`  [${cb.role}] "${cb.title}"${sub}${body}${icon} (P${cb.priority})`);
     });
   } else {
-    parts.push(`Selling Points: ${plan.sellingPoints.map((s: string) => `"${s}"`).join(", ")}`);
+    parts.push(`Selling Points: ${(plan.sellingPoints || []).map((s: string) => `"${s}"`).join(", ")}`);
   }
 
   if (plan.copyNotes && plan.copyNotes.length > 0) {
@@ -308,7 +308,7 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
     parts.push(
       ``,
       `SELLING POINTS (each as a distinct visual badge, tag, or info block with the exact words):`,
-      ...plan.sellingPoints.map((s: string) => `  • "${s}"`),
+      ...(plan.sellingPoints || []).map((s: string) => `  • "${s}"`),
     );
   }
 
@@ -441,7 +441,7 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
   }
 
   // Fallback selling points rendering (when no copyBlocks)
-  if (!hasAnyBlocks && plan.sellingPoints.length > 0) {
+  if (!hasAnyBlocks && (plan.sellingPoints || []).length > 0) {
     renderingParts.push(
       `## SELLING POINT RENDERING`,
       `• Each selling point as a distinct visual badge, tag, or info block`,

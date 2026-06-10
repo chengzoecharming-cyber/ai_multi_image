@@ -140,9 +140,9 @@ function buildRegions(layoutType: LayoutType, hasBottomInfoBar: boolean, hasDeta
 }
 
 function buildTextBlocks(
-  headline: string,
+  headline: string | undefined,
   subtitle: string | undefined,
-  sellingPoints: string[],
+  sellingPoints: string[] | undefined,
   layoutType: LayoutType
 ): TextBlock[] {
   const blocks: TextBlock[] = [];
@@ -152,13 +152,14 @@ function buildTextBlocks(
     blocks.push({ id: `tb-${role}-${p}`, text, role, position, priority: p++ });
   };
 
-  const headlinePos: TextBlockPosition =
-    layoutType === "premium_center_product_minimal_text" ? "top" :
-    layoutType === "top_headline_bottom_feature_bar" ? "top" :
-    layoutType === "four_panel_application_grid" ? "top" :
-    "top-left";
-
-  add(headline, "headline", headlinePos);
+  if (headline) {
+    const headlinePos: TextBlockPosition =
+      layoutType === "premium_center_product_minimal_text" ? "top" :
+      layoutType === "top_headline_bottom_feature_bar" ? "top" :
+      layoutType === "four_panel_application_grid" ? "top" :
+      "top-left";
+    add(headline, "headline", headlinePos);
+  }
 
   if (subtitle) {
     const subPos: TextBlockPosition =
@@ -170,7 +171,7 @@ function buildTextBlocks(
   }
 
   // Distribute selling points
-  const spRoles: TextBlockRole[] = sellingPoints.map((_, i) => {
+  const spRoles: TextBlockRole[] = (sellingPoints || []).map((_, i) => {
     if (layoutType === "technical_callout_with_insets" && i < 2) return "callout";
     if (layoutType === "exploded_layer_explanation" && i < 2) return "feature_title";
     if (layoutType === "comparison_two_columns") return i % 2 === 0 ? "feature_title" : "feature_description";
@@ -203,7 +204,7 @@ function buildTextBlocks(
     }
   })();
 
-  sellingPoints.forEach((sp, i) => {
+  (sellingPoints || []).forEach((sp, i) => {
     add(sp, spRoles[i], spPositions[i % spPositions.length]);
   });
 
@@ -337,9 +338,9 @@ function buildIconHints(copyBlocks: CopyBlock[]): IconHint[] {
 }
 
 export function buildLayoutOverlay(
-  headline: string,
+  headline: string | undefined,
   subtitle: string | undefined,
-  sellingPoints: string[],
+  sellingPoints: string[] | undefined,
   layoutDirection: string,
   imageType: string,
   copyBlocks?: CopyBlock[]
@@ -369,9 +370,9 @@ export function buildLayoutOverlay(
 
   return {
     layoutType,
-    headline,
+    headline: headline || "",
     subtitle,
-    sellingPoints,
+    sellingPoints: sellingPoints || [],
     textLanguage: "English",
     textBlocks,
     colorTheme,

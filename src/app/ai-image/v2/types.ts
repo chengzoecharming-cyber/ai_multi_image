@@ -145,9 +145,9 @@ export interface CreativePlan {
   productAnalysis?: ProductAnalysis;
 
   productName: string;
-  headline: string;
+  headline?: string;
   subtitle?: string;
-  sellingPoints: string[];
+  sellingPoints?: string[];
   copyBlocks: CopyBlock[];
 
   /** 中文文案（用于前端翻译展示，图片仍使用英文） */

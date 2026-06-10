@@ -284,7 +284,7 @@ model AiImageV2Plan {
 
   // 文案（英文，用于图片生成）
   productName  String @map("product_name")
-  headline     String
+  headline     String? @map("headline")
   subtitle     String?
   sellingPoints String? @map("selling_points") // JSON array
   copyBlocks    String? @map("copy_blocks")    // JSON array

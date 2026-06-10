@@ -25,7 +25,7 @@ interface RawPlan {
   copyDensity: string | null;
   productAnalysisJson: string | null;
   productName: string;
-  headline: string;
+  headline: string | null;
   subtitle: string | null;
   sellingPoints: string | null;
   copyBlocks: string | null;
@@ -213,7 +213,7 @@ function deserializePlan(row: RawPlan): CreativePlan {
     visualPresentation: row.visualPresentation ?? undefined,
     productAnalysis: safeParseJson<ProductAnalysis>(row.productAnalysisJson) ?? undefined,
     productName: row.productName,
-    headline: row.headline,
+    headline: row.headline ?? undefined,
     subtitle: row.subtitle ?? undefined,
     sellingPoints: safeParseJson<string[]>(row.sellingPoints) || [],
     copyBlocks: safeParseJson<CopyBlock[]>(row.copyBlocks) || [],
@@ -282,7 +282,7 @@ export interface AiImageV2PlanCreateData {
   copyDensity: string | null;
   productAnalysisJson: string | null;
   productName: string;
-  headline: string;
+  headline: string | null;
   subtitle: string | null;
   sellingPoints: string;
   copyBlocks: string;
@@ -384,7 +384,7 @@ export function toPlanCreateInput(
     copyDensity: plan.copyDensity ?? null,
     productAnalysisJson: plan.productAnalysis ? JSON.stringify(plan.productAnalysis) : null,
     productName: plan.productName,
-    headline: plan.headline,
+    headline: plan.headline ?? null,
     subtitle: plan.subtitle ?? null,
     sellingPoints: JSON.stringify(plan.sellingPoints || []),
     copyBlocks: JSON.stringify(plan.copyBlocks || []),

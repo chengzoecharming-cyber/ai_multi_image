@@ -48,10 +48,10 @@ export function normalizeCreativePlan(raw: unknown, fallbackAnalysis?: ProductAn
     ? normalizeProductAnalysis(p.productAnalysis)
     : fallbackAnalysis;
 
-  const headline = String(p?.headline || "PREMIUM QUALITY");
+  const headline = p?.headline ? String(p.headline) : undefined;
   const subtitle = p?.subtitle ? String(p.subtitle) : undefined;
   const sellingPoints = (() => {
-    if (!Array.isArray(p?.sellingPoints)) return ["QUALITY", "DURABLE"];
+    if (!Array.isArray(p?.sellingPoints)) return undefined;
     // Some models return structured objects; convert them to readable strings.
     return (p.sellingPoints as unknown[]).map((sp) => {
       if (typeof sp === "string") return sp;
@@ -77,15 +77,15 @@ export function normalizeCreativePlan(raw: unknown, fallbackAnalysis?: ProductAn
     copyBlocks = p.copyBlocks.map(normalizeCopyBlock);
   }
 
-  // Ensure we always have at least some copyBlocks
-  if (copyBlocks.length === 0) {
-    copyBlocks = [
-      { id: "cb-headline", title: headline, role: "headline", priority: 1 },
-    ];
+  // Ensure we always have at least some copyBlocks (only if content exists)
+  if (copyBlocks.length === 0 && (headline || subtitle || (sellingPoints && sellingPoints.length > 0))) {
+    if (headline) {
+      copyBlocks.push({ id: "cb-headline", title: headline, role: "headline", priority: 1 });
+    }
     if (subtitle) {
       copyBlocks.push({ id: "cb-subheadline", title: subtitle, role: "subheadline", priority: 2 });
     }
-    sellingPoints.forEach((sp, i) => {
+    (sellingPoints || []).forEach((sp, i) => {
       copyBlocks.push({ id: `cb-sp-${i}`, title: sp, role: "feature_point", priority: 3 + i });
     });
   }
@@ -112,6 +112,14 @@ export function normalizeCreativePlan(raw: unknown, fallbackAnalysis?: ProductAn
     subtitle,
     sellingPoints,
     copyBlocks,
+    headlineCn: p?.headlineCn ? String(p.headlineCn) : undefined,
+    subtitleCn: p?.subtitleCn ? String(p.subtitleCn) : undefined,
+    sellingPointsCn: Array.isArray(p?.sellingPointsCn)
+      ? (p.sellingPointsCn as unknown[]).map((sp) => (typeof sp === "string" ? sp : String(sp)))
+      : undefined,
+    copyBlocksCn: Array.isArray(p?.copyBlocksCn)
+      ? (p.copyBlocksCn as unknown[]).map(normalizeCopyBlock)
+      : undefined,
     copySource,
     copyNotes: Array.isArray(p?.copyNotes) ? p.copyNotes.map(String) : undefined,
     layoutDirection,
