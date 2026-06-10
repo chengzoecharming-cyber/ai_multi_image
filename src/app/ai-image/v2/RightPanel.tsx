@@ -39,7 +39,11 @@ function PlanCard({
   const meta = getPlanMeta(plan);
   const complexityLabel = plan.visualComplexity === "simple" ? "简洁" : plan.visualComplexity === "medium" ? "中等" : "复杂";
   const densityLabel = plan.informationDensity === "low" ? "低密度" : plan.informationDensity === "medium" ? "中密度" : "高密度";
-  const optionalNotes = (plan.sellingPoints || []).filter(Boolean);
+  const [showCn, setShowCn] = useState(false);
+  const hasCn = !!(plan.headlineCn || plan.subtitleCn || (plan.sellingPointsCn && plan.sellingPointsCn.length > 0));
+  const displayHeadline = showCn && plan.headlineCn ? plan.headlineCn : plan.headline;
+  const displaySubtitle = showCn && plan.subtitleCn ? plan.subtitleCn : plan.subtitle;
+  const displaySellingPoints = (showCn && plan.sellingPointsCn ? plan.sellingPointsCn : plan.sellingPoints || []).filter(Boolean);
   const topCopyBlocks = (plan.copyBlocks || [])
     .filter((b) => b.role !== "headline" && b.role !== "subheadline")
     .slice(0, 4);
@@ -65,6 +69,18 @@ function PlanCard({
             </div>
           </div>
           <div className="flex items-center gap-0.5 shrink-0">
+            {hasCn && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowCn((v) => !v); }}
+                className={cn(
+                  "w-8 h-8 rounded-md flex items-center justify-center transition-colors",
+                  showCn ? "bg-indigo-100 text-indigo-600" : "hover:bg-gray-100 text-gray-500"
+                )}
+                title={showCn ? "显示英文" : "显示中文"}
+              >
+                <Languages className="w-4 h-4" />
+              </button>
+            )}
             <button
               onClick={(e) => { e.stopPropagation(); onSave(plan); }}
               className="w-8 h-8 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors"
@@ -109,22 +125,22 @@ function PlanCard({
       <div className="flex-1 px-5 py-1 overflow-y-auto min-h-0">
         <div className="space-y-3">
           {/* Core text (optional) */}
-          {plan.headline && (
+          {displayHeadline && (
             <div>
-              <div className="text-xs font-medium text-gray-500 mb-1">核心文案（可选）</div>
-              <p className="text-sm font-semibold text-gray-800 leading-snug">{plan.headline}</p>
-              {plan.subtitle ? (
-                <p className="text-sm text-gray-700 leading-snug mt-1">{plan.subtitle}</p>
+              <div className="text-xs font-medium text-gray-500 mb-1">{showCn ? "核心文案（中文）" : "核心文案（可选）"}</div>
+              <p className="text-sm font-semibold text-gray-800 leading-snug">{displayHeadline}</p>
+              {displaySubtitle ? (
+                <p className="text-sm text-gray-700 leading-snug mt-1">{displaySubtitle}</p>
               ) : null}
             </div>
           )}
 
           {/* Optional notes */}
-          {optionalNotes.length > 0 && (
+          {displaySellingPoints.length > 0 && (
             <div>
-              <div className="text-xs font-medium text-gray-500 mb-1.5">文案要点（可选）</div>
+              <div className="text-xs font-medium text-gray-500 mb-1.5">{showCn ? "文案要点（中文）" : "文案要点（可选）"}</div>
               <div className="flex flex-wrap gap-1.5">
-                {optionalNotes.map((sp, i) => (
+                {displaySellingPoints.map((sp, i) => (
                   <span key={i} className="text-xs px-2 py-1 rounded-md bg-gray-100 text-gray-700 font-medium">{sp}</span>
                 ))}
               </div>
