@@ -34,5 +34,9 @@ echo "📋 容器日志（最近 10 行）："
 sleep 2
 sudo docker logs ai-image-mvp --tail 10
 
+# 5. 清理旧镜像（只保留当前运行的镜像）
+echo "🧹 清理旧的未使用镜像..."
+sudo docker image prune -af > /dev/null 2>&1 || true
+
 echo ""
 echo "✅ 部署完成！访问 https://imagept.ai 验证"
