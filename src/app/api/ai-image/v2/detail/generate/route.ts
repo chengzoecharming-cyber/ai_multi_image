@@ -102,7 +102,11 @@ function buildDetailNegativePrompt(
 
   const countLock =
     "extra product, duplicate product, multiple product copies, missing product, removed product, added variants, bundle lineup, extra bit in use, extra tool bit";
-  return `${base}, ${scaleLock}, ${countLock}, ${geometry}${copyLock}`;
+  const lifestyleLock =
+    type === "lifestyle"
+      ? ", split product set, partial product set, product part in hand, product part in drill, product part installed in machine, copied product part in use, background duplicate of featured product, missing kit component"
+      : "";
+  return `${base}, ${scaleLock}, ${countLock}${lifestyleLock}, ${geometry}${copyLock}`;
 }
 
 function extractHeroContext(plan?: CreativePlan | null): HeroPlanContext | null {
@@ -196,7 +200,7 @@ function buildDetailPrompt(args: {
     multi_angle:
       "Use the user prompt only for product/category/style hints and the requested viewpoint. Ignore broad scene, background-story, headline, feature-card, comparison, or lifestyle directives that would turn this into a new advertising scene.",
     lifestyle:
-      "Use the user prompt's scene/background/use-environment ideas only as surrounding context. The featured product inventory remains the same reference product set and must not be split, copied, resized, or turned into an in-use duplicate unless explicitly requested.",
+      "Use the user prompt's scene/background/use-environment ideas only as surrounding context. The featured product inventory remains one intact foreground set with the same visible count and relative size relationships. Do not split the set, move one part into use, copy a component into a hand/tool/machine, or remove any component unless explicitly requested.",
     feature:
       "Use the user prompt and heroPlan for selling-point direction, but only call out real visible features. The product image itself is not a design canvas and must not be resized, duplicated, or restructured to fit the layout.",
     comparison:
@@ -330,9 +334,11 @@ function buildDetailPrompt(args: {
     ].join("\n"),
     lifestyle: [
       "【功能定位】使用场景图：展示产品在真实使用环境中的应用。",
-      "Focus: realistic usage or contextual scene that matches the product category, still commercial and clean.",
-      "Composition: product set remains intact as the foreground hero on the workbench; background elements are unbranded and minimal.",
-      "If the user asks for a maintenance/workshop background, keep repair activity in the background/context only. Do NOT place an extra copy of the featured bit/tool into a drill, hand, screw, or machine unless the user explicitly asks to show the product being used.",
+      "Focus: realistic contextual scene that matches the product category, still commercial and clean.",
+      "Composition: show the exact same product set as one intact foreground hero group, with the same visible component count and relative size relationships as the active reference.",
+      "The scene may include people, pets, babies, rooms, workshops, tools, furniture, outdoor context, or other category-appropriate environment elements, but those elements are background/context only.",
+      "Do NOT create an action shot that consumes, installs, holds, separates, or duplicates one component from the featured product set unless the user explicitly asks for the product to be shown in use.",
+      "If the user asks for a maintenance/workshop background, keep repair activity in the background/context only. Any drill, hand, screw, machine, cabinet, or tool in the scene must not contain an extra copy of the featured bit/tool.",
     ].join("\n"),
     feature: [
       "【功能定位】卖点爆破图：突出核心卖点，信息层次分明。",
