@@ -194,6 +194,14 @@ function buildDetailPrompt(args: {
     "- Because the product reference is the factual source, composition freedom applies to camera, background, lighting, typography, and callout layout only.",
   ].join("\n");
 
+  const visualEnergy = [
+    "【视觉张力 / COMMERCIAL VISUAL ENERGY】",
+    "- Avoid flat catalog snapshots. Create premium commercial tension through camera angle, lighting contrast, depth, shadows, reflections, material highlights, background layering, and disciplined negative space.",
+    "- Visual drama must come from non-product dimensions only: lens choice, perspective, crop, scene depth, surface texture, atmosphere, typography hierarchy, and callout layout.",
+    "- Do NOT create visual energy by changing product count, product size, product proportions, product geometry, or repeated-item length relationships.",
+    "- Match the product category: industrial tools can use CNC/workshop/metal textures; pet products can use home/pet interaction context; baby products can use nursery/parenting context; beauty/home/electronics should use category-appropriate premium environments.",
+  ].join("\n");
+
   const userPromptScope: Record<DetailType, string> = {
     detail:
       "Use the user prompt only for product/category/style hints and requested close-up focus. Do not import broad scene, headline, comparison, or lifestyle directives into this detail macro slide unless the user explicitly asks.",
@@ -297,6 +305,8 @@ function buildDetailPrompt(args: {
     "",
     productLock,
     "",
+    visualEnergy,
+    "",
     "【用户提示词使用边界 / USER PROMPT SCOPE】",
     userPromptScope[args.type],
     "",
@@ -322,20 +332,20 @@ function buildDetailPrompt(args: {
     detail: [
       "【功能定位】细节特写图：展示产品工艺、材质纹理、关键结构。",
       "Focus: close-up detail shot highlighting craftsmanship, texture, edges, and key functional surfaces.",
-      "Composition: macro / near-macro crop is allowed, shallow depth of field allowed, product remains recognizable.",
+      "Composition: macro / near-macro crop is allowed, shallow depth of field allowed, strong raking light or reflective highlights may be used, product remains recognizable.",
       "Macro means cropping into a real visible area of the same product. Do NOT redesign the part, change dimensions, change count, or invent a new close-up structure.",
     ].join("\n"),
     multi_angle: [
       "【功能定位】多角度展示图：从另一视角展示产品整体形体。",
       "Focus: a different camera angle of the exact same product (rotate viewpoint only), showing overall form and structure.",
-      "Composition: three-quarter view or side profile, clean background, consistent lighting and color mood.",
+      "Composition: three-quarter view or side profile with stronger perspective, controlled shadows, premium surface reflections, and clean background; no marketing headline or feature cards by default.",
       "MANDATORY: Changing viewpoint must NOT change product structure, product dimensions, product count, hole/slot/thread positions, or visible feature count.",
       "If the reference shows a kit with multiple identical bits or parts, all matching items must remain the same length and relative scale. Do NOT create a left-to-right size progression.",
     ].join("\n"),
     lifestyle: [
       "【功能定位】使用场景图：展示产品在真实使用环境中的应用。",
       "Focus: realistic contextual scene that matches the product category, still commercial and clean.",
-      "Composition: show the exact same product set as one intact foreground hero group, with the same visible component count and relative size relationships as the active reference.",
+      "Composition: show the exact same product set as one intact foreground hero group, with the same visible component count and relative size relationships as the active reference. Use background depth, environmental texture, and cinematic lighting to add energy.",
       "The scene may include people, pets, babies, rooms, workshops, tools, furniture, outdoor context, or other category-appropriate environment elements, but those elements are background/context only.",
       "Do NOT create an action shot that consumes, installs, holds, separates, or duplicates one component from the featured product set unless the user explicitly asks for the product to be shown in use.",
       "If the user asks for a maintenance/workshop background, keep repair activity in the background/context only. Any drill, hand, screw, machine, cabinet, or tool in the scene must not contain an extra copy of the featured bit/tool.",
@@ -343,7 +353,7 @@ function buildDetailPrompt(args: {
     feature: [
       "【功能定位】卖点爆破图：突出核心卖点，信息层次分明。",
       "Focus: highlight selling points through composition and supporting visual elements.",
-      "Composition: same hero product with organized info cards or callout zones. Benefit points should be clearly visualized, not just text.",
+      "Composition: same hero product with organized info cards or callout zones, stronger visual hierarchy, confident headline scale, precise pointers, and dimensional spacing. Benefit points should be clearly visualized, not just text.",
       "Callouts may point to real visible features only; do NOT add/remove product parts, resize the product body, or duplicate the product.",
     ].join("\n"),
     comparison: [
@@ -352,12 +362,13 @@ function buildDetailPrompt(args: {
       allowProductGeometryChange
         ? "Composition: product-to-product comparison may also reflect the user's requested product size/count/lineup change. The featured product must still preserve all non-requested geometry."
         : "Composition: show the featured reference product against a generic lower-quality / ordinary comparison product of the same category. The comparison object may differ visually to communicate contrast, but it must not be mistaken for the featured product.",
+      "Use stronger contrast, side-by-side hierarchy, badges, arrows, split lighting, or benefit rows to make the comparison persuasive; do not make the featured product's size/count/structure the source of contrast.",
       "The featured product side must preserve the reference product exactly in structure, apparent size/scale, and visible features. The comparison counterpart must never cause the featured product to change size, structure, or count.",
     ].join("\n"),
     spec: [
       "【功能定位】规格参数图：展示尺寸、材质、技术参数等关键信息。",
       "Focus: technical specification visualization — dimensions, material, key parameters presented with clarity.",
-      "Composition: the same product shown with dimensional callouts, spec labels, or annotated diagram style. Clean and authoritative.",
+      "Composition: the same product shown with dimensional callouts, spec labels, or annotated diagram style. Use precise grid rhythm, technical linework, contrast panels, and premium material lighting so the page feels engineered rather than flat.",
       "When exact numeric dimensions are not provided, use qualitative spec text or bounded labels (e.g., 'High Precision', 'Tight Tolerance', 'Custom Size Available') instead of leaving rows blank.",
       "If the user provides exact values, preserve and render them exactly.",
       "Do NOT alter the product dimensions visually to match invented labels. Annotations explain the reference product; they do not redesign it.",

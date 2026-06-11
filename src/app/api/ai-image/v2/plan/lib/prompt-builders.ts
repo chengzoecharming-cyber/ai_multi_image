@@ -120,6 +120,8 @@ export function buildPlanSummaryPrompt(plan: CreativePlan): string {
 export function buildImageGenerationPrompt(plan: CreativePlan): string {
   const analysis = plan.productAnalysis;
   const lo = plan.layoutOverlay;
+  const visibleFeatures = analysis?.visibleFeatures?.join(", ") || "all visible product features from the reference image";
+  const productDescription = analysis?.productSubjectDescription || analysis?.productType || plan.productName || "the reference product";
 
   const parts: string[] = [
     `=== VISUAL STYLE AND COMPOSITION (MANDATORY — OVERRIDE ALL DEFAULT STYLES) ===`,
@@ -128,9 +130,21 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
     `Composition, product placement, and layout: ${plan.layoutDirection}`,
     `Visual complexity: ${plan.visualComplexity}. Information density: ${plan.informationDensity}.`,
     ``,
+    `=== PRODUCT FIDELITY LOCK (MANDATORY) ===`,
+    `The uploaded reference image is authoritative for the featured product's structure, apparent size/scale, component count, kit composition, and relative size relationships.`,
+    `Unless the user explicitly requested a product-level change, preserve the featured product exactly: ${productDescription}. Visible features: ${visibleFeatures}.`,
+    `Do NOT create visual impact by changing product count, product size, product proportions, product geometry, repeated-item lengths, or kit/component lineup.`,
+    `Do NOT add extra copies, remove instances, split a product set, create variants, resize identical items into a size progression, or duplicate parts into the background.`,
+    `Visual design, text, layout, lighting, and background may change, but they must never require changing the product body or product inventory.`,
+    ``,
+    `=== COMMERCIAL VISUAL ENERGY ===`,
+    `Avoid flat catalog snapshots. Create premium commercial tension through camera angle, lighting contrast, depth, shadows, reflections, material highlights, background layering, and disciplined negative space.`,
+    `Visual drama must come from non-product dimensions only: lens choice, perspective, crop, scene depth, surface texture, atmosphere, typography hierarchy, callout layout, and background treatment.`,
+    `Match the product category: industrial tools can use CNC/workshop/metal textures; pet products can use home/pet interaction context; baby products can use nursery/parenting context; beauty/home/electronics should use category-appropriate premium environments.`,
+    ``,
     `=== PRODUCT SUBJECT ===`,
     `Product: "${plan.productName}".`,
-    analysis ? `Product type: ${analysis.productType}. Key visible features: ${analysis.visibleFeatures?.join(", ") || "industrial metal product"}.` : "",
+    analysis ? `Product type: ${analysis.productType}. Key visible features: ${visibleFeatures}.` : "",
     ``,
   ];
 
@@ -138,25 +152,25 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
   if (plan.planArchetype === "comparison_story") {
     parts.push(
       `=== COMPARISON STRUCTURE (MANDATORY — DO NOT OMIT ANY ELEMENT) ===`,
-      `This is a SPLIT-SCREEN COMPARISON image showing the SAME product category on BOTH sides — the right side is the featured product, the left side is a generic lower-quality version of the SAME product type.`,
+      `This is a SPLIT-SCREEN COMPARISON image: the right side is the featured reference product, the left side is a generic lower-quality comparison product from the same category.`,
       ``,
       `CRITICAL PRODUCT IDENTITY RULE:`,
-      `Both sides must show the SAME product category with the SAME structure. The right side MUST match the uploaded reference product exactly in shape, proportions, and visible features.`,
-      analysis ? `Product description: ${analysis.productSubjectDescription || analysis.productType}. Visible features: ${analysis.visibleFeatures?.join(", ") || "industrial metal product"}.` : "",
+      `The right/featured side MUST match the uploaded reference product exactly in shape, proportions, visible features, component count, and relative size relationships.`,
+      `The left/comparison side may look generic, lower-quality, simplified, duller, or less complete to communicate contrast, but it must not cause the featured product to change.`,
+      analysis ? `Product description: ${productDescription}. Visible features: ${visibleFeatures}.` : "",
       ``,
       `1. VERTICAL SPLIT: Strict 50/50 left-right split. Unified deep dark background across BOTH halves.`,
       `2. CENTER "VS" DIVIDER: Large bold "VS" text centered vertically on the dividing line. White or silver, heavy weight, readable at thumbnail size. May sit in a subtle circular badge.`,
       `3. LEFT SIDE ("ORDINARY" / "STANDARD"):`,
-      `   - The SAME product type as the right side, but shown as a GENERIC, LOWER-QUALITY version`,
-      `   - Must have the SAME overall shape, structure, and visible features as the right side`,
+      `   - A GENERIC, LOWER-QUALITY comparison product from the same category`,
       `   - VISUAL TREATMENT ONLY: DESATURATED (20-30% saturation), dimmer lighting, cool blue-gray cast`,
       `   - Large RED "X" mark beside the product (signals problem/inferior)`,
       `   - Label: "ORDINARY" or "STANDARD" in ALL CAPS, cool gray`,
       `   - Short negative descriptor (e.g., "Chip Welding / Poor Finish")`,
       `4. RIGHT SIDE ("OUR" / "UPGRADED"):`,
       `   - The EXACT featured product from the reference image, in FULL COLOR, bright warm light, tack-sharp`,
-      `   - Must preserve all visible features from the reference: ${analysis?.visibleFeatures?.join(", ") || "all holes, grooves, threads, edges, and contours"}`,
-      `   - Slightly LARGER than left side (35-45% vs 30-40% of half-frame)`,
+      `   - Must preserve all visible features, component count, kit lineup, and relative size relationships from the reference: ${visibleFeatures}`,
+      `   - Make it visually superior through lighting, color, sharpness, placement, labels, and badges — NOT by changing its size, count, proportions, or structure`,
       `   - Large GREEN CHECKMARK beside the product (signals superior/solution)`,
       `   - Label: "OUR PRODUCT" or "UPGRADED" in ALL CAPS, warm accent color`,
       `   - Short positive descriptor (e.g., "Smooth Finish / No Chip Welding")`,
