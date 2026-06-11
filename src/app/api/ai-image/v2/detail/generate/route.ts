@@ -8,6 +8,10 @@ import type { CreativePlan } from "@/app/ai-image/v2/types";
 
 type DetailType = "detail" | "multi_angle" | "lifestyle" | "feature" | "comparison" | "spec";
 
+function detailTypeDefaultsToMarketingCopy(type: DetailType): boolean {
+  return type === "feature" || type === "comparison" || type === "spec";
+}
+
 interface HeroPlanContext {
   headline?: string;
   subtitle?: string;
@@ -140,6 +144,9 @@ function buildDetailPrompt(args: {
   const includeMarketingCopy = args.includeMarketingCopy !== false;
   const preserveExactText = args.preserveExactText === true;
   const isComparison = args.type === "comparison";
+  const typeAllowsMarketingCopy = detailTypeDefaultsToMarketingCopy(args.type);
+  const effectiveIncludeMarketingCopy = includeMarketingCopy && (preserveExactText || typeAllowsMarketingCopy);
+  const shouldUseHeroCopyDirection = typeAllowsMarketingCopy;
 
   // Build product and copy-direction context from heroPlan analysis + user description.
   // heroPlan text guides the detail slide; it is not mandatory output copy.
@@ -152,9 +159,9 @@ function buildDetailPrompt(args: {
   if (hero?.productAnalysis?.materialGuess) productLines.push(`Material: ${hero.productAnalysis.materialGuess}`);
   if (hero?.productAnalysis?.structureRisks && hero.productAnalysis.structureRisks.length > 0)
     productLines.push(`Structure Notes: ${hero.productAnalysis.structureRisks.join("; ")}`);
-  if (hero?.sellingPoints && hero.sellingPoints.length > 0)
+  if (shouldUseHeroCopyDirection && hero?.sellingPoints && hero.sellingPoints.length > 0)
     productLines.push(`Key Selling Points: ${hero.sellingPoints.join(" | ")}`);
-  if (hero?.copyBlocks && hero.copyBlocks.length > 0) {
+  if (shouldUseHeroCopyDirection && hero?.copyBlocks && hero.copyBlocks.length > 0) {
     const msgs = hero.copyBlocks
       .filter((b) => b.title || b.body)
       .map((b) => (b.body ? `${b.title}: ${b.body}` : b.title))
@@ -183,19 +190,36 @@ function buildDetailPrompt(args: {
     "- Because the product reference is the factual source, composition freedom applies to camera, background, lighting, typography, and callout layout only.",
   ].join("\n");
 
+  const userPromptScope: Record<DetailType, string> = {
+    detail:
+      "Use the user prompt only for product/category/style hints and requested close-up focus. Do not import broad scene, headline, comparison, or lifestyle directives into this detail macro slide unless the user explicitly asks.",
+    multi_angle:
+      "Use the user prompt only for product/category/style hints and the requested viewpoint. Ignore broad scene, background-story, headline, feature-card, comparison, or lifestyle directives that would turn this into a new advertising scene.",
+    lifestyle:
+      "Use the user prompt's scene/background/use-environment ideas only as surrounding context. The featured product inventory remains the same reference product set and must not be split, copied, resized, or turned into an in-use duplicate unless explicitly requested.",
+    feature:
+      "Use the user prompt and heroPlan for selling-point direction, but only call out real visible features. The product image itself is not a design canvas and must not be resized, duplicated, or restructured to fit the layout.",
+    comparison:
+      "Use the user prompt and heroPlan for the comparison story. Only the comparison counterpart may vary. The featured/ours product must keep the reference inventory, count, relative size, and structure.",
+    spec:
+      "Use the user prompt and readable reference labels for specs. Annotations explain the reference product; they must not visually alter dimensions, count, or structure.",
+  };
+
   // Hero plan anchors expression and visual consistency; it must not override reference product geometry.
   const styleAnchor = hero
     ? [
         `【主图风格锚定】以下为主图方案的风格与文案参考，商详图必须保持同一视觉体系：`,
-        `- 主标题方向参考（非强制输出文字）：${hero.headline || "（未提供）"}`,
-        hero.subtitle ? `- 副标题方向参考（非强制输出文字）：${hero.subtitle}` : "",
-        hero.sellingPoints && hero.sellingPoints.length > 0
+        shouldUseHeroCopyDirection ? `- 主标题方向参考（非强制输出文字）：${hero.headline || "（未提供）"}` : "",
+        shouldUseHeroCopyDirection && hero.subtitle ? `- 副标题方向参考（非强制输出文字）：${hero.subtitle}` : "",
+        shouldUseHeroCopyDirection && hero.sellingPoints && hero.sellingPoints.length > 0
           ? `- 核心卖点池：${hero.sellingPoints.join(" / ")}`
           : "",
         hero.visualDirection ? `- 视觉方向：${hero.visualDirection}` : "",
         hero.colorDirection ? `- 色彩方向：${hero.colorDirection}` : "",
         ``,
-        `要求：商详图的光影质感、色调氛围、材质表现必须与主图一致。heroPlan 用于控制产品理解、内容表达方向、卖点方向和视觉体系；其中的标题/文案只是参考方向，不是生成时必须输出的文字；不得覆盖参考图中的产品结构、数量、相对尺寸关系。`,
+        shouldUseHeroCopyDirection
+          ? `要求：商详图的光影质感、色调氛围、材质表现必须与主图一致。heroPlan 用于控制产品理解、内容表达方向、卖点方向和视觉体系；其中的标题/文案只是参考方向，不是生成时必须输出的文字；不得覆盖参考图中的产品结构、数量、相对尺寸关系。`
+          : `要求：商详图的光影质感、色调氛围、材质表现必须与主图一致。当前功能图不使用 heroPlan 标题/文案作为输出目标；heroPlan 只提供产品理解与视觉风格参考，不得覆盖参考图中的产品结构、数量、相对尺寸关系。`,
       ]
         .filter(Boolean)
         .join("\n")
@@ -223,10 +247,12 @@ function buildDetailPrompt(args: {
     "- Background, typography, callouts, lighting, and scene elements may change for the carousel slide, but they must never require changing the product body.",
   ].join("\n");
 
-  const copyPolicy = !includeMarketingCopy
+  const copyPolicy = !effectiveIncludeMarketingCopy
     ? [
         "【文案策略 / COPY POLICY】",
-        "- The user explicitly requested no marketing text or text removal. Do not add headline, subtitle, selling-point cards, or decorative copy.",
+        includeMarketingCopy
+          ? "- This detail type does not default to marketing typography. Do not add headline, subtitle, selling-point cards, feature icons, or decorative copy unless the user explicitly asks for text in this slide type."
+          : "- The user explicitly requested no marketing text or text removal. Do not add headline, subtitle, selling-point cards, or decorative copy.",
         "- Product labels physically printed on the product are product appearance, not marketing copy; keep them readable when visible.",
       ].join("\n")
     : preserveExactText
@@ -267,13 +293,18 @@ function buildDetailPrompt(args: {
     "",
     productLock,
     "",
+    "【用户提示词使用边界 / USER PROMPT SCOPE】",
+    userPromptScope[args.type],
+    "",
     copyPolicy,
     "",
     styleAnchor,
     "",
     "【文案要求】",
-    !includeMarketingCopy
-      ? "- 用户已明确要求无文字/删除文字；不要添加新的营销文案。"
+    !effectiveIncludeMarketingCopy
+      ? includeMarketingCopy
+        ? "- 当前功能图默认不输出营销大标题/卖点卡片；如需文字，仅保留产品表面自带标签或用户明确要求的必要短标签。"
+        : "- 用户已明确要求无文字/删除文字；不要添加新的营销文案。"
       : preserveExactText
         ? "- 用户明确要求保留原文案时，尽量逐字保留参考图中的可读文案。"
         : "- 默认生成适合当前商详图类型的英文电商文案；heroPlan 文案仅作方向参考，不要求输出 heroPlan 原文，也不要求保持参考图原标题/原文案不变。",
@@ -471,6 +502,8 @@ export async function POST(request: NextRequest) {
     const pages: Array<{ type: DetailType; imageUrl: string; taskId?: string }> = [];
     let index = 0;
     for (const type of types) {
+      const effectiveIncludeMarketingCopy =
+        includeMarketingCopy && (preserveExactText || detailTypeDefaultsToMarketingCopy(type));
       const prompt = buildDetailPrompt({
         type,
         productDescription: typeof productDescription === "string" ? productDescription : "",
@@ -482,7 +515,7 @@ export async function POST(request: NextRequest) {
         preserveExactText,
       });
 
-      const negativePrompt = buildDetailNegativePrompt(type, productLevelChangeAllowed, includeMarketingCopy);
+      const negativePrompt = buildDetailNegativePrompt(type, productLevelChangeAllowed, effectiveIncludeMarketingCopy);
 
       const task = await prisma.aiImageTask.create({
         data: {
