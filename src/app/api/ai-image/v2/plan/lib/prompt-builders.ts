@@ -510,8 +510,8 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
     const isolationInstruction = analysis.isolationInstruction ? englishOnly(analysis.isolationInstruction) : "";
     parts.push(
       `=== PRODUCT PRESERVATION ===`,
-      `CRITICAL: Preserve the EXACT product structure, proportions, and visible features from the reference image: ${visibleFeatures}.`,
-      `Do NOT alter the product shape, add or remove parts, or change proportions.`,
+      `CRITICAL: Preserve the EXACT product structure, proportions, apparent product size/scale, product count, and visible features from the reference image: ${visibleFeatures}.`,
+      `Do NOT alter the product shape, add or remove parts, change proportions, resize the product body, duplicate the product, remove product instances, or create variants unless the user explicitly requested that exact product-level change.`,
       isolationInstruction ? `Isolation instruction: ${isolationInstruction}` : "",
       ``,
     );

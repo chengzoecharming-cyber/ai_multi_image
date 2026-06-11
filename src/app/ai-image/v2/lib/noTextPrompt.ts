@@ -15,6 +15,13 @@ export function isLimitedScope(userGoal?: string): boolean {
     "不要改变", "不要改", "不要动", "保持不变", "其他不变",
     "保持其他", "其余不变", "只改尺寸", "只改文字", "只改颜色",
     "只换背景", "只调", "仅改", "仅换", "仅调整",
+    "不要修改大小", "不要修改尺寸", "不要修改数量", "大小不要变",
+    "尺寸不要变", "数量不要变", "保持大小", "保持尺寸", "保持数量",
+    "大小一致", "尺寸一致", "数量一致", "和参考图一致", "跟参考图一致",
+    "same size", "same dimensions", "same scale", "same quantity", "same count",
+    "do not change size", "do not change dimensions", "do not change scale",
+    "do not change quantity", "do not change count", "keep the same size",
+    "keep the same quantity", "match the reference",
   ];
   const text = userGoal.toLowerCase();
   return limitedKeywords.some((kw) => text.includes(kw));
@@ -38,7 +45,8 @@ export function buildNoTextImagePrompt(plan: CreativePlan, userGoal?: string): s
       `- ONLY perform the specific modification requested by the user goal above.`,
       `- Do NOT add, remove, or change ANY other element (headlines, feature points, badges, layout, background, product angle, etc.).`,
       `- Preserve the EXACT existing composition, lighting, and styling.`,
-      `- Preserve the EXACT product structure, proportions, and visible features.`,
+      `- Preserve the EXACT product structure, proportions, apparent size/scale, product count, and visible features.`,
+      `- Do NOT add duplicates, remove product instances, create variants, resize the product body, or change dimensions unless the user explicitly requested that exact change.`,
       `- All on-image text must remain the SAME except for the specific change requested.`,
       ``,
       `=== PRODUCT ===`,
