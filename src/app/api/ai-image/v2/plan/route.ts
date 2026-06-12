@@ -8,8 +8,7 @@ import { normalizeCreativePlan } from "./lib/normalize";
 import { analyzeProductImage } from "./lib/mock-analysis";
 import { generateSinglePlans } from "./lib/mock-plans";
 import { applyTemplateRuleToPlan } from "./lib/template-rules";
-import { buildImageGenerationPrompt, buildPlanSummaryPrompt } from "./lib/prompt-builders";
-import { buildLayoutOverlay } from "./lib/layout-overlay";
+import { refreshPlanPrompts } from "@/lib/plan/refresh";
 import {
   buildEmptyPlanBrief,
   buildPlanBriefFromSystemTemplate,
@@ -57,12 +56,12 @@ function sanitizeRiskyCopy(text: string): string {
 
 function ensurePlanSkeleton(plans: CreativePlan[]): CreativePlan[] {
   return plans.map((plan) => {
-    const blocks = Array.isArray(plan.copyBlocks) ? plan.copyBlocks : [];
+    const refreshed = refreshPlanPrompts(plan);
+    // Only ADD missing essential blocks, NEVER remove or overwrite existing ones.
+    const result = [...refreshed.copyBlocks];
+
     const headline = String(plan.headline || "").trim();
     const subtitle = plan.subtitle ? String(plan.subtitle).trim() : "";
-
-    // Only ADD missing essential blocks, NEVER remove or overwrite existing ones.
-    const result: typeof blocks = [...blocks];
 
     // Ensure headline exists
     const hasHeadline = result.some((b) => b.role === "headline");
@@ -111,26 +110,17 @@ function ensurePlanSkeleton(plans: CreativePlan[]): CreativePlan[] {
       });
     }
 
-    plan.copyBlocks = result;
-    plan.sellingPoints =
+    refreshed.copyBlocks = result;
+    refreshed.sellingPoints =
       (plan.sellingPoints && plan.sellingPoints.length > 0
         ? plan.sellingPoints
         : result
             .filter((b) => b.role === "feature_point")
             .map((b) => (b.body ? `${b.title} / ${b.body}` : b.title))
       ).slice(0, 5);
-    plan.layoutOverlay = buildLayoutOverlay(
-      plan.headline,
-      plan.subtitle,
-      plan.sellingPoints,
-      plan.layoutDirection,
-      plan.imageType,
-      plan.copyBlocks as CopyBlock[]
-    );
-    plan.planSummaryPrompt = buildPlanSummaryPrompt(plan);
-    plan.imageGenerationPrompt = buildImageGenerationPrompt(plan);
-    plan.finalPrompt = plan.imageGenerationPrompt;
-    return plan;
+    // 重新重建 prompts（因为可能新增了 headline/subheadline/feature_point block）
+    const withExtras = refreshPlanPrompts(refreshed);
+    return withExtras;
   });
 }
 

@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { refreshPlanPrompts } from "@/lib/plan/refresh";
 import { IMAGE_TYPE_LABELS } from "../../types";
 import type { CreativePlan } from "../../types";
 
@@ -253,7 +254,8 @@ export function PlanInfoDialog({
           <Button
             className="bg-indigo-600 hover:bg-indigo-700 text-white"
             onClick={() => {
-              onPersist(draft);
+              const refreshed = refreshPlanPrompts(draft);
+              onPersist(refreshed);
               onOpenChange(false);
               toast.success("方案已更新");
             }}
