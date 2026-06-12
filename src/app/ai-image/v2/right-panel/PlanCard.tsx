@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Save, Info, Wand2, Eye, Sparkles } from "lucide-react";
+import { Save, Info, Wand2, Eye, Sparkles, Languages } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -34,7 +34,7 @@ export function PlanCard({
 }: PlanCardProps) {
   const meta = getPlanMeta(plan);
   const [showCn, setShowCn] = useState(false);
-  const hasCn = !!(plan.headlineCn || plan.subtitleCn || (plan.sellingPointsCn && plan.sellingPointsCn.length > 0));
+  const hasCn = !!(plan.headlineCn || plan.subtitleCn || (plan.sellingPointsCn && plan.sellingPointsCn.length > 0) || (plan.copyBlocksCn && plan.copyBlocksCn.length > 0));
 
   // 文案区显示内容（中英切换）
   const displayHeadline = showCn && plan.headlineCn ? plan.headlineCn : plan.headline;
@@ -80,10 +80,10 @@ export function PlanCard({
   return (
     <div
       className={cn(
-        "w-[385px] bg-white rounded-[16px] overflow-hidden flex flex-col transition-opacity duration-500",
+        "w-[438px] bg-white rounded-[16px] overflow-hidden flex flex-col transition-opacity duration-500",
         isActive ? "opacity-100" : "opacity-85"
       )}
-      style={{ height: "412px" }}
+      style={{ height: "578px" }}
       onPointerDown={(e) => e.stopPropagation()}
     >
       {/* ========== 1. 标题 + 操作区 ========== */}
@@ -99,15 +99,22 @@ export function PlanCard({
           </div>
           <div className="flex items-center gap-0.5 shrink-0">
             <button
+              onClick={(e) => { e.stopPropagation(); setShowCn((v) => !v); }}
+              className="w-6 h-6 flex items-center justify-center text-[#72808a] hover:text-[#0f1419] active:text-[#0f1419] transition-colors"
+              title={showCn ? "English" : "中文"}
+            >
+              <Languages className="w-4 h-4" />
+            </button>
+            <button
               onClick={(e) => { e.stopPropagation(); onSave(plan); }}
-              className="w-8 h-8 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors"
+              className="w-6 h-6 flex items-center justify-center text-[#72808a] hover:text-[#0f1419] active:text-[#0f1419] transition-colors"
               title="保存为模板"
             >
               <Save className="w-4 h-4" />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); onOpenInfo(plan); }}
-              className="w-8 h-8 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors"
+              className="w-6 h-6 flex items-center justify-center text-[#72808a] hover:text-[#0f1419] active:text-[#0f1419] transition-colors"
               title="详情"
             >
               <Info className="w-4 h-4" />
@@ -147,18 +154,6 @@ export function PlanCard({
           {/* 图片文案区 */}
           {(displayHeadline || displaySubtitle || displaySellingPoints.length > 0 || filteredCopyBlocks.length > 0) && (
             <div>
-              {/* 中英切换 */}
-              {hasCn && (
-                <div className="flex justify-end mb-2">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setShowCn((v) => !v); }}
-                    className="text-[12px] text-[#72808a] hover:text-[#0f1419] transition-colors"
-                  >
-                    {showCn ? "English" : "中文"}
-                  </button>
-                </div>
-              )}
-
               {/* 标题 */}
               {displayHeadline && (
                 <div className="mb-3">
@@ -190,15 +185,35 @@ export function PlanCard({
                 </div>
               )}
 
-              {/* 其他文案块（按 role 展开） */}
+              {/* 其他文案块（按 role 分组展示） */}
               {filteredCopyBlocks.length > 0 && (
                 <div className="space-y-3">
-                  {filteredCopyBlocks.map((block) => (
-                    <div key={block.id}>
-                      <div className="text-[14px] font-normal text-[#72808a] mb-1">{ROLE_LABELS[block.role] || block.role}</div>
-                      <p className="text-[14px] font-normal text-[#0f1419] leading-snug">{block.title}</p>
-                    </div>
-                  ))}
+                  {(() => {
+                    // Group by role
+                    const groups = new Map<string, typeof filteredCopyBlocks>();
+                    filteredCopyBlocks.forEach((block) => {
+                      const list = groups.get(block.role) || [];
+                      list.push(block);
+                      groups.set(block.role, list);
+                    });
+                    return Array.from(groups.entries()).map(([role, blocks]) => (
+                      <div key={role}>
+                        <div className="text-[14px] font-normal text-[#72808a] mb-1">{ROLE_LABELS[role] || role}</div>
+                        {blocks.length === 1 ? (
+                          <p className="text-[14px] font-normal text-[#0f1419] leading-snug">{blocks[0].title}</p>
+                        ) : (
+                          <ul className="space-y-2">
+                            {blocks.map((block) => (
+                              <li key={block.id} className="text-[14px] font-normal text-[#0f1419] leading-snug flex gap-1.5">
+                                <span className="shrink-0 mt-[5px] w-1 h-1 rounded-full bg-[#72808a]" />
+                                <span>{block.title}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ));
+                  })()}
                 </div>
               )}
             </div>

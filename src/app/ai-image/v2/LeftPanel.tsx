@@ -96,7 +96,7 @@ export function LeftPanel({
           userGoal: goal.trim(),
           width: outputWidth,
           height: outputHeight,
-          styleReferenceUrls,
+          styleReferenceUrls: referenceImageUrls,
           sessionId: activeSession.id,
         }),
         signal: directAbortRef.current.signal,
@@ -142,7 +142,7 @@ export function LeftPanel({
   return (
     <div className="w-[310px] h-full flex flex-col border-r-[0.5px] border-gray-200 bg-white overflow-hidden shrink-0">
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
         <AuthCodeAuditCard authorizationCode={activeSession.authorizationCode} />
 
         {/* Template Selection */}
@@ -300,7 +300,7 @@ export function LeftPanel({
           <Label className="text-[13px] font-medium text-gray-700 flex items-center gap-1.5">
             <Server className="w-3 h-3 text-gray-400" />选择模型
           </Label>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {[
               { id: "chatgpt2api", label: "GPT Image" },
               { id: "volcano", label: "Seedream 5.0" },
@@ -339,7 +339,7 @@ export function LeftPanel({
           <Label className="text-[13px] font-medium text-gray-700 flex items-center gap-1.5">
             <SlidersHorizontal className="w-3 h-3 text-gray-400" />输出尺寸
           </Label>
-          <div className={cn("flex gap-2", isChatGPT2API ? "" : "flex-wrap")}>
+          <div className={cn("grid gap-2", isChatGPT2API ? "grid-cols-3" : "grid-cols-4")}>
             <button
               type="button"
               className={cn(
@@ -505,21 +505,30 @@ export function LeftPanel({
           </Button>
         ) : (
           <>
+            <svg width="0" height="0" className="absolute">
+              <defs>
+                <linearGradient id="icon-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#93c5fd" />
+                  <stop offset="100%" stopColor="#a78bfa" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <div className="flex gap-2">
             <Button
               onClick={onGenerate}
               disabled={!activeProductImage || !goal.trim()}
-              className="w-full h-10 bg-[#000012] hover:bg-[#0f1419] text-white border-0 shadow-lg shadow-gray-200"
+              className="flex-1 h-10 bg-[rgb(235,236,237)] hover:bg-[rgb(220,221,222)] text-[#0f1419] border-0"
             >
-              <Sparkles className="w-4 h-4 mr-2" />AI 生成方案
+              <Sparkles className="w-4 h-4 mr-2" stroke="url(#icon-gradient)" />AI 生成方案
             </Button>
             <Button
               onClick={handleDirectGenerate}
               disabled={!activeProductImage || !goal.trim()}
-              variant="outline"
-              className="w-full h-10 mt-2 text-gray-700 hover:text-[#0f1419] hover:bg-gray-50 border-gray-200"
+              className="flex-1 h-10 bg-[rgb(235,236,237)] hover:bg-[rgb(220,221,222)] text-[#0f1419] border-0"
             >
-              <Wand2 className="w-4 h-4 mr-2" />直接生成
+              <Wand2 className="w-4 h-4 mr-2" stroke="url(#icon-gradient)" />直接生成
             </Button>
+            </div>
           </>
         )}
       </div>

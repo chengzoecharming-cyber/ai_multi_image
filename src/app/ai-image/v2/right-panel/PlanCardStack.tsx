@@ -114,7 +114,7 @@ export function PlanCardStack({
       )}
 
       {/* 卡片堆叠 — 使用 plan.id 作为 key 以实现切换动效 */}
-      <div className="relative w-[385px] h-[412px]">
+      <div className="relative w-[438px] h-[578px]">
         {plans.map((plan, i) => {
           const offset = i - activeIndex;
           let normalizedOffset = offset;
