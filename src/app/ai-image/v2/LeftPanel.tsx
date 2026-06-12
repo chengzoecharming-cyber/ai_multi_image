@@ -1,6 +1,6 @@
 "use client";
 
-import { RefObject, useState } from "react";
+import { RefObject, useState, useRef } from "react";
 import {
   ImageIcon, X, Upload, Lightbulb,
   Sparkles, BookOpen, Square, SlidersHorizontal,
@@ -78,11 +78,15 @@ export function LeftPanel({
   const isPreset = (p: { w: number; h: number }) => outputWidth === p.w && outputHeight === p.h;
 
   const [templateHover, setTemplateHover] = useState(false);
-  const [directGenerating, setDirectGenerating] = useState(false);
+  const directAbortRef = useRef<AbortController | null>(null);
+  const directGenerating = activeSession.directGenerating ?? false;
 
   const handleDirectGenerate = async () => {
     if (!activeProductImage || !goal.trim() || directGenerating) return;
-    setDirectGenerating(true);
+
+    directAbortRef.current = new AbortController();
+    onUpdateSession((s) => ({ ...s, directGenerating: true, lastError: null }));
+
     try {
       const res = await fetch("/api/ai-image/v2/direct-generate", {
         method: "POST",
@@ -95,6 +99,7 @@ export function LeftPanel({
           styleReferenceUrls,
           sessionId: activeSession.id,
         }),
+        signal: directAbortRef.current.signal,
       });
       const data = await res.json();
       if (!res.ok || !data.imageUrl) {
@@ -102,7 +107,7 @@ export function LeftPanel({
       }
       onUpdateSession((s) => ({
         ...s,
-        step: "preview" as Step,
+        directGenerating: false,
         generatedImages: [
           {
             id: `direct-${Date.now()}`,
@@ -118,10 +123,20 @@ export function LeftPanel({
       }));
       toast.success("图片生成成功");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "直接生成失败");
+      const isAbort = e instanceof Error && e.name === "AbortError";
+      onUpdateSession((s) => ({ ...s, directGenerating: false, lastError: isAbort ? null : (e instanceof Error ? e.message : "直接生成失败") }));
+      if (!isAbort) {
+        toast.error(e instanceof Error ? e.message : "直接生成失败");
+      } else {
+        toast.info("已停止生成");
+      }
     } finally {
-      setDirectGenerating(false);
+      directAbortRef.current = null;
     }
+  };
+
+  const handleCancelDirectGenerate = () => {
+    directAbortRef.current?.abort();
   };
 
   return (
@@ -480,6 +495,14 @@ export function LeftPanel({
           >
             <Square className="w-4 h-4 mr-2" />停止生成
           </Button>
+        ) : directGenerating ? (
+          <Button
+            onClick={handleCancelDirectGenerate}
+            variant="outline"
+            className="w-full h-10 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+          >
+            <Square className="w-4 h-4 mr-2" />停止直接生成
+          </Button>
         ) : (
           <>
             <Button
@@ -491,20 +514,11 @@ export function LeftPanel({
             </Button>
             <Button
               onClick={handleDirectGenerate}
-              disabled={!activeProductImage || !goal.trim() || directGenerating}
+              disabled={!activeProductImage || !goal.trim()}
               variant="outline"
               className="w-full h-10 mt-2 text-gray-700 hover:text-[#0f1419] hover:bg-gray-50 border-gray-200"
             >
-              {directGenerating ? (
-                <>
-                  <span className="w-4 h-4 mr-2 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-                  生成中...
-                </>
-              ) : (
-                <>
-                  <Wand2 className="w-4 h-4 mr-2" />直接生成
-                </>
-              )}
+              <Wand2 className="w-4 h-4 mr-2" />直接生成
             </Button>
           </>
         )}
