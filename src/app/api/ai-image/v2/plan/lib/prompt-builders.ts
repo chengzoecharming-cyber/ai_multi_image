@@ -210,9 +210,9 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
       `Render ONE strong, readable headline on the image as real typography:`,
       `"${plan.headline || plan.productName || "PRODUCT HIGHLIGHT"}"`,
       plan.subtitle ? `Render one short subtitle beneath or beside the headline: "${plan.subtitle}"` : "",
-      `If selling points are available, render 2-3 lightweight micro labels or icon labels using the strongest points below. Do NOT create thick feature cards, callout boxes, bottom info bars, spec panels, or multi-card grids unless the plan is explicitly a technical/comparison/info poster.`,
+      `If selling points are available, you may render 2-3 concise feature labels or badges using the strongest points below. Do NOT create thick feature cards, callout boxes, bottom info bars, spec panels, or multi-card grids unless the plan is explicitly a technical/comparison/info poster.`,
       ...(plan.sellingPoints || []).slice(0, 3).map((s) => `  • "${s}"`),
-      `Prefer natural lifestyle/studio product advertising: product-first composition, real surface texture, category-relevant props, generous breathing room, and restrained typography.`,
+      `Prefer natural lifestyle/studio product advertising: product-first composition, real surface texture, category-relevant props, generous breathing room, and balanced typography where the headline is the anchor.`,
       ``,
     );
   }
@@ -387,7 +387,7 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
   if (!isInfoPoster) {
     renderingParts.push(
       `## PRODUCT HERO TYPOGRAPHY`,
-      `• A readable headline is required; keep it restrained and premium, with optional short subtitle or 2-3 micro labels maximum`,
+      `• A readable headline is mandatory and must be prominent; additional copy is free-form—use as much or as little as the design needs, but avoid clutter`,
       `• Avoid oversized distressed ALL CAPS unless the style specifically demands it; headline should support the product, not crush the frame`,
       `• Do NOT use thick rounded feature cards, four-corner info cards, heavy bottom bars, or cheap icon panels in hero/product showcase images`,
       `• Text may sit directly in negative space or use very subtle backing; do not force every text block into a card`,
