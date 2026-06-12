@@ -45,6 +45,7 @@ next-env.d.ts
 # local database
 dev.db
 *.db
+*.db-journal
 
 # test screenshots
 .test-screenshots/
