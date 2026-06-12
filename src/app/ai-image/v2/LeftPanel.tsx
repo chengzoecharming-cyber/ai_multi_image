@@ -4,9 +4,10 @@ import { RefObject, useState } from "react";
 import {
   ImageIcon, X, Upload, Lightbulb,
   Sparkles, BookOpen, Square, SlidersHorizontal,
-  Plus, Server,
+  Plus, Server, Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import type { ImageDetailData } from "./components/ImageDetailOverlay";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -77,6 +78,51 @@ export function LeftPanel({
   const isPreset = (p: { w: number; h: number }) => outputWidth === p.w && outputHeight === p.h;
 
   const [templateHover, setTemplateHover] = useState(false);
+  const [directGenerating, setDirectGenerating] = useState(false);
+
+  const handleDirectGenerate = async () => {
+    if (!activeProductImage || !goal.trim() || directGenerating) return;
+    setDirectGenerating(true);
+    try {
+      const res = await fetch("/api/ai-image/v2/direct-generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productImageUrl: activeProductImage,
+          userGoal: goal.trim(),
+          width: outputWidth,
+          height: outputHeight,
+          styleReferenceUrls,
+          sessionId: activeSession.id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.imageUrl) {
+        throw new Error(data.error || "直接生成失败");
+      }
+      onUpdateSession((s) => ({
+        ...s,
+        step: "preview" as Step,
+        generatedImages: [
+          {
+            id: `direct-${Date.now()}`,
+            taskId: data.data?.id,
+            imageUrl: data.imageUrl,
+            imageBase64: data.imageBase64,
+            tab: "product",
+            createdAt: Date.now(),
+          },
+          ...s.generatedImages,
+        ],
+        lastError: null,
+      }));
+      toast.success("图片生成成功");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "直接生成失败");
+    } finally {
+      setDirectGenerating(false);
+    }
+  };
 
   return (
     <div className="w-[310px] h-full flex flex-col border-r-[0.5px] border-gray-200 bg-white overflow-hidden shrink-0">
@@ -435,13 +481,32 @@ export function LeftPanel({
             <Square className="w-4 h-4 mr-2" />停止生成
           </Button>
         ) : (
-          <Button
-            onClick={onGenerate}
-            disabled={!activeProductImage || !goal.trim()}
-            className="w-full h-10 bg-[#000012] hover:bg-[#0f1419] text-white border-0 shadow-lg shadow-gray-200"
-          >
-            <Sparkles className="w-4 h-4 mr-2" />AI 生成方案
-          </Button>
+          <>
+            <Button
+              onClick={onGenerate}
+              disabled={!activeProductImage || !goal.trim()}
+              className="w-full h-10 bg-[#000012] hover:bg-[#0f1419] text-white border-0 shadow-lg shadow-gray-200"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />AI 生成方案
+            </Button>
+            <Button
+              onClick={handleDirectGenerate}
+              disabled={!activeProductImage || !goal.trim() || directGenerating}
+              variant="outline"
+              className="w-full h-10 mt-2 text-gray-700 hover:text-[#0f1419] hover:bg-gray-50 border-gray-200"
+            >
+              {directGenerating ? (
+                <>
+                  <span className="w-4 h-4 mr-2 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                  生成中...
+                </>
+              ) : (
+                <>
+                  <Wand2 className="w-4 h-4 mr-2" />直接生成
+                </>
+              )}
+            </Button>
+          </>
         )}
       </div>
     </div>
