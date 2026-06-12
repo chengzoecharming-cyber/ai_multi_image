@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { toast } from "sonner";
 import type { CreativePlan, V2Session } from "../types";
 import { buildNoTextImagePrompt, isLimitedScope } from "../lib/noTextPrompt";
+import { refreshPlanPrompts } from "@/lib/plan/refresh";
 import { resolveImageUrl, nowTs } from "./utils/session-utils";
 
 export interface UseImageGenerationOptions {
@@ -20,7 +21,8 @@ export function useImageGeneration(options: UseImageGenerationOptions): ImageGen
   const { activeSession, updateActiveSession, onSessionPersist } = options;
 
   const handleGenerateImage = useCallback(
-    async (plan: CreativePlan) => {
+    async (rawPlan: CreativePlan) => {
+      const plan = refreshPlanPrompts(rawPlan);
       const activeProductImage = activeSession?.productImageUrls?.[activeSession?.activeProductImageIndex ?? 0];
       if (!activeProductImage) {
         toast.error("请先上传商品图");

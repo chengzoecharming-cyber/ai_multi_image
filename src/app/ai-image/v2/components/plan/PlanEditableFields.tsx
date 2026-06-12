@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Layout, Eye, Palette, Type } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { CopySourceBadge } from "../ui/CopySourceBadge";
+import { refreshPlanPrompts } from "@/lib/plan/refresh";
 import type { CreativePlan } from "../../types";
 
 export function PlanEditableFields({
@@ -19,6 +20,17 @@ export function PlanEditableFields({
   isEditing: boolean;
   onUpdate: (p: CreativePlan) => void;
 }) {
+  const prevIsEditingRef = useRef(isEditing);
+
+  // 当用户点击"完成编辑"时，自动刷新派生字段（copyBlocks / prompts）
+  useEffect(() => {
+    const wasEditing = prevIsEditingRef.current;
+    prevIsEditingRef.current = isEditing;
+    if (wasEditing && !isEditing) {
+      onUpdate(refreshPlanPrompts(plan));
+    }
+  }, [isEditing, plan, onUpdate]);
+
   const updateField = useCallback(
     <K extends keyof CreativePlan>(key: K, value: CreativePlan[K]) => {
       onUpdate({ ...plan, [key]: value });

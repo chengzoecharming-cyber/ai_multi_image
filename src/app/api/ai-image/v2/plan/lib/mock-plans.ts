@@ -515,6 +515,156 @@ function buildCopyBlocks(
   return blocks;
 }
 
+// ── Mock CN fields for translation demo ───────────────────────────
+
+function getMockCnFields(
+  archetype: PlanArchetype,
+  headline: string,
+  subtitle: string | undefined
+): {
+  headlineCn: string;
+  subtitleCn: string;
+  sellingPointsCn: string[];
+  copyBlocksCn: CopyBlock[];
+} {
+  const commonFeatureCn = [
+    { title: "快速排屑", body: "优化的槽型几何结构可快速清除切屑，防止堆积，保持一致的切削性能", iconHint: "wind" },
+    { title: "低热量积聚", body: "先进的刃口几何结构减少摩擦和热应力，实现稳定的干加工", iconHint: "temperature" },
+    { title: "高进给效率", body: "工程化切削刃支持激进的进给速率，同时提供卓越的表面光洁度", iconHint: "chart" },
+    { title: "锋利切削刃", body: "精密磨削的刃口几何结构在长期使用中保持一致的切削性能", iconHint: "target" },
+    { title: "稳定排屑", body: "精心计算的槽距和螺旋角协同工作，快速将切屑从切削区移走", iconHint: "wind" },
+    { title: "更好表面光洁度", body: "一致的刃口质量和稳定的切削动力学产生光滑的加工表面", iconHint: "spark" },
+  ];
+
+  const commonTechnicalCn = [
+    { title: "优化螺旋角", body: "35度螺旋设计平衡轴向和径向切削力，实现平滑切入，减少颤振", iconHint: "gear" },
+    { title: "强化芯部设计", body: "加厚的中心芯部在重径向载荷下保持结构稳定性，防止偏转", iconHint: "shield" },
+    { title: "精确槽型轮廓", body: "计算机建模的槽型几何结构专为一致的切屑形成和排屑而设计", iconHint: "target" },
+    { title: "受控刃口处理", body: "微刃口处理平衡锋利度和耐用性，抵抗微崩刃", iconHint: "gear" },
+  ];
+
+  const commonBottomInfoCn = ["稳定切削性能", "延长刀具寿命", "卓越表面光洁度", "干加工就绪"];
+
+  const byArchetype: Record<PlanArchetype, { headlineCn: string; subtitleCn: string; sellingPointsCn: string[]; copyBlocksCn: CopyBlock[] }> = {
+    hero_feature: {
+      headlineCn: "核心卖点",
+      subtitleCn: "优化排屑设计，高效清除切屑，保持稳定的切削性能",
+      sellingPointsCn: ["快速排屑技术", "低热量积聚", "高进给效率", "锋利切削刃"],
+      copyBlocksCn: [
+        { id: "cb-headline-cn", title: "核心卖点", role: "headline", priority: 1 },
+        { id: "cb-subheadline-cn", title: subtitle ? "优化排屑设计，高效清除切屑" : "", role: "subheadline", priority: 2 },
+        { id: "cb-claim-cn", title: "核心优势", role: "core_claim", priority: 3 },
+        ...commonFeatureCn.slice(0, 3).map((fp, i) => ({
+          id: `cb-fp-${i}-cn`, title: fp.title, subtitle: fp.body, role: "feature_point" as const, iconHint: fp.iconHint, priority: 4 + i,
+        })),
+      ],
+    },
+    technical_breakdown: {
+      headlineCn: "技术解析",
+      subtitleCn: "精密工程，卓越性能，细节决定品质",
+      sellingPointsCn: ["优化螺旋角", "强化芯部设计", "精确槽型轮廓", "受控刃口处理"],
+      copyBlocksCn: [
+        { id: "cb-headline-cn", title: "技术解析", role: "headline", priority: 1 },
+        { id: "cb-subheadline-cn", title: subtitle ? "精密工程，卓越性能" : "", role: "subheadline", priority: 2 },
+        ...commonTechnicalCn.slice(0, 2).map((tp, i) => ({
+          id: `cb-tp-${i}-cn`, title: tp.title, subtitle: tp.body, role: "technical_point" as const, iconHint: tp.iconHint, priority: 3 + i,
+        })),
+        ...commonFeatureCn.slice(0, 2).map((fp, i) => ({
+          id: `cb-fp-${i}-cn`, title: fp.title, subtitle: fp.body, role: "feature_point" as const, iconHint: fp.iconHint, priority: 5 + i,
+        })),
+      ],
+    },
+    comparison_story: {
+      headlineCn: "优势对比",
+      subtitleCn: "清晰对比，一目了然，选择更明智",
+      sellingPointsCn: ["安全可靠锁定", "清洁螺纹", "强力连接", "轻松安装"],
+      copyBlocksCn: [
+        { id: "cb-headline-cn", title: "优势对比", role: "headline", priority: 1 },
+        { id: "cb-subheadline-cn", title: subtitle ? "清晰对比，一目了然" : "", role: "subheadline", priority: 2 },
+        { id: "cb-vs-left-cn", title: "普通产品", role: "comparison_label", priority: 3 },
+        { id: "cb-vs-right-cn", title: "我们的产品", role: "comparison_label", priority: 4 },
+        ...commonFeatureCn.slice(0, 3).map((fp, i) => ({
+          id: `cb-fp-${i}-cn`, title: fp.title, subtitle: fp.body, role: "feature_point" as const, iconHint: fp.iconHint, priority: 5 + i,
+        })),
+      ],
+    },
+    application_scene: {
+      headlineCn: "应用场景",
+      subtitleCn: "真实工况，可靠表现，值得信赖",
+      sellingPointsCn: ["流畅旋转", "低摩擦", "稳定支撑", "精密配合"],
+      copyBlocksCn: [
+        { id: "cb-headline-cn", title: "应用场景", role: "headline", priority: 1 },
+        { id: "cb-subheadline-cn", title: subtitle ? "真实工况，可靠表现" : "", role: "subheadline", priority: 2 },
+        { id: "cb-claim-cn", title: "久经实战验证", role: "core_claim", priority: 3 },
+        ...commonFeatureCn.slice(0, 3).map((fp, i) => ({
+          id: `cb-fp-${i}-cn`, title: fp.title, subtitle: fp.body, role: "application_label" as const, iconHint: fp.iconHint, priority: 4 + i,
+        })),
+      ],
+    },
+    multi_panel_info: {
+      headlineCn: "多模块信息",
+      subtitleCn: "全面展示，信息丰富，一目了然",
+      sellingPointsCn: ["快速排屑", "低热量积聚", "高进给效率", "锋利切削刃", "稳定排屑", "更好表面光洁度"],
+      copyBlocksCn: [
+        { id: "cb-headline-cn", title: "多模块信息", role: "headline", priority: 1 },
+        { id: "cb-subheadline-cn", title: subtitle ? "全面展示，信息丰富" : "", role: "subheadline", priority: 2 },
+        ...commonFeatureCn.map((fp, i) => ({
+          id: `cb-fp-${i}-cn`, title: fp.title, subtitle: fp.body, role: "feature_point" as const, iconHint: fp.iconHint, priority: 3 + i,
+        })),
+        ...commonBottomInfoCn.slice(0, 4).map((bi, i) => ({
+          id: `cb-bi-${i}-cn`, title: bi, role: "bottom_info" as const, priority: 9 + i,
+        })),
+      ],
+    },
+    premium_showcase: {
+      headlineCn: "高级质感",
+      subtitleCn: "精工细作，品质之选",
+      sellingPointsCn: ["精密工程", "卓越品质", "稳定性能"],
+      copyBlocksCn: [
+        { id: "cb-headline-cn", title: "高级质感", role: "headline", priority: 1 },
+        { id: "cb-subheadline-cn", title: subtitle ? "精工细作，品质之选" : "", role: "subheadline", priority: 2 },
+        { id: "cb-claim-cn", title: "卓越工程", role: "core_claim", priority: 3 },
+        ...commonFeatureCn.slice(0, 2).map((fp, i) => ({
+          id: `cb-fp-${i}-cn`, title: fp.title, subtitle: fp.body, role: "feature_point" as const, iconHint: fp.iconHint, priority: 4 + i,
+        })),
+      ],
+    },
+    promo_sales: {
+      headlineCn: "强销售",
+      subtitleCn: "强劲性能，立即体验",
+      sellingPointsCn: ["强劲动力", "清洁螺纹", "强力连接", "轻松安装"],
+      copyBlocksCn: [
+        { id: "cb-headline-cn", title: "强销售", role: "headline", priority: 1 },
+        { id: "cb-subheadline-cn", title: subtitle ? "强劲性能，立即体验" : "", role: "subheadline", priority: 2 },
+        { id: "cb-claim-cn", title: "核心优势", role: "core_claim", priority: 3 },
+        ...commonFeatureCn.slice(0, 3).map((fp, i) => ({
+          id: `cb-fp-${i}-cn`, title: fp.title, subtitle: fp.body, role: "feature_point" as const, iconHint: fp.iconHint, priority: 4 + i,
+        })),
+      ],
+    },
+    environment_showcase: {
+      headlineCn: "环境场景",
+      subtitleCn: "工业环境，真实呈现",
+      sellingPointsCn: ["坚固耐用", "精密配合", "稳定运行", "优质材料"],
+      copyBlocksCn: [
+        { id: "cb-headline-cn", title: "环境场景", role: "headline", priority: 1 },
+        { id: "cb-subheadline-cn", title: subtitle ? "工业环境，真实呈现" : "", role: "subheadline", priority: 2 },
+        { id: "cb-claim-cn", title: "工业级品质", role: "core_claim", priority: 3 },
+        ...commonFeatureCn.slice(0, 3).map((fp, i) => ({
+          id: `cb-fp-${i}-cn`, title: fp.title, subtitle: fp.body, role: "feature_point" as const, iconHint: fp.iconHint, priority: 4 + i,
+        })),
+      ],
+    },
+  };
+
+  const cn = byArchetype[archetype];
+  // 过滤掉空的 subheadline
+  return {
+    ...cn,
+    copyBlocksCn: cn.copyBlocksCn.filter((b) => !(b.role === "subheadline" && !b.title)),
+  };
+}
+
 // ── Common risks ─────────────────────────────────────────────────
 
 function commonRisks(): string[] {
@@ -570,6 +720,8 @@ export function generateSinglePlans(analysis: ProductAnalysis, userGoal: string,
       .filter(b => b.role === "feature_point" || b.role === "technical_point")
       .map(b => b.subtitle ? `${b.title} / ${b.subtitle}` : b.title);
 
+    const cnFields = getMockCnFields(arch, headline, subtitle);
+
     const plan: CreativePlan = {
       id: `plan-${now}-s${idx + 1}`,
       planName: `${config.planNameCn} ${idx + 1}`,
@@ -582,6 +734,10 @@ export function generateSinglePlans(analysis: ProductAnalysis, userGoal: string,
       subtitle,
       sellingPoints,
       copyBlocks,
+      headlineCn: cnFields.headlineCn,
+      subtitleCn: cnFields.subtitleCn,
+      sellingPointsCn: cnFields.sellingPointsCn,
+      copyBlocksCn: cnFields.copyBlocksCn,
       copySource,
       copyNotes,
       layoutDirection: config.layoutDesc,
@@ -643,6 +799,8 @@ export function generateSetPlans(analysis: ProductAnalysis, userGoal: string): I
       .filter(b => b.role === "feature_point" || b.role === "technical_point")
       .map(b => b.subtitle ? `${b.title} / ${b.subtitle}` : b.title);
 
+    const cnFields = getMockCnFields(arch, headline, subtitle);
+
     const plan: CreativePlan = {
       id: `plan-${now}-${["h", "f", "d", "sc", "c"][idx]}`,
       planName: setRoleNames[idx].role,
@@ -655,6 +813,10 @@ export function generateSetPlans(analysis: ProductAnalysis, userGoal: string): I
       subtitle,
       sellingPoints,
       copyBlocks,
+      headlineCn: cnFields.headlineCn,
+      subtitleCn: cnFields.subtitleCn,
+      sellingPointsCn: cnFields.sellingPointsCn,
+      copyBlocksCn: cnFields.copyBlocksCn,
       copySource,
       copyNotes,
       layoutDirection: config.layoutDesc,

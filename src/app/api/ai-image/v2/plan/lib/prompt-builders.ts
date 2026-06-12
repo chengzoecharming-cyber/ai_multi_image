@@ -1,4 +1,4 @@
-import type { CreativePlan, LayoutOverlay, CopyBlock } from "@/app/ai-image/v2/types";
+import type { CreativePlan } from "@/app/ai-image/v2/types";
 
 export function buildPlanSummaryPrompt(plan: CreativePlan): string {
   const analysis = plan.productAnalysis || {
@@ -122,6 +122,8 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
   const lo = plan.layoutOverlay;
   const visibleFeatures = analysis?.visibleFeatures?.join(", ") || "all visible product features from the reference image";
   const productDescription = analysis?.productSubjectDescription || analysis?.productType || plan.productName || "the reference product";
+  const infoPosterArchetypes = new Set(["technical_breakdown", "comparison_story", "multi_panel_info"]);
+  const isInfoPoster = infoPosterArchetypes.has(plan.planArchetype);
 
   const parts: string[] = [
     `=== VISUAL STYLE AND COMPOSITION (MANDATORY — OVERRIDE ALL DEFAULT STYLES) ===`,
@@ -141,6 +143,7 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
     `Avoid flat catalog snapshots. Create premium commercial tension through camera angle, lighting contrast, depth, shadows, reflections, material highlights, background layering, and disciplined negative space.`,
     `Visual drama must come from non-product dimensions only: lens choice, perspective, crop, scene depth, surface texture, atmosphere, typography hierarchy, callout layout, and background treatment.`,
     `Match the product category: industrial tools can use CNC/workshop/metal textures; pet products can use home/pet interaction context; baby products can use nursery/parenting context; beauty/home/electronics should use category-appropriate premium environments.`,
+    `For ordinary product images, prioritize hero advertising appeal over explaining every feature. Use lifestyle/studio context and light typography before dense infographic panels.`,
     ``,
     `=== PRODUCT SUBJECT ===`,
     `Product: "${plan.productName}".`,
@@ -183,25 +186,39 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
     );
   }
 
-  parts.push(
-    `=== MANDATORY ON-IMAGE TEXT ===`,
-    `ALL of the following English text MUST be rendered ON the image as real, readable typography.`,
-    `Text must be professional commercial typesetting — NOT placeholder space, NOT blurry, NOT garbled.`,
-    ``,
-    `HEADLINE (largest, boldest, most prominent element on the image):`,
-    `"${plan.headline}"`,
-  );
-
-  if (plan.subtitle) {
+  if (isInfoPoster) {
     parts.push(
+      `=== MANDATORY ON-IMAGE TEXT ===`,
+      `ALL of the following English text MUST be rendered ON the image as real, readable typography.`,
+      `Text must be professional commercial typesetting — NOT placeholder space, NOT blurry, NOT garbled.`,
       ``,
-      `SUBTITLE (clearly readable beneath the headline):`,
-      `"${plan.subtitle}"`,
+      `HEADLINE (largest, boldest, most prominent element on the image):`,
+      `"${plan.headline}"`,
+    );
+
+    if (plan.subtitle) {
+      parts.push(
+        ``,
+        `SUBTITLE (clearly readable beneath the headline):`,
+        `"${plan.subtitle}"`,
+      );
+    }
+  } else {
+    parts.push(
+      `=== PRODUCT HERO AD COPY (MANDATORY) ===`,
+      `This is a product hero image, not a dense infographic, but it must still contain designed ecommerce typography.`,
+      `Render ONE strong, readable headline on the image as real typography:`,
+      `"${plan.headline || plan.productName || "PRODUCT HIGHLIGHT"}"`,
+      plan.subtitle ? `Render one short subtitle beneath or beside the headline: "${plan.subtitle}"` : "",
+      `If selling points are available, you may render 2-3 concise feature labels or badges using the strongest points below. Do NOT create thick feature cards, callout boxes, bottom info bars, spec panels, or multi-card grids unless the plan is explicitly a technical/comparison/info poster.`,
+      ...(plan.sellingPoints || []).slice(0, 3).map((s) => `  • "${s}"`),
+      `Prefer natural lifestyle/studio product advertising: product-first composition, real surface texture, category-relevant props, generous breathing room, and balanced typography where the headline is the anchor.`,
+      ``,
     );
   }
 
   // Rich copyBlocks-based text instructions
-  if (plan.copyBlocks && plan.copyBlocks.length > 0) {
+  if (isInfoPoster && plan.copyBlocks && plan.copyBlocks.length > 0) {
     const headlineBlocks = plan.copyBlocks.filter(b => b.role === "headline");
     const subheadlineBlocks = plan.copyBlocks.filter(b => b.role === "subheadline");
     const coreClaimBlocks = plan.copyBlocks.filter(b => b.role === "core_claim");
@@ -318,7 +335,7 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
   }
 
   // Fallback to sellingPoints if no copyBlocks
-  if (!plan.copyBlocks || plan.copyBlocks.length === 0) {
+  if (isInfoPoster && (!plan.copyBlocks || plan.copyBlocks.length === 0)) {
     parts.push(
       ``,
       `SELLING POINTS (each as a distinct visual badge, tag, or info block with the exact words):`,
@@ -329,7 +346,7 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
   // ── Dynamic TEXT RENDERING REQUIREMENTS ──
   // Only emit rendering rules for copyBlock roles that actually exist.
   // This prevents 8k-10k prompts when only a headline is present.
-  const cbRoles = new Set(plan.copyBlocks?.map((b) => b.role) || []);
+  const cbRoles = new Set(isInfoPoster ? plan.copyBlocks?.map((b) => b.role) || [] : []);
   const hasHeadline = cbRoles.has("headline");
   const hasSubheadline = cbRoles.has("subheadline");
   const hasCoreClaim = cbRoles.has("core_claim");
@@ -338,7 +355,7 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
   const hasComparison = cbRoles.has("comparison_label");
   const hasApplication = cbRoles.has("application_label");
   const hasBottom = cbRoles.has("bottom_info");
-  const hasAnyBlocks = plan.copyBlocks && plan.copyBlocks.length > 0;
+  const hasAnyBlocks = isInfoPoster && plan.copyBlocks && plan.copyBlocks.length > 0;
 
   const renderingParts: string[] = [
     ``,
@@ -367,7 +384,16 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
     );
   }
 
-  if (hasHeadline || !hasAnyBlocks) {
+  if (!isInfoPoster) {
+    renderingParts.push(
+      `## PRODUCT HERO TYPOGRAPHY`,
+      `• A readable headline is mandatory and must be prominent; additional copy is free-form—use as much or as little as the design needs, but avoid clutter`,
+      `• Avoid oversized distressed ALL CAPS unless the style specifically demands it; headline should support the product, not crush the frame`,
+      `• Do NOT use thick rounded feature cards, four-corner info cards, heavy bottom bars, or cheap icon panels in hero/product showcase images`,
+      `• Text may sit directly in negative space or use very subtle backing; do not force every text block into a card`,
+      ``,
+    );
+  } else if (hasHeadline || !hasAnyBlocks) {
     renderingParts.push(
       `## HEADLINE RENDERING`,
       `• ALL CAPS, bold sans-serif, largest text on the image`,
@@ -455,7 +481,7 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
   }
 
   // Fallback selling points rendering (when no copyBlocks)
-  if (!hasAnyBlocks && (plan.sellingPoints || []).length > 0) {
+  if (isInfoPoster && !hasAnyBlocks && (plan.sellingPoints || []).length > 0) {
     renderingParts.push(
       `## SELLING POINT RENDERING`,
       `• Each selling point as a distinct visual badge, tag, or info block`,
@@ -466,10 +492,16 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
 
   renderingParts.push(
     `## GENERAL TYPOGRAPHY RULES`,
-    `• Text must NEVER float on empty background — every text block must have a designed background treatment`,
-    `• Background treatments: solid color blocks, gradient panels, geometric shapes, subtle dark overlays, frosted glass`,
-    `• Typography must look like professional commercial graphic design, not simple captions`,
-    `• Layer text with visual depth: headline overlaps nothing or sits on top, subtitles on panels, selling points in cards`,
+    isInfoPoster
+      ? `• Text blocks should use designed treatments such as subtle panels, overlays, accent rules, or disciplined negative space`
+      : `• For product hero images, use disciplined negative space and subtle alignment before panels; avoid template-like card stacks`,
+    isInfoPoster
+      ? `• Background treatments: solid color blocks, gradient panels, geometric shapes, subtle dark overlays, frosted glass`
+      : `• Background treatment should feel photographic or environmental, not like a blank white/gray infographic canvas`,
+    `• Typography must look like professional commercial graphic design, not simple captions or generic template text`,
+    isInfoPoster
+      ? `• Layer text with visual depth: headline overlaps nothing or sits on top, subtitles on panels, selling points in cards`
+      : `• Keep the product as the visual hero; typography should create brand mood with minimal interruption`,
     `• Maintain consistent font family across all text — use 1-2 complementary typefaces maximum`,
     `• Ensure ALL text is fully legible at intended viewing size — test contrast ratios`,
   );
@@ -537,8 +569,8 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
     `Follow the visual style specified in the VISUAL STYLE AND COMPOSITION section above. Do NOT override it with generic defaults.`,
     `NO fake logos, prices, certification marks, or platform branding.`,
     `NO CTA buttons, Buy Now, Shop Now, price badges, discount badges, or shipping labels.`,
-    `NO watermark, NO "AI generated" mark, NO logo mark, NO signature, NO text overlay in any corner or edge of the image.`,
-    `The image must be completely clean — no corner badges, no small text labels, no generated-by marks, no copyright stamps.`,
+    `NO watermark, NO "AI generated" mark, NO logo mark, NO signature, NO copyright stamp, NO platform UI badge.`,
+    `Do not add stray corner text, tiny edge labels, generated-by marks, or decorative microprint. Required ecommerce headline, subtitle, labels, and callouts from this prompt are allowed and must be readable.`,
   );
 
   return parts.join("\n");

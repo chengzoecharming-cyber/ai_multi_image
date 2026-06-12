@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import type { CreativePlan, PlanArchetype } from "@/app/ai-image/v2/types";
+import type { CopyBlock, CreativePlan, PlanArchetype } from "@/app/ai-image/v2/types";
 import { imageUrlToBase64 } from "./lib/image-utils";
 import { callLLM } from "./lib/llm-client";
 import { detectTemplateArchetype } from "./lib/system-prompt";
@@ -8,6 +8,7 @@ import { normalizeCreativePlan } from "./lib/normalize";
 import { analyzeProductImage } from "./lib/mock-analysis";
 import { generateSinglePlans } from "./lib/mock-plans";
 import { applyTemplateRuleToPlan } from "./lib/template-rules";
+import { refreshPlanPrompts } from "@/lib/plan/refresh";
 import {
   buildEmptyPlanBrief,
   buildPlanBriefFromSystemTemplate,
@@ -55,12 +56,12 @@ function sanitizeRiskyCopy(text: string): string {
 
 function ensurePlanSkeleton(plans: CreativePlan[]): CreativePlan[] {
   return plans.map((plan) => {
-    const blocks = Array.isArray(plan.copyBlocks) ? plan.copyBlocks : [];
+    const refreshed = refreshPlanPrompts(plan);
+    // Only ADD missing essential blocks, NEVER remove or overwrite existing ones.
+    const result = [...refreshed.copyBlocks];
+
     const headline = String(plan.headline || "").trim();
     const subtitle = plan.subtitle ? String(plan.subtitle).trim() : "";
-
-    // Only ADD missing essential blocks, NEVER remove or overwrite existing ones.
-    const result: typeof blocks = [...blocks];
 
     // Ensure headline exists
     const hasHeadline = result.some((b) => b.role === "headline");
@@ -77,11 +78,49 @@ function ensurePlanSkeleton(plans: CreativePlan[]): CreativePlan[] {
       result.splice(insertIdx, 0, { id: "cb-subheadline", title: sanitizeRiskyCopy(subtitle), role: "subheadline", priority: 2 });
     }
 
-    // Non-template mode should stay open and review-first:
-    // do not auto-inject feature points or bottom bars.
+    const existingText = new Set(result.map((b) => toUpperWords(b.title || "")));
+    const sourcePoints =
+      plan.sellingPoints && plan.sellingPoints.length > 0
+        ? plan.sellingPoints
+        : plan.productAnalysis?.visibleFeatures || [];
+    const featureTitles = sourcePoints
+      .map((point) => toUpperWords(sanitizeRiskyCopy(String(point))))
+      .filter((point) => point.length > 0 && !existingText.has(point))
+      .slice(0, 3);
 
-    plan.copyBlocks = result;
-    return plan;
+    featureTitles.forEach((title, index) => {
+      result.push({
+        id: `cb-auto-feature-${index + 1}`,
+        title,
+        body: index === 0 ? "Clear visible advantage for ecommerce shoppers" : undefined,
+        role: "feature_point",
+        iconHint: index === 0 ? "target" : index === 1 ? "shield" : "spark",
+        priority: result.length + 1,
+      });
+    });
+
+    if (result.filter((b) => b.role === "feature_point").length < 2 && headline) {
+      result.push({
+        id: "cb-auto-benefit",
+        title: "PRODUCT HIGHLIGHTS",
+        body: sanitizeRiskyCopy(subtitle || "Key details shown with clear commercial hierarchy"),
+        role: "feature_point",
+        iconHint: "spark",
+        priority: result.length + 1,
+      });
+    }
+
+    refreshed.copyBlocks = result;
+    refreshed.sellingPoints =
+      (plan.sellingPoints && plan.sellingPoints.length > 0
+        ? plan.sellingPoints
+        : result
+            .filter((b) => b.role === "feature_point")
+            .map((b) => (b.body ? `${b.title} / ${b.body}` : b.title))
+      ).slice(0, 5);
+    // 重新重建 prompts（因为可能新增了 headline/subheadline/feature_point block）
+    const withExtras = refreshPlanPrompts(refreshed);
+    return withExtras;
   });
 }
 
@@ -233,9 +272,6 @@ export async function POST(request: NextRequest) {
             const resolvedPrimaryStyleWorld = planBrief?.resolvedPrimaryStyleWorld;
             plans = plans.map((plan, index) => applyTemplateRuleToPlan(plan, selectedTemplateId, index, undefined, resolvedPrimaryStyleWorld));
           } else {
-            plans.forEach((plan) => {
-              plan.finalPrompt = plan.imageGenerationPrompt;
-            });
             // Non-template mode: enforce minimum usable structure + stable diversity.
             plans = ensurePlanSkeleton(plans);
           }
