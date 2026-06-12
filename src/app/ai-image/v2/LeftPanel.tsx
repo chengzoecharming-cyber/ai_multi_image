@@ -1,12 +1,13 @@
 "use client";
 
-import { RefObject, useState, useCallback } from "react";
+import { RefObject, useState, useCallback, useRef } from "react";
 import {
   ImageIcon, X, Upload, Lightbulb,
   Sparkles, BookOpen, Square, SlidersHorizontal,
-  Plus, Server,
+  Plus, Server, Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 function SimpleLightbox({ imageUrl, onClose }: { imageUrl: string; onClose: () => void }) {
   return (
@@ -92,6 +93,67 @@ export function LeftPanel({
   const maxReferenceImages = isChatGPT2API ? 0 : 3;
 
   const isPreset = (p: { w: number; h: number }) => outputWidth === p.w && outputHeight === p.h;
+
+  const directAbortRef = useRef<AbortController | null>(null);
+  const directGenerating = activeSession.directGenerating ?? false;
+
+  const handleDirectGenerate = async () => {
+    if (!activeProductImage || !goal.trim() || directGenerating) return;
+
+    directAbortRef.current = new AbortController();
+    onUpdateSession((s) => ({ ...s, directGenerating: true, lastError: null }));
+
+    try {
+      const res = await fetch("/api/ai-image/v2/direct-generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productImageUrl: activeProductImage,
+          userGoal: goal.trim(),
+          width: outputWidth,
+          height: outputHeight,
+          styleReferenceUrls: referenceImageUrls,
+          sessionId: activeSession.id,
+        }),
+        signal: directAbortRef.current.signal,
+      });
+      const data = await res.json();
+      if (!res.ok || !data.imageUrl) {
+        throw new Error(data.error || "直接生成失败");
+      }
+      onUpdateSession((s) => ({
+        ...s,
+        directGenerating: false,
+        generatedImages: [
+          {
+            id: `direct-${Date.now()}`,
+            taskId: data.data?.id,
+            imageUrl: data.imageUrl,
+            imageBase64: data.imageBase64,
+            tab: "product",
+            createdAt: Date.now(),
+          },
+          ...s.generatedImages,
+        ],
+        lastError: null,
+      }));
+      toast.success("图片生成成功");
+    } catch (e) {
+      const isAbort = e instanceof Error && e.name === "AbortError";
+      onUpdateSession((s) => ({ ...s, directGenerating: false, lastError: isAbort ? null : (e instanceof Error ? e.message : "直接生成失败") }));
+      if (!isAbort) {
+        toast.error(e instanceof Error ? e.message : "直接生成失败");
+      } else {
+        toast.info("已停止生成");
+      }
+    } finally {
+      directAbortRef.current = null;
+    }
+  };
+
+  const handleCancelDirectGenerate = () => {
+    directAbortRef.current?.abort();
+  };
 
   return (
     <div className="w-[320px] h-full flex flex-col border-r border-gray-200 bg-white overflow-hidden shrink-0">
@@ -460,14 +522,32 @@ export function LeftPanel({
           >
             <Square className="w-4 h-4 mr-2" />停止生成
           </Button>
-        ) : (
+        ) : directGenerating ? (
           <Button
-            onClick={onGenerate}
-            disabled={!activeProductImage || !goal.trim()}
-            className="w-full h-10 bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white border-0 shadow-lg shadow-indigo-200"
+            onClick={handleCancelDirectGenerate}
+            variant="outline"
+            className="w-full h-10 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
           >
-            <Sparkles className="w-4 h-4 mr-2" />AI 生成方案
+            <Square className="w-4 h-4 mr-2" />停止直接生成
           </Button>
+        ) : (
+          <>
+            <Button
+              onClick={onGenerate}
+              disabled={!activeProductImage || !goal.trim()}
+              className="w-full h-10 bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white border-0 shadow-lg shadow-indigo-200"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />AI 生成方案
+            </Button>
+            <Button
+              onClick={handleDirectGenerate}
+              disabled={!activeProductImage || !goal.trim()}
+              variant="outline"
+              className="w-full h-10 mt-2 text-gray-700 hover:text-[#0f1419] hover:bg-gray-50 border-gray-200"
+            >
+              <Wand2 className="w-4 h-4 mr-2" />直接生成
+            </Button>
+          </>
         )}
       </div>
     </div>

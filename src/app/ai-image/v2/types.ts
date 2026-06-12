@@ -304,6 +304,9 @@ export interface V2Session {
   generatingImagePlanId: string | null;
   generatedImages: V2GeneratedImage[];
 
+  /** 直接生成状态 */
+  directGenerating?: boolean;
+
   detail?: V2DetailState;
 
   groupId?: string | null;

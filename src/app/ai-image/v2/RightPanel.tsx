@@ -777,7 +777,45 @@ export function RightPanel({
     ? activeSession.generatedImages.find((g) => g.planId === previewPlan.id) || null
     : null;
 
+  const directGenerating = activeSession.directGenerating;
+  const directGeneratedImage =
+    !directGenerating && activeSession.generatedImages.length > 0
+      ? activeSession.generatedImages[activeSession.generatedImages.length - 1]
+      : null;
+
+  if (directGenerating) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-10">
+        <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center mb-4 animate-pulse">
+          <Sparkles className="w-6 h-6 text-indigo-400" />
+        </div>
+        <p className="text-base font-medium text-gray-700 mb-1">AI 正在直接生成图片...</p>
+        <p className="text-sm text-gray-400">基于用户输入的 prompt 和商品图生成</p>
+        <p className="text-xs text-amber-500 mt-2 font-medium">⏱ 约需 30-90 秒，请耐心等待</p>
+      </div>
+    );
+  }
+
   if (step === "input") {
+    if (directGeneratedImage) {
+      return (
+        <div className="flex-1 flex flex-col overflow-hidden bg-white">
+          <div className="px-6 py-4 border-b border-gray-200/80 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-3">
+              <h2 className="text-base font-bold text-gray-900">直接生成结果</h2>
+            </div>
+          </div>
+          <div className="flex-1 flex items-center justify-center p-8 bg-[#F5F6F8]">
+            <img
+              src={directGeneratedImage.imageBase64 || directGeneratedImage.imageUrl}
+              alt="直接生成结果"
+              className="max-w-full max-h-full object-contain rounded-xl shadow-lg"
+            />
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-10">
         <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center mb-4">
@@ -853,6 +891,31 @@ export function RightPanel({
 
   // step === "preview"
   if (!previewPlan) {
+    if (directGeneratedImage) {
+      return (
+        <div className="flex-1 flex flex-col overflow-hidden bg-white">
+          <div className="px-6 py-4 border-b border-gray-200/80 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={onClosePreview}
+                className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <h2 className="text-base font-bold text-gray-900">直接生成结果</h2>
+            </div>
+          </div>
+          <div className="flex-1 flex items-center justify-center p-8 bg-[#F5F6F8]">
+            <img
+              src={directGeneratedImage.imageBase64 || directGeneratedImage.imageUrl}
+              alt="直接生成结果"
+              className="max-w-full max-h-full object-contain rounded-xl shadow-lg"
+            />
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-10">
         <p className="text-sm text-gray-500">未选择方案</p>
