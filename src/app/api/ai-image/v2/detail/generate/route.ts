@@ -9,7 +9,7 @@ import type { CreativePlan } from "@/app/ai-image/v2/types";
 type DetailType = "detail" | "multi_angle" | "lifestyle" | "feature" | "comparison" | "spec";
 
 function detailTypeDefaultsToMarketingCopy(type: DetailType): boolean {
-  return type === "feature" || type === "comparison" || type === "spec";
+  return type !== "multi_angle";
 }
 
 interface HeroPlanContext {
@@ -150,7 +150,7 @@ function buildDetailPrompt(args: {
   const isComparison = args.type === "comparison";
   const typeAllowsMarketingCopy = detailTypeDefaultsToMarketingCopy(args.type);
   const effectiveIncludeMarketingCopy = includeMarketingCopy && (preserveExactText || typeAllowsMarketingCopy);
-  const shouldUseHeroCopyDirection = typeAllowsMarketingCopy;
+  const shouldUseHeroCopyDirection = effectiveIncludeMarketingCopy;
 
   // Build product and copy-direction context from heroPlan analysis + user description.
   // heroPlan text guides the detail slide; it is not mandatory output copy.
@@ -204,11 +204,11 @@ function buildDetailPrompt(args: {
 
   const userPromptScope: Record<DetailType, string> = {
     detail:
-      "Use the user prompt only for product/category/style hints and requested close-up focus. Do not import broad scene, headline, comparison, or lifestyle directives into this detail macro slide unless the user explicitly asks.",
+      "Use the user prompt and heroPlan copy as a copy-material pool for craftsmanship, material, texture, structure, and quality claims. Do not import broad lifestyle or comparison directives into this detail macro slide unless the user explicitly asks.",
     multi_angle:
       "Use the user prompt only for product/category/style hints and the requested viewpoint. Ignore broad scene, background-story, headline, feature-card, comparison, or lifestyle directives that would turn this into a new advertising scene.",
     lifestyle:
-      "Use the user prompt's scene/background/use-environment ideas only as surrounding context. The featured product inventory remains one intact foreground set with the same visible count and relative size relationships. Do not split the set, move one part into use, copy a component into a hand/tool/machine, or remove any component unless explicitly requested.",
+      "Use the user prompt's scene/background/use-environment ideas and heroPlan copy as a copy-material pool for application benefits, use-case labels, and concise scene badges. The featured product inventory remains one intact foreground set with the same visible count and relative size relationships. Do not split the set, move one part into use, copy a component into a hand/tool/machine, or remove any component unless explicitly requested.",
     feature:
       "Use the user prompt and heroPlan for selling-point direction, but only call out real visible features. The product image itself is not a design canvas and must not be resized, duplicated, or restructured to fit the layout.",
     comparison:
@@ -263,7 +263,7 @@ function buildDetailPrompt(args: {
     ? [
         "【文案策略 / COPY POLICY】",
         includeMarketingCopy
-          ? "- This detail type does not default to marketing typography. Do not add headline, subtitle, selling-point cards, feature icons, or decorative copy unless the user explicitly asks for text in this slide type."
+          ? "- This angle-only slide does not default to heavy marketing typography. Use no headline/card system by default, but one small angle/view label is allowed if it improves ecommerce clarity."
           : "- The user explicitly requested no marketing text or text removal. Do not add headline, subtitle, selling-point cards, or decorative copy.",
         "- Product labels physically printed on the product are product appearance, not marketing copy; keep them readable when visible.",
       ].join("\n")
@@ -275,9 +275,9 @@ function buildDetailPrompt(args: {
         ].join("\n")
       : [
           "【文案策略 / COPY POLICY】",
-          "- This is an e-commerce detail slide, so include clear, readable marketing typography when the slide type benefits from it.",
+          "- This is an e-commerce detail slide. Include clear, readable marketing typography by default; do not make the slide feel textless unless the user explicitly asks for no text.",
           "- Do NOT treat reference-image headline/copy as locked exact text unless the user explicitly asks to keep text unchanged.",
-          "- Use heroPlan headline, subtitle, selling points, and copy blocks only as content direction and style reference, not as mandatory output text. You may adapt, rewrite, replace, or omit those exact words to fit the current detail-slide purpose.",
+          "- Use heroPlan headline, subtitle, selling points, and copy blocks as the primary copy-material pool. Adapt the wording to fit the current slide type, but keep enough copy density for a finished ecommerce detail page.",
           hero?.headline ? `- Headline direction reference only: "${hero.headline}".` : "",
           hero?.subtitle ? `- Subtitle direction reference only: "${hero.subtitle}".` : "",
           "- Product labels printed on the product itself are part of the product appearance and must remain readable when visible.",
@@ -321,7 +321,7 @@ function buildDetailPrompt(args: {
         : "- 用户已明确要求无文字/删除文字；不要添加新的营销文案。"
       : preserveExactText
         ? "- 用户明确要求保留原文案时，尽量逐字保留参考图中的可读文案。"
-        : "- 默认生成适合当前商详图类型的英文电商文案；heroPlan 文案仅作方向参考，不要求输出 heroPlan 原文，也不要求保持参考图原标题/原文案不变。",
+        : "- 默认生成适合当前商详图类型的英文电商文案；heroPlan 文案是主要素材池，可改写但不能把页面做成空文案/弱文案。",
     "- 允许写入用户已提供的信息，以及可从图片稳定判断的非数值信息（如 part type、material family、process style、color family）。",
     "- 禁止虚构无法验证的精确数值或认证信息（例如具体尺寸值、硬度值、证书编号），除非用户明确提供。",
     "- 参数表/标签应尽量填写可用文本，不要把字段大面积留空或只填占位破折号。",
@@ -333,6 +333,7 @@ function buildDetailPrompt(args: {
       "【功能定位】细节特写图：展示产品工艺、材质纹理、关键结构。",
       "Focus: close-up detail shot highlighting craftsmanship, texture, edges, and key functional surfaces.",
       "Composition: macro / near-macro crop is allowed, shallow depth of field allowed, strong raking light or reflective highlights may be used, product remains recognizable.",
+      "Text layout: include 1 concise headline about craftsmanship/material quality plus 2-3 short callout labels pointing to real visible details. Use compact labels or slim callout cards, not an empty beauty shot.",
       "Macro means cropping into a real visible area of the same product. Do NOT redesign the part, change dimensions, change count, or invent a new close-up structure.",
     ].join("\n"),
     multi_angle: [
@@ -346,6 +347,7 @@ function buildDetailPrompt(args: {
       "【功能定位】使用场景图：展示产品在真实使用环境中的应用。",
       "Focus: realistic contextual scene that matches the product category, still commercial and clean.",
       "Composition: show the exact same product set as one intact foreground hero group, with the same visible component count and relative size relationships as the active reference. Use background depth, environmental texture, and cinematic lighting to add energy.",
+      "Text layout: include 1 scene/application headline and 2-3 use-case badges or benefit labels integrated into the environment. This slide must look like a designed ecommerce scene page, not only a restaged product photo.",
       "The scene may include people, pets, babies, rooms, workshops, tools, furniture, outdoor context, or other category-appropriate environment elements, but those elements are background/context only.",
       "Do NOT create an action shot that consumes, installs, holds, separates, or duplicates one component from the featured product set unless the user explicitly asks for the product to be shown in use.",
       "If the user asks for a maintenance/workshop background, keep repair activity in the background/context only. Any drill, hand, screw, machine, cabinet, or tool in the scene must not contain an extra copy of the featured bit/tool.",
@@ -354,6 +356,7 @@ function buildDetailPrompt(args: {
       "【功能定位】卖点爆破图：突出核心卖点，信息层次分明。",
       "Focus: highlight selling points through composition and supporting visual elements.",
       "Composition: same hero product with organized info cards or callout zones, stronger visual hierarchy, confident headline scale, precise pointers, and dimensional spacing. Benefit points should be clearly visualized, not just text.",
+      "Text layout: include a strong headline plus 3-5 readable feature blocks derived from heroPlan/user copy/material-visible evidence.",
       "Callouts may point to real visible features only; do NOT add/remove product parts, resize the product body, or duplicate the product.",
     ].join("\n"),
     comparison: [

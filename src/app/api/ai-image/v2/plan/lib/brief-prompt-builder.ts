@@ -200,9 +200,9 @@ export function buildPromptFromBrief(
 **视觉创意自由（在用户目标未限定时）：**
 - 你可以自行决定产品的摆放角度、大小、是否倾斜、是否部分出界
 - 你可以自行决定背景是纯色/渐变/纹理/几何图形/工业元素
-- 你可以自行决定文案密度：从极简大字到信息满载都可以
+- 你可以自行决定文案密度，但默认商品图应优先像主视觉广告：少量文字、真实场景/高级棚拍、产品吸引力优先；不要默认信息满载
 - 你可以自行选择色彩方向：冷暖、明暗、单色系或多色系
-- 你可以自行决定是否使用图标、徽章、线条、色块等视觉元素
+- 你可以自行决定是否使用图标、徽章、线条、色块等视觉元素；商品图默认不要使用厚重卖点卡片、四角信息卡、底部信息栏
 
 **视觉创意约束（在用户目标已限定时）：**
 - 用户说"不要动"的部分，必须完全保持
@@ -226,9 +226,11 @@ export function buildPromptFromBrief(
 
   const perPlanDensityTargets = `
 三方案信息密度目标（必须显式拉开差异，不要只是换颜色或换词）：
-- 方案 1（Hero）：informationDensity = low，visualComplexity = simple — 像搜索结果主图，大到不讲理，一眼抓住
-- 方案 2（Feature）：informationDensity = medium，visualComplexity = medium — 像详情页卖点图，信息丰富但层次分明
-- 方案 3（InfoDense）：informationDensity = rich，visualComplexity = complex — 像完整产品海报，参数/优势/信任状一次给足（如用户提供了具体参数则如实呈现）
+- 方案 1（Lifestyle Hero）：informationDensity = low，visualComplexity = medium — 像真实商品主视觉，有场景/道具/材质，少量标题即可
+- 方案 2（Premium Studio）：informationDensity = low 或 medium，visualComplexity = medium — 像高级棚拍或品牌海报，产品大、光影好、文案克制
+- 方案 3（Light Feature）：informationDensity = medium，visualComplexity = medium — 只允许 2-3 个轻量标签/小图标；不要默认做完整信息图、参数海报、四卡片布局
+
+仅当用户明确要求“卖点图/参数图/对比图/规格图/信息图”时，才允许生成 high / complex 的信息密集方案。
 `.trim();
 
   if (mode === "edit") {
