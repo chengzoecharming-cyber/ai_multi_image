@@ -15,7 +15,28 @@ const TAG_MAP: Record<string, string[]> = {
   "tpl-premium-luxury": ["高端", "奢华", "深色背景", "质感"],
   "tpl-dimension-annotation": ["尺寸标注", "测量", "结构", "几何"],
   "tpl-image-set-5": ["组图", "详情页", "五张图", "整套方案"],
+  "tpl-blank-free": ["空白", "自由创作", "实验", "无规则"],
 };
+
+const CATEGORY_MAP: Record<string, string> = {
+  "tpl-white-bg-hero": "ecommerce",
+  "tpl-temu-promo": "ecommerce",
+  "tpl-feature-explanation": "ecommerce",
+  "tpl-macro-detail": "ecommerce",
+  "tpl-advantage-comparison": "ecommerce",
+  "tpl-lifestyle-scene": "ecommerce",
+  "tpl-environment-scene": "ecommerce",
+  "tpl-bundle-showcase": "ecommerce",
+  "tpl-spec-technical": "ecommerce",
+  "tpl-premium-luxury": "ecommerce",
+  "tpl-dimension-annotation": "ecommerce",
+  "tpl-image-set-5": "ecommerce",
+  "tpl-blank-free": "ecommerce",
+};
+
+export function getTemplateCategory(id: string): string {
+  return CATEGORY_MAP[id] || "other";
+}
 
 function buildTemplatePrompt(st: SystemTemplate): string {
   const lines = [
@@ -69,6 +90,7 @@ export function systemTemplateToPlanTemplate(st: SystemTemplate): PlanTemplate {
     templatePrompt: buildTemplatePrompt(st),
     defaultRiskRules: st.riskRules || [],
     enabled: true,
+    group: (getTemplateCategory(st.id) as PlanTemplate["group"]) || "ecommerce",
   };
 }
 

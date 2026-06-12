@@ -35,6 +35,21 @@ const MIN_WIDTH = 80;
 const DEFAULT_WIDTH = 220;
 const MAX_WIDTH = 320;
 
+function getSessionThumbnail(session: V2Session): string | null {
+  // Prefer generated image, fallback to placeholder
+  const genImg = session.generatedImages?.[0]?.imageUrl;
+  if (genImg) return genImg;
+  return null;
+}
+
+function getSessionTitle(session: V2Session): string {
+  if (session.goal?.trim()) {
+    const title = session.goal.trim().slice(0, 20);
+    return session.goal.trim().length > 20 ? `${title}…` : title;
+  }
+  return "新会话";
+}
+
 export function SessionsSidebar({
   sessions,
   totalCount,
@@ -108,18 +123,18 @@ export function SessionsSidebar({
 
   const tabItemBase =
     "flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-sm font-medium transition-colors";
-  const tabActive = "bg-indigo-50 text-indigo-700";
-  const tabIdle = "text-gray-500 hover:bg-gray-50 hover:text-gray-700";
+  const tabActive = "bg-[rgb(235,236,237)] text-[#0f1419]";
+  const tabIdle = "text-gray-500 hover:text-[#0f1419]";
 
   return (
     <aside
       ref={rootRef}
       style={{ width }}
-      className="relative h-full border-r border-gray-200 bg-white overflow-y-auto shrink-0 flex flex-col"
+      className="relative h-full border-r-[0.5px] border-gray-200 bg-white overflow-y-auto shrink-0 flex flex-col"
     >
       <div
         onMouseDown={startDrag}
-        className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 hover:bg-indigo-300/50 transition-colors"
+        className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 hover:bg-stone-300/50 transition-colors"
       />
 
       {/* Top-level workspace tabs */}
@@ -173,74 +188,62 @@ export function SessionsSidebar({
         </div>
       )}
 
-      <div className="p-2 space-y-1">
+      <div className="p-1.5 space-y-0.5">
         {list.map((s) => {
-          const status = deriveSessionStatus(s);
           const isActive = s.id === activeSessionId;
-          const statusLabel =
-            status === "planning"
-              ? "分析中"
-              : status === "needs_review"
-                ? "待确认"
-                : status === "generating"
-                  ? "生图中"
-                  : status === "done"
-                    ? "已完成"
-                    : status === "failed"
-                      ? "失败"
-                      : "草稿";
-
-          const statusColor =
-            status === "failed"
-              ? "bg-red-400"
-              : status === "done"
-                ? "bg-green-400"
-                : status === "planning" || status === "generating"
-                  ? "bg-amber-400"
-                  : status === "needs_review"
-                    ? "bg-blue-400"
-                    : "bg-gray-300";
+          const thumbnail = getSessionThumbnail(s);
+          const title = isCollapsed
+            ? (s.goal?.trim()?.slice(0, 2) || "新")
+            : getSessionTitle(s);
 
           return (
             <div key={s.id} className="relative group">
               <button
                 onClick={() => onSelectSession(s.id)}
-                className={`w-full text-left rounded-lg px-2.5 py-2 border transition-all ${
-                  isActive ? "bg-indigo-50 border-indigo-200" : "bg-white border-transparent hover:bg-gray-50"
-                }`}
+                className={cn(
+                  "w-full text-left rounded-lg px-2 py-1.5 transition-colors flex items-center gap-2",
+                  isActive
+                    ? "bg-[rgb(235,236,237)] text-[#0f1419]"
+                    : "hover:bg-gray-50"
+                )}
               >
-                <div className="flex items-start gap-2">
-                  <span className={`shrink-0 w-2 h-2 rounded-full mt-1.5 ${statusColor}`} title={statusLabel} />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-gray-800 truncate">
-                      {s.goal?.trim() ? (isCollapsed ? s.goal.trim().slice(0, 4) : s.goal.trim().slice(0, 18)) : "新会话"}
-                    </div>
-                    {!isCollapsed && (
-                      <div className="text-xs text-gray-400 truncate">
-                        {(s.workspaceTab || "product") === "detail"
-                          ? (s.detail?.detailImageUrls?.length ? "已上传参考图" : "未上传参考图")
-                          : (s.productImageUrls?.length ? "已上传商品图" : "未上传商品图")}
-                      </div>
-                    )}
-                  </div>
+                {/* Thumbnail */}
+                <div className="shrink-0 w-9 h-9 rounded-md overflow-hidden bg-gray-100 flex items-center justify-center">
+                  {thumbnail ? (
+                    <img
+                      src={thumbnail}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <LayoutGrid className="w-4 h-4 text-gray-300" />
+                  )}
                 </div>
+
+                {/* Title */}
+                {!isCollapsed && (
+                  <span className="text-[13px] text-gray-700 truncate flex-1 min-w-0">
+                    {title}
+                  </span>
+                )}
               </button>
 
+              {/* Hover overlay with more button */}
               {!isCollapsed && (
-                <div className="absolute right-0 top-0 bottom-0 w-12 rounded-r-lg bg-gradient-to-l from-white via-white/95 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       setOpenMenuId((prev) => (prev === s.id ? null : s.id));
                     }}
-                    className="inline-flex items-center justify-center w-6 h-6 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-gray-100/90 hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
                     title="更多操作"
                   >
                     <MoreHorizontal className="w-4 h-4" />
                   </button>
 
                   {openMenuId === s.id && (
-                    <div className="absolute right-0 bottom-7 bg-white border border-gray-200 rounded-lg shadow-lg p-1 z-20 w-32">
+                    <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg p-1 z-20 w-32">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();

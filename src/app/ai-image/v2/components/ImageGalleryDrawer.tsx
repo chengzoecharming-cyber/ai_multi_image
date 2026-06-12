@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { X, Download, ImageIcon, Loader2, ArrowRightLeft } from "lucide-react";
 import { toast } from "sonner";
 import { enqueuePersist } from "@/lib/persist-queue";
+import type { ImageDetailData } from "./ImageDetailOverlay";
 
 interface TaskItem {
   id: string;
@@ -41,6 +42,7 @@ interface ImageGalleryDrawerProps {
   open: boolean;
   onClose: () => void;
   onApply?: (data: GalleryApplyData) => void;
+  onOpenImageDetail?: (data: ImageDetailData) => void;
 }
 
 const PAGE_SIZE = 10;
@@ -173,7 +175,7 @@ function LazyImage({
   );
 }
 
-export default function ImageGalleryDrawer({ open, onClose, onApply }: ImageGalleryDrawerProps) {
+export default function ImageGalleryDrawer({ open, onClose, onApply, onOpenImageDetail }: ImageGalleryDrawerProps) {
   const [images, setImages] = useState<ImageItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -347,7 +349,19 @@ export default function ImageGalleryDrawer({ open, onClose, onApply }: ImageGall
                   <div
                     key={`${img.taskId}-${idx}`}
                     className="group relative aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-200 cursor-pointer"
-                    onClick={() => setPreviewUrl(img.url)}
+                    onClick={() => {
+                      if (onOpenImageDetail) {
+                        onOpenImageDetail({
+                          imageUrl: img.url,
+                          prompt: img.promptSnapshot,
+                          referenceImageUrls: undefined,
+                          taskId: img.taskId,
+                          createdAt: img.createdAt,
+                        });
+                      } else {
+                        setPreviewUrl(img.url);
+                      }
+                    }}
                   >
                     <LazyImage
                       src={img.url}

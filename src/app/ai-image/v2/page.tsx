@@ -1,19 +1,20 @@
 "use client";
 
-import { Suspense, useState, useCallback } from "react";
+import { Suspense, useState, useCallback, useEffect } from "react";
 import { Wand2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useV2Session } from "./hooks/useV2Session";
-import { V2Header } from "./V2Header";
 import { SessionsSidebar } from "./SessionsSidebar";
 import { LeftPanel } from "./LeftPanel";
 import { RightPanel } from "./RightPanel";
 import { DetailLeftPanel } from "./DetailLeftPanel";
 import { DetailRightPanel } from "./DetailRightPanel";
-import PlanTemplateLibraryDrawer from "@/components/template-library/PlanTemplateLibraryDrawer";
 import SaveAsTemplateDialog from "@/components/template-library/SaveAsTemplateDialog";
+import PlanTemplateLibraryDrawer from "@/components/template-library/PlanTemplateLibraryDrawer";
 import ImageGalleryDrawer from "./components/ImageGalleryDrawer";
+import ImageDetailOverlay from "./components/ImageDetailOverlay";
 import type { GalleryApplyData } from "./components/ImageGalleryDrawer";
+import type { ImageDetailData } from "./components/ImageDetailOverlay";
 
 function V2WorkbenchPageInner() {
   const {
@@ -27,12 +28,6 @@ function V2WorkbenchPageInner() {
     duplicateSession,
     deleteSession,
 
-    templateLibraryOpen,
-    setTemplateLibraryOpen,
-    systemTemplates,
-    userTemplates,
-    refreshUserTemplates,
-
     saveTemplateOpen,
     setSaveTemplateOpen,
     saveTemplatePlan,
@@ -42,6 +37,11 @@ function V2WorkbenchPageInner() {
     detailHeroFileInputRef,
     referenceFileInputRef,
     selectedTemplate,
+
+    templateLibraryOpen,
+    setTemplateLibraryOpen,
+    systemTemplates,
+    userTemplates,
 
     handleUploadProductImage,
     handleUploadDetailHero,
@@ -67,6 +67,30 @@ function V2WorkbenchPageInner() {
   } = useV2Session();
 
   const [imageGalleryOpen, setImageGalleryOpen] = useState(false);
+  const [imageDetailData, setImageDetailData] = useState<ImageDetailData | null>(null);
+
+  const openImageDetail = useCallback((data: ImageDetailData) => setImageDetailData(data), []);
+  const closeImageDetail = useCallback(() => setImageDetailData(null), []);
+
+  // ── Load template selection from localStorage (from Templates page) ──
+  useEffect(() => {
+    if (!activeSession) return;
+    try {
+      const raw = localStorage.getItem("v2-selected-template");
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as { id: string; name: string; timestamp: number };
+      // Only use if within 5 minutes
+      if (Date.now() - parsed.timestamp > 5 * 60 * 1000) {
+        localStorage.removeItem("v2-selected-template");
+        return;
+      }
+      // Apply the template
+      handleUseTemplate({ id: parsed.id, name: parsed.name } as Parameters<typeof handleUseTemplate>[0]);
+      localStorage.removeItem("v2-selected-template");
+    } catch {
+      localStorage.removeItem("v2-selected-template");
+    }
+  }, [activeSession, handleUseTemplate]);
 
   const ensureLocalTaskImage = useCallback(async (taskId: string | undefined, imageUrl: string) => {
     if (!imageUrl) return imageUrl;
@@ -122,8 +146,8 @@ function V2WorkbenchPageInner() {
 
   if (!activeSession) {
     return (
-      <div className="flex flex-col h-screen bg-white overflow-hidden items-center justify-center">
-        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      <div className="flex flex-col h-screen bg-[rgb(248,249,250)] overflow-hidden items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#0f1419] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -132,12 +156,7 @@ function V2WorkbenchPageInner() {
   const tab = workspaceTab;
 
   return (
-    <div className="flex flex-col h-screen bg-white overflow-hidden">
-      <V2Header
-        onOpenTemplateLibrary={() => setTemplateLibraryOpen(true)}
-        onOpenImageGallery={() => setImageGalleryOpen(true)}
-      />
-
+    <div className="flex flex-col h-[calc(100vh-64px)] bg-[rgb(248,249,250)] overflow-hidden">
       <main className="flex-1 flex overflow-hidden">
         <SessionsSidebar
           sessions={filteredSessions}
@@ -165,6 +184,7 @@ function V2WorkbenchPageInner() {
             onCancelGenerate={handleCancelGenerate}
             onReset={handleReset}
             onOpenTemplateLibrary={() => setTemplateLibraryOpen(true)}
+            onOpenImageDetail={openImageDetail}
           />
         ) : (
           <DetailLeftPanel
@@ -174,11 +194,12 @@ function V2WorkbenchPageInner() {
             onUpdateSession={updateActiveSession}
             onToggleDetailType={toggleDetailType}
             onGenerate={handleGenerateDetail}
+            onOpenImageDetail={openImageDetail}
           />
         )}
 
         {/* Right Panel — inline because it has many callbacks */}
-        <div className="flex-1 flex flex-col overflow-hidden bg-gray-100">
+        <div className="flex-1 flex flex-col overflow-hidden bg-[rgb(248,249,250)]">
           <div className="flex-1 flex flex-col overflow-hidden">
             {tab === "product" && step === "input" && (
             <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-10">
@@ -190,8 +211,8 @@ function V2WorkbenchPageInner() {
                 AI 将分析商品图片并生成多个方案
               </p>
               {selectedTemplate && (
-                <div className="mt-4 px-4 py-2 rounded-lg bg-indigo-50 border border-indigo-100">
-                  <p className="text-sm text-indigo-600">已选择模板：{selectedTemplate.name}</p>
+                <div className="mt-4 px-4 py-2 rounded-lg bg-gray-100 border border-gray-200">
+                  <p className="text-sm text-gray-700">已选择模板：{selectedTemplate.name}</p>
                 </div>
               )}
             </div>
@@ -199,8 +220,8 @@ function V2WorkbenchPageInner() {
 
           {tab === "product" && step === "generating" && (
             <div className="flex-1 flex flex-col items-center justify-center p-10">
-              <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center mb-4 animate-pulse">
-                <Sparkles className="w-6 h-6 text-indigo-400" />
+              <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mb-4 animate-pulse">
+                <Sparkles className="w-6 h-6 text-gray-500" />
               </div>
               <p className="text-base font-medium text-gray-700 mb-1">AI 正在分析商品图片并生成方案...</p>
               <p className="text-sm text-gray-400">
@@ -210,7 +231,7 @@ function V2WorkbenchPageInner() {
                 ⏱ 约需 30-60 秒，请耐心等待
               </p>
               {selectedTemplate && (
-                <p className="text-xs text-indigo-500 mt-1">基于模板：{selectedTemplate.name}</p>
+                <p className="text-xs text-gray-500 mt-1">基于模板：{selectedTemplate.name}</p>
               )}
             </div>
           )}
@@ -251,6 +272,7 @@ function V2WorkbenchPageInner() {
                 });
               }}
               onClosePreview={() => updateActiveSession((s) => ({ ...s, previewPlanId: null, step: "plans" }))}
+              onOpenImageDetail={openImageDetail}
             />
           )}
 
@@ -259,6 +281,7 @@ function V2WorkbenchPageInner() {
                 activeSession={activeSession}
                 onRetryType={handleRetryDetailType}
                 onRefreshType={handleRefreshDetailType}
+                onOpenImageDetail={openImageDetail}
               />
             )}
           </div>
@@ -308,20 +331,24 @@ function V2WorkbenchPageInner() {
         </div>
       </main>
 
-      {/* Template Library Drawer */}
-      <PlanTemplateLibraryDrawer
-        open={templateLibraryOpen}
-        onClose={() => setTemplateLibraryOpen(false)}
-        onUseTemplate={handleUseTemplate}
-        systemTemplates={systemTemplates.filter((t) => t.category !== "image_set")}
-        userTemplates={userTemplates.filter((t) => t.category !== "image_set")}
-      />
-
       {/* Image Gallery Drawer */}
       <ImageGalleryDrawer
         open={imageGalleryOpen}
         onClose={() => setImageGalleryOpen(false)}
         onApply={handleApplyGallery}
+        onOpenImageDetail={openImageDetail}
+      />
+
+      {/* Image Detail Overlay */}
+      <ImageDetailOverlay data={imageDetailData} onClose={closeImageDetail} />
+
+      {/* Plan Template Library Drawer */}
+      <PlanTemplateLibraryDrawer
+        open={templateLibraryOpen}
+        onClose={() => setTemplateLibraryOpen(false)}
+        onUseTemplate={handleUseTemplate}
+        systemTemplates={systemTemplates}
+        userTemplates={userTemplates}
       />
 
       {/* Save As Template Dialog */}
@@ -346,8 +373,8 @@ export default function V2WorkbenchPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex flex-col h-screen bg-white overflow-hidden items-center justify-center">
-          <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <div className="flex flex-col h-screen bg-[rgb(248,249,250)] overflow-hidden items-center justify-center">
+          <div className="w-8 h-8 border-2 border-[#0f1419] border-t-transparent rounded-full animate-spin" />
         </div>
       }
     >

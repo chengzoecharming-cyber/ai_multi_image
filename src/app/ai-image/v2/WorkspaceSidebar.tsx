@@ -13,8 +13,8 @@ export function WorkspaceSidebar({
 }) {
   const itemBase =
     "w-full flex items-center gap-2 px-3 py-2 rounded-xl transition-colors";
-  const active = "bg-indigo-50 text-indigo-700";
-  const idle = "text-gray-600 hover:bg-gray-50 hover:text-gray-800";
+  const active = "bg-[rgb(235,236,237)] text-[#0f1419]";
+  const idle = "text-gray-600 hover:text-[#0f1419]";
 
   return (
     <aside className="w-[88px] h-full border-r border-gray-200 bg-white shrink-0">

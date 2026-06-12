@@ -1,6 +1,6 @@
 "use client";
 
-import { RefObject, useState, useCallback } from "react";
+import { RefObject } from "react";
 import {
   ImageIcon, Upload, Sparkles, Aperture, Focus, Layers, Box,
   FileText, LayoutGrid, Scale, Ruler, X, Plus,
@@ -12,22 +12,7 @@ import { cn } from "@/lib/utils";
 import { AuthCodeAuditCard } from "./components/AuthCodeAuditCard";
 import type { V2DetailType, V2Session } from "./types";
 import { V2_DETAIL_TYPE_LABELS } from "./types";
-
-function SimpleLightbox({ imageUrl, onClose }: { imageUrl: string; onClose: () => void }) {
-  return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70"
-      onClick={onClose}
-    >
-      <img
-        src={imageUrl}
-        alt=""
-        className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg"
-        onClick={(e) => e.stopPropagation()}
-      />
-    </div>
-  );
-}
+import type { ImageDetailData } from "./components/ImageDetailOverlay";
 
 export function DetailLeftPanel({
   activeSession,
@@ -36,6 +21,7 @@ export function DetailLeftPanel({
   onUpdateSession,
   onToggleDetailType,
   onGenerate,
+  onOpenImageDetail,
 }: {
   activeSession: V2Session | undefined;
   fileInputRef: RefObject<HTMLInputElement | null>;
@@ -43,10 +29,8 @@ export function DetailLeftPanel({
   onUpdateSession: (updater: (s: V2Session) => V2Session) => void;
   onToggleDetailType?: (type: V2DetailType) => void;
   onGenerate: () => void;
+  onOpenImageDetail?: (data: ImageDetailData) => void;
 }) {
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-  const openLightbox = useCallback((url: string) => setLightboxUrl(url), []);
-  const closeLightbox = useCallback(() => setLightboxUrl(null), []);
 
   if (!activeSession) return null;
 
@@ -68,7 +52,7 @@ export function DetailLeftPanel({
   };
 
   return (
-    <div className="w-[320px] h-full flex flex-col border-r border-gray-200 bg-white overflow-hidden shrink-0">
+    <div className="w-[310px] h-full flex flex-col border-r border-gray-200 bg-white overflow-hidden shrink-0">
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         <AuthCodeAuditCard authorizationCode={activeSession.authorizationCode} />
 
@@ -119,8 +103,7 @@ export function DetailLeftPanel({
                           },
                         }))
                       }
-                      onDoubleClick={() => openLightbox(url)}
-                      title="单击切换，双击放大"
+                      title="单击切换"
                     >
                       <img src={url} alt={`参考图 ${idx + 1}`} className="w-full h-full object-cover" />
                       <button
@@ -160,8 +143,8 @@ export function DetailLeftPanel({
                 <div className="flex-1 min-w-0">
                   <div
                     className="relative rounded-xl overflow-hidden border border-gray-200 bg-[#F5F6F8] cursor-pointer"
-                    onDoubleClick={() => openLightbox(activeDetailImage || detailImageUrls[0])}
-                    title="双击放大"
+                    onClick={() => onOpenImageDetail?.({ imageUrl: activeDetailImage || detailImageUrls[0] })}
+                    title="点击查看详情"
                   >
                     <img
                       src={activeDetailImage || detailImageUrls[0]}
@@ -258,8 +241,6 @@ export function DetailLeftPanel({
           )}
         </Button>
       </div>
-
-      {lightboxUrl && <SimpleLightbox imageUrl={lightboxUrl} onClose={closeLightbox} />}
     </div>
   );
 }

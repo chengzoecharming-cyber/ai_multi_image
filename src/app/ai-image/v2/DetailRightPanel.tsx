@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import type { V2DetailType, V2Session } from "./types";
 import { V2_DETAIL_TYPE_LABELS } from "./types";
+import type { ImageDetailData } from "./components/ImageDetailOverlay";
 
 interface LightboxProps {
   imageUrl: string;
@@ -118,10 +119,12 @@ export function DetailRightPanel({
   activeSession,
   onRetryType,
   onRefreshType,
+  onOpenImageDetail,
 }: {
   activeSession: V2Session;
   onRetryType?: (type: V2DetailType) => void;
   onRefreshType?: (type: V2DetailType) => void;
+  onOpenImageDetail: (data: ImageDetailData) => void;
 }) {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [refreshDialogType, setRefreshDialogType] = useState<V2DetailType | null>(null);
@@ -291,8 +294,15 @@ export function DetailRightPanel({
                       <div
                         key={img.id}
                         className="rounded-xl overflow-hidden border border-gray-200 bg-white cursor-pointer hover:ring-2 hover:ring-indigo-300 transition-all"
-                        onDoubleClick={() => openLightbox(img.imageUrl)}
-                        title="双击放大"
+                        onClick={() =>
+                          onOpenImageDetail({
+                            imageUrl: img.imageUrl,
+                            prompt: activeSession.detail?.heroPlan?.imageGenerationPrompt || activeSession.detail?.heroPlan?.finalPrompt,
+                            plan: activeSession.detail?.heroPlan || null,
+                            taskId: img.taskId,
+                          })
+                        }
+                        title="点击查看详情"
                       >
                         <img src={img.imageUrl} alt={V2_DETAIL_TYPE_LABELS[type] || "商详图"} className="w-full aspect-square object-cover" />
                         <div className="px-3 py-2 text-[10px] text-gray-400 truncate">

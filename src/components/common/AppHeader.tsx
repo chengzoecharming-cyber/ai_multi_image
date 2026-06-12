@@ -34,13 +34,13 @@ export default function AppHeader() {
   const user = session?.user;
 
   return (
-    <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
+    <header className="sticky top-0 z-50 bg-black border-b border-gray-800 shadow-sm">
       <div className="flex items-center justify-between h-14 px-6">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500">
-            <Sparkles className="w-4 h-4 text-white" />
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white">
+            <Sparkles className="w-4 h-4 text-black" />
           </div>
-          <span className="text-base font-semibold text-gray-800">AI 商品图</span>
+          <span className="text-base font-semibold text-white">AI 商品图</span>
         </div>
 
         <nav className="flex items-center gap-1">
@@ -53,8 +53,8 @@ export default function AppHeader() {
                 className={cn(
                   "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-indigo-50 text-indigo-600"
-                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                    ? "bg-gray-800 text-white"
+                    : "text-gray-400 hover:bg-gray-800 hover:text-white"
                 )}
               >
                 <item.icon className="w-4 h-4" />
@@ -66,15 +66,15 @@ export default function AppHeader() {
 
         <div className="flex items-center gap-2">
           {isPending ? (
-            <div className="w-8 h-8 rounded-full bg-gray-100 animate-pulse" />
+            <div className="w-8 h-8 rounded-full bg-gray-800 animate-pulse" />
           ) : user ? (
             <DropdownMenu>
               <DropdownMenuTrigger>
-                <div className="flex items-center gap-2 px-2 py-1 rounded-full hover:bg-gray-100 transition-colors cursor-pointer">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-600">
+                <div className="flex items-center gap-2 px-2 py-1 rounded-full hover:bg-gray-800 transition-colors cursor-pointer">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-700 text-white">
                     <User className="w-4 h-4" />
                   </div>
-                  <span className="text-sm font-medium text-gray-700 hidden sm:inline max-w-[120px] truncate">
+                  <span className="text-sm font-medium text-white hidden sm:inline max-w-[120px] truncate">
                     {user.name || user.email}
                   </span>
                 </div>
@@ -105,7 +105,7 @@ export default function AppHeader() {
             </DropdownMenu>
           ) : (
             <Link href="/sign-in">
-              <Button variant="outline" size="sm">登录</Button>
+              <Button variant="outline" size="sm" className="border-gray-600 text-white hover:bg-gray-800 hover:text-white">登录</Button>
             </Link>
           )}
         </div>

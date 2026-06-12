@@ -49,13 +49,16 @@
 }
 
 :root {
+  --primary0: #0f1419;
+  --primary1: #72808a;
+  --primary2: #536471;
   --background: #F6F8FC;
   --foreground: #1F2937;
   --card: #ffffff;
   --card-foreground: #1F2937;
   --popover: #ffffff;
   --popover-foreground: #1F2937;
-  --primary: #6366F1;
+  --primary: #000000;
   --primary-foreground: #ffffff;
   --secondary: #F3F4F6;
   --secondary-foreground: #1F2937;
@@ -66,7 +69,7 @@
   --destructive: #EF4444;
   --border: #E5E7EB;
   --input: #E5E7EB;
-  --ring: #6366F1;
+  --ring: #000000;
   --chart-1: #6366F1;
   --chart-2: #8B5CF6;
   --chart-3: #A78BFA;
@@ -75,12 +78,20 @@
   --radius: 0.625rem;
   --sidebar: #F7F8FA;
   --sidebar-foreground: #1F2937;
-  --sidebar-primary: #6366F1;
+  --sidebar-primary: #000000;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #F3F4F6;
   --sidebar-accent-foreground: #1F2937;
   --sidebar-border: #E5E7EB;
-  --sidebar-ring: #6366F1;
+  --sidebar-ring: #000000;
+}
+
+/* Line clamp utilities */
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* Hide scrollbar utility */

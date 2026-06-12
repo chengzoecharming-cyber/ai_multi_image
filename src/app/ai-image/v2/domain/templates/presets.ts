@@ -17,6 +17,7 @@ import { tplSpec } from "./defs/spec";
 import { tplPremium } from "./defs/premium";
 import { tplDimension } from "./defs/dimension";
 import { tplImageSet5 } from "./defs/imageset5";
+import { tplBlank } from "./defs/blank";
 
 /**
  * SYSTEM_TEMPLATE_PROFILES — 系统模板配置全集。
@@ -37,6 +38,7 @@ export const SYSTEM_TEMPLATE_PROFILES: Record<string, SystemTemplate> = {
   "tpl-premium-luxury": tplPremium,
   "tpl-dimension-annotation": tplDimension,
   "tpl-image-set-5": tplImageSet5,
+  "tpl-blank-free": tplBlank,
 };
 
 /**

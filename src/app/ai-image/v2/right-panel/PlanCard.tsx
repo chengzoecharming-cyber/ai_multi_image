@@ -1,0 +1,252 @@
+"use client";
+
+import { useState } from "react";
+import { Save, Info, Wand2, Eye, Sparkles } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { COPY_DENSITY_PROFILES } from "../domain/copy-density";
+import type { CreativePlan } from "../types";
+import { getPlanMeta } from "../types";
+
+export interface PlanCardProps {
+  plan: CreativePlan;
+  index: number;
+  isActive: boolean;
+  hasGeneratedImage: boolean;
+  isGenerating: boolean;
+  onSave: (plan: CreativePlan) => void;
+  onGenerateImage: (plan: CreativePlan) => void;
+  onViewImage: (plan: CreativePlan) => void;
+  onOpenInfo: (plan: CreativePlan) => void;
+}
+
+export function PlanCard({
+  plan,
+  index,
+  isActive,
+  hasGeneratedImage,
+  isGenerating,
+  onSave,
+  onGenerateImage,
+  onViewImage,
+  onOpenInfo,
+}: PlanCardProps) {
+  const meta = getPlanMeta(plan);
+  const [showCn, setShowCn] = useState(false);
+  const hasCn = !!(plan.headlineCn || plan.subtitleCn || (plan.sellingPointsCn && plan.sellingPointsCn.length > 0));
+
+  // 文案区显示内容（中英切换）
+  const displayHeadline = showCn && plan.headlineCn ? plan.headlineCn : plan.headline;
+  const displaySubtitle = showCn && plan.subtitleCn ? plan.subtitleCn : plan.subtitle;
+  const displaySellingPoints = (showCn && plan.sellingPointsCn ? plan.sellingPointsCn : plan.sellingPoints || []).filter(Boolean);
+  const displayCopyBlocks = showCn && plan.copyBlocksCn && plan.copyBlocksCn.length > 0
+    ? plan.copyBlocksCn
+    : plan.copyBlocks || [];
+  // 排除已在单独区域展示的 role，展示全部不折叠
+  const filteredCopyBlocks = displayCopyBlocks
+    .filter((b) =>
+      b.role !== "headline" &&
+      b.role !== "subheadline" &&
+      b.role !== "feature_point" &&
+      b.role !== "technical_point"
+    );
+
+  // role 中文映射
+  const ROLE_LABELS: Record<string, string> = {
+    core_claim: "核心卖点",
+    comparison_label: "对比标签",
+    bottom_info: "底部信息",
+    application_label: "应用标签",
+    badge: "标签",
+  };
+
+  // 推断底色标签
+  const bgLabel = (() => {
+    const sid = plan.visualStyleId || "";
+    const vp = plan.visualPresentation || "";
+    if (sid.includes("clean_catalog") || sid.includes("light_") || sid.includes("empty_light_") || vp.includes("白") || vp.includes("浅")) return "白底";
+    if (sid.includes("dark_") || sid.includes("premium_black") || sid.includes("macro_") || vp.includes("深") || vp.includes("黑")) return "深色";
+    if (sid.includes("workshop_") || sid.includes("scene_") || sid.includes("lifestyle") || vp.includes("场景") || vp.includes("车间")) return "场景";
+    if (vp.includes("渐变")) return "渐变";
+    return null;
+  })();
+
+  // Tag 数据
+  const copyDensityLabel = plan.copyDensity
+    ? COPY_DENSITY_PROFILES[plan.copyDensity]?.label
+    : null;
+
+  return (
+    <div
+      className={cn(
+        "w-[385px] bg-white rounded-[16px] overflow-hidden flex flex-col transition-opacity duration-500",
+        isActive ? "opacity-100" : "opacity-85"
+      )}
+      style={{ height: "412px" }}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      {/* ========== 1. 标题 + 操作区 ========== */}
+      <div className="px-6 pt-5 pb-2 shrink-0">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-sm font-bold", meta.bg, meta.color)}>
+              {index + 1}
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-[14px] font-normal text-[#0f1419] leading-tight truncate">{plan.planName}</h3>
+            </div>
+          </div>
+          <div className="flex items-center gap-0.5 shrink-0">
+            <button
+              onClick={(e) => { e.stopPropagation(); onSave(plan); }}
+              className="w-8 h-8 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors"
+              title="保存为模板"
+            >
+              <Save className="w-4 h-4" />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onOpenInfo(plan); }}
+              className="w-8 h-8 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors"
+              title="详情"
+            >
+              <Info className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ========== 2. Tag 区 ========== */}
+      <div className="px-6 pb-3 shrink-0">
+        <div className="flex flex-wrap gap-1.5">
+          <Badge variant="outline" className={cn("text-[11px] h-5 px-2 font-normal", meta.color, meta.border)}>
+            {meta.label}
+          </Badge>
+          {copyDensityLabel && (
+            <Badge variant="secondary" className="text-[11px] h-5 px-2 font-normal">
+              {copyDensityLabel}
+            </Badge>
+          )}
+          {bgLabel && (
+            <Badge variant="secondary" className="text-[11px] h-5 px-2 font-normal">
+              {bgLabel}
+            </Badge>
+          )}
+          {plan.visualStyleLabel && (
+            <Badge variant="secondary" className="text-[11px] h-5 px-2 font-normal">
+              {plan.visualStyleLabel}
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {/* ========== 3. 图片文案区 + 4. 风格区（合并滚动区） ========== */}
+      <div className="flex-1 px-6 py-1 overflow-y-auto min-h-0">
+        <div className="space-y-4">
+
+          {/* 图片文案区 */}
+          {(displayHeadline || displaySubtitle || displaySellingPoints.length > 0 || filteredCopyBlocks.length > 0) && (
+            <div>
+              {/* 中英切换 */}
+              {hasCn && (
+                <div className="flex justify-end mb-2">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setShowCn((v) => !v); }}
+                    className="text-[12px] text-[#72808a] hover:text-[#0f1419] transition-colors"
+                  >
+                    {showCn ? "English" : "中文"}
+                  </button>
+                </div>
+              )}
+
+              {/* 标题 */}
+              {displayHeadline && (
+                <div className="mb-3">
+                  <div className="text-[14px] font-normal text-[#72808a] mb-1">标题</div>
+                  <p className="text-[14px] font-normal text-[#0f1419] leading-snug">{displayHeadline}</p>
+                </div>
+              )}
+
+              {/* 副标题 */}
+              {displaySubtitle && (
+                <div className="mb-3">
+                  <div className="text-[14px] font-normal text-[#72808a] mb-1">副标题</div>
+                  <p className="text-[14px] font-normal text-[#0f1419] leading-snug">{displaySubtitle}</p>
+                </div>
+              )}
+
+              {/* 卖点 */}
+              {displaySellingPoints.length > 0 && (
+                <div className="mb-3">
+                  <div className="text-[14px] font-normal text-[#72808a] mb-1">卖点</div>
+                  <ul className="space-y-2">
+                    {displaySellingPoints.map((sp, i) => (
+                      <li key={i} className="text-[14px] font-normal text-[#0f1419] leading-snug flex gap-1.5">
+                        <span className="shrink-0 mt-[5px] w-1 h-1 rounded-full bg-[#72808a]" />
+                        <span>{sp}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* 其他文案块（按 role 展开） */}
+              {filteredCopyBlocks.length > 0 && (
+                <div className="space-y-3">
+                  {filteredCopyBlocks.map((block) => (
+                    <div key={block.id}>
+                      <div className="text-[14px] font-normal text-[#72808a] mb-1">{ROLE_LABELS[block.role] || block.role}</div>
+                      <p className="text-[14px] font-normal text-[#0f1419] leading-snug">{block.title}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 风格区 */}
+          {plan.visualPresentation && (
+            <div className="pt-1">
+              <div className="text-[14px] font-normal text-[#72808a] mb-2">风格</div>
+              <p className="text-[14px] font-normal text-[#0f1419] leading-snug">{plan.visualPresentation}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ========== 按钮区 ========== */}
+      <div className={cn("px-6 py-4 shrink-0 flex gap-2.5", hasGeneratedImage || isGenerating ? "flex-row" : "flex-col")}>
+        {hasGeneratedImage && (
+          <Button
+            variant="outline"
+            onClick={() => onViewImage(plan)}
+            className="h-10 flex-[3] border-gray-300 text-[#0f1419] hover:bg-gray-50 text-sm font-semibold"
+          >
+            <Eye className="w-4 h-4 mr-1.5" />查看图片
+          </Button>
+        )}
+        {isGenerating && (
+          <Button
+            variant="outline"
+            onClick={() => onViewImage(plan)}
+            disabled
+            className="h-10 flex-[3] border-amber-200 text-amber-600 bg-amber-50/50 text-sm font-semibold cursor-pointer"
+          >
+            <Sparkles className="w-4 h-4 mr-1.5 animate-pulse" />生成中
+          </Button>
+        )}
+        <Button
+          onClick={() => onGenerateImage(plan)}
+          disabled={isGenerating}
+          className={cn(
+            "bg-[rgb(235,236,237)] hover:bg-[rgb(220,222,224)] text-[#0f1419] border-0 shadow-sm text-sm font-semibold",
+            hasGeneratedImage || isGenerating ? "h-10 flex-[2]" : "w-full h-10",
+            isGenerating && "opacity-50 cursor-not-allowed"
+          )}
+        >
+          <Wand2 className="w-4 h-4 mr-1.5" />生成图片
+        </Button>
+      </div>
+    </div>
+  );
+}
