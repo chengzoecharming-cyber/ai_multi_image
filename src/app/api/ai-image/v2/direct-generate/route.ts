@@ -4,6 +4,7 @@ import { getAuthScope, requireActiveAuthorizationCode, scopedTenantUserWhere } f
 import { getImageProvider } from "@/lib/image-providers";
 import { checkAndResetQuotaForScope, deductQuotaForScope, quotaErrorMessage } from "@/lib/quota";
 import { writeFile, mkdir } from "fs/promises";
+import fs from "fs";
 import path from "path";
 
 const LOCAL_GENERATED_DIR = path.join(process.cwd(), "public", "generated");
@@ -46,9 +47,46 @@ async function persistImageWithThumb(taskId: string, imageUrl: string): Promise<
   }
 }
 
+function resolveLocalImagePath(url: string): string | null {
+  if (!url || typeof url !== "string") return null;
+  const resolvedUrl = url.startsWith("/") ? `http://localhost${url}` : url;
+  const isLocalUpload = resolvedUrl.includes("/uploads/");
+  const isLocalGenerated = resolvedUrl.includes("/generated/");
+  const isLocalhost = resolvedUrl.includes("localhost");
+
+  if (!isLocalUpload && !isLocalGenerated && !isLocalhost) {
+    return null;
+  }
+
+  if (isLocalUpload) {
+    const fileName = resolvedUrl.split("/uploads/")[1] || path.basename(resolvedUrl);
+    return path.join(process.cwd(), "public", "uploads", fileName);
+  }
+  if (isLocalGenerated) {
+    const fileName = resolvedUrl.split("/generated/")[1] || path.basename(resolvedUrl);
+    return path.join(process.cwd(), "public", "generated", fileName);
+  }
+  const fileName = path.basename(resolvedUrl);
+  return path.join(process.cwd(), "public", "uploads", fileName);
+}
+
 async function urlToBase64(url: string, origin: string): Promise<string | null> {
   try {
     const resolvedUrl = url.startsWith("/") ? `${origin}${url}` : url;
+
+    // Prefer reading local files from disk to avoid self-fetch failures.
+    const localPath = resolveLocalImagePath(resolvedUrl);
+    if (localPath) {
+      try {
+        const buffer = fs.readFileSync(localPath);
+        const ext = path.extname(localPath).toLowerCase();
+        const contentType = ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : ext === ".webp" ? "image/webp" : "image/png";
+        return `data:${contentType};base64,${buffer.toString("base64")}`;
+      } catch (e) {
+        console.warn("[DirectGenerate] failed to read local image, falling back to fetch:", localPath, e);
+      }
+    }
+
     const res = await fetch(resolvedUrl, { signal: AbortSignal.timeout(30000) });
     if (!res.ok) return null;
     const buffer = Buffer.from(await res.arrayBuffer());
@@ -61,7 +99,7 @@ async function urlToBase64(url: string, origin: string): Promise<string | null> 
 }
 
 async function generatePromptFromUserGoal(
-  productImageBase64: string,
+  productImageBase64s: string[],
   userGoal: string,
   requestId?: string
 ): Promise<string> {
@@ -78,6 +116,12 @@ Rules:
 - The product in the photo must remain the hero of the image.
 - Use commercial photography / e-commerce main image style.`;
 
+  const userContent: Array<{ type: string; [key: string]: unknown }> = [];
+  for (const base64 of productImageBase64s) {
+    userContent.push({ type: "image_url", image_url: { url: base64 } });
+  }
+  userContent.push({ type: "text", text: `User request: ${userGoal}\n\nWrite the image generation prompt in English.` });
+
   try {
     const res = await fetch(llmUrl, {
       method: "POST",
@@ -91,10 +135,7 @@ Rules:
           { role: "system", content: systemPrompt },
           {
             role: "user",
-            content: [
-              { type: "image_url", image_url: { url: productImageBase64 } },
-              { type: "text", text: `User request: ${userGoal}\n\nWrite the image generation prompt in English.` },
-            ],
+            content: userContent,
           },
         ],
         temperature: 0.7,
@@ -186,12 +227,14 @@ export async function POST(request: NextRequest) {
         )
       : [];
 
-    const productImageBase64 = await urlToBase64(resolvedProductImageUrl, origin);
-    if (!productImageBase64) {
+    const productImageBase64s = (
+      await Promise.all(resolvedProductImageUrls.map((u) => urlToBase64(u, origin)))
+    ).filter((v): v is string => Boolean(v));
+    if (productImageBase64s.length === 0) {
       return NextResponse.json({ error: "无法读取商品图" }, { status: 400 });
     }
 
-    const finalPrompt = await generatePromptFromUserGoal(productImageBase64, userGoal.trim(), requestId);
+    const finalPrompt = await generatePromptFromUserGoal(productImageBase64s, userGoal.trim(), requestId);
 
     const providerName = process.env.IMAGE_PROVIDER || "chatgpt2api";
     const provider = getImageProvider(providerName);
