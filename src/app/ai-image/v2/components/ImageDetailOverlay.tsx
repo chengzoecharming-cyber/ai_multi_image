@@ -5,11 +5,7 @@ import { X, Download, Heart, Wand2, RefreshCw, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import type { CreativePlan } from "../types";
 
-// ── Color tokens ──
-const GBG = "rgb(248, 249, 250)"; // grey background
-const BBG = "rgb(235, 236, 237)"; // button background
-const P0 = "#0f1419";
-const P2 = "#72808a";
+import { GBG, BBG, P0, P2 } from "../design-tokens";
 
 export interface ImageDetailData {
   imageUrl: string;
