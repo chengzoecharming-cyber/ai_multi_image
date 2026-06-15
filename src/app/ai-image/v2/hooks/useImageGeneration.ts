@@ -61,7 +61,7 @@ export function useImageGeneration(options: UseImageGenerationOptions): ImageGen
             sessionId: activeSession.id,
             planId: plan.id,
             promptContent,
-            productImageUrl: activeProductImage,
+            productImageUrls: activeSession.productImageUrls,
             styleReferenceUrls: styleRefs,
             negativePrompt: negativePromptBase,
             provider: activeSession.provider,

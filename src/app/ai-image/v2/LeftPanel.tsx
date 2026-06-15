@@ -108,7 +108,7 @@ export function LeftPanel({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          productImageUrl: activeProductImage,
+          productImageUrls: activeSession.productImageUrls,
           userGoal: goal.trim(),
           width: outputWidth,
           height: outputHeight,

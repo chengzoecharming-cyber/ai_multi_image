@@ -92,6 +92,7 @@ export async function POST(request: NextRequest) {
       promptContent,
       negativePrompt,
       productImageUrl,
+      productImageUrls,
       styleReferenceUrls,
       config,
       sessionId,
@@ -103,10 +104,14 @@ export async function POST(request: NextRequest) {
     // Resolve relative reference image URLs (e.g. "/uploads/xxx.png") to absolute URLs
     // so the server-side provider can fetch them correctly in dev (port may not be 3000).
     const origin = request.nextUrl?.origin || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const resolvedProductImageUrl =
-      typeof productImageUrl === "string" && productImageUrl.startsWith("/")
-        ? `${origin}${productImageUrl}`
-        : productImageUrl;
+    const resolvedProductImageUrls = Array.isArray(productImageUrls)
+      ? productImageUrls
+          .filter((u: unknown): u is string => typeof u === "string")
+          .map((u: string) => (u.startsWith("/") ? `${origin}${u}` : u))
+      : typeof productImageUrl === "string" && productImageUrl.trim().length > 0
+        ? [productImageUrl.startsWith("/") ? `${origin}${productImageUrl}` : productImageUrl]
+        : [];
+    const resolvedProductImageUrl = resolvedProductImageUrls[0] || null;
     const resolvedStyleReferenceUrls = Array.isArray(styleReferenceUrls)
       ? styleReferenceUrls.map((u: unknown) =>
           typeof u === "string" && u.startsWith("/") ? `${origin}${u}` : String(u)
@@ -169,8 +174,8 @@ export async function POST(request: NextRequest) {
     const seed =
       typeof config?.seed === "number" && Number.isFinite(config.seed)
         ? Math.floor(config.seed)
-        : generationModeId === "conservative_enhancement" && !!resolvedProductImageUrl
-          ? deriveStableSeed([resolvedProductImageUrl, finalPrompt, finalNegativePrompt || "", width, height, model])
+        : generationModeId === "conservative_enhancement" && resolvedProductImageUrls.length > 0
+          ? deriveStableSeed([resolvedProductImageUrls.join("|"), finalPrompt, finalNegativePrompt || "", width, height, model])
           : undefined;
 
     const requestedStrengthRaw =
@@ -238,6 +243,7 @@ const providerName = body.provider || process.env.IMAGE_PROVIDER || "chatgpt2api
         configSnapshot,
         referenceImagesSnapshot: JSON.stringify({
           productImageUrl: resolvedProductImageUrl || null,
+          productImageUrls: resolvedProductImageUrls || [],
           styleReferenceUrls: resolvedStyleReferenceUrls || [],
         }),
         status: "pending",
@@ -271,6 +277,7 @@ const providerName = body.provider || process.env.IMAGE_PROVIDER || "chatgpt2api
         prompt: finalPrompt,
         negativePrompt: finalNegativePrompt,
         productImageUrl: resolvedProductImageUrl || null,
+        productImageUrls: resolvedProductImageUrls || [],
         styleReferenceUrls: resolvedStyleReferenceUrls || [],
         width,
         height,

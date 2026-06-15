@@ -154,6 +154,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       productImageUrl,
+      productImageUrls,
       userGoal,
       width = 1024,
       height = 1024,
@@ -161,7 +162,13 @@ export async function POST(request: NextRequest) {
       sessionId,
     } = body;
 
-    if (!productImageUrl || typeof productImageUrl !== "string") {
+    const rawProductImageUrls = Array.isArray(productImageUrls)
+      ? productImageUrls.filter((u: unknown): u is string => typeof u === "string" && u.trim().length > 0)
+      : typeof productImageUrl === "string" && productImageUrl.trim().length > 0
+        ? [productImageUrl]
+        : [];
+
+    if (rawProductImageUrls.length === 0) {
       return NextResponse.json({ error: "请上传商品图" }, { status: 400 });
     }
     if (!userGoal || typeof userGoal !== "string" || !userGoal.trim()) {
@@ -169,9 +176,10 @@ export async function POST(request: NextRequest) {
     }
 
     const origin = request.nextUrl?.origin || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3002";
-    const resolvedProductImageUrl = productImageUrl.startsWith("/")
-      ? `${origin}${productImageUrl}`
-      : productImageUrl;
+    const resolvedProductImageUrls = rawProductImageUrls.map((u: string) =>
+      u.startsWith("/") ? `${origin}${u}` : u
+    );
+    const resolvedProductImageUrl = resolvedProductImageUrls[0];
     const resolvedStyleReferenceUrls = Array.isArray(styleReferenceUrls)
       ? styleReferenceUrls.map((u: unknown) =>
           typeof u === "string" && u.startsWith("/") ? `${origin}${u}` : String(u)
@@ -210,6 +218,7 @@ export async function POST(request: NextRequest) {
         configSnapshot,
         referenceImagesSnapshot: JSON.stringify({
           productImageUrl: resolvedProductImageUrl,
+          productImageUrls: resolvedProductImageUrls,
           styleReferenceUrls: resolvedStyleReferenceUrls,
         }),
         status: "pending",
@@ -232,6 +241,7 @@ export async function POST(request: NextRequest) {
         prompt: finalPrompt,
         negativePrompt: "",
         productImageUrl: resolvedProductImageUrl,
+        productImageUrls: resolvedProductImageUrls,
         styleReferenceUrls: resolvedStyleReferenceUrls,
         width: Number(width),
         height: Number(height),

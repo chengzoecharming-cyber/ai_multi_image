@@ -79,8 +79,14 @@ export class VolcanoProvider implements ImageProvider {
         watermark: false,
       };
 
-      if (params.productImageUrl || (params.styleReferenceUrls && params.styleReferenceUrls.length > 0)) {
-        const imageUrl = params.productImageUrl || params.styleReferenceUrls?.[0];
+      const productImageUrls = Array.isArray(params.productImageUrls)
+        ? params.productImageUrls.filter((u): u is string => typeof u === "string" && u.trim().length > 0)
+        : params.productImageUrl
+          ? [params.productImageUrl]
+          : [];
+
+      if (productImageUrls.length > 0 || (params.styleReferenceUrls && params.styleReferenceUrls.length > 0)) {
+        const imageUrl = productImageUrls[0] || params.styleReferenceUrls?.[0];
         if (imageUrl) {
           // Local dev: base64 (Seedream server can't access localhost)
           // Production: could switch to URL if images are on public CDN

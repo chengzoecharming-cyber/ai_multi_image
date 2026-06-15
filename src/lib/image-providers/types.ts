@@ -3,6 +3,8 @@ export interface GenerateImageParams {
   negativePrompt?: string;
   /** Primary product reference image — preserves product structure */
   productImageUrl?: string | null;
+  /** Multiple product reference images — preserves product structure (preferred by chatgpt2api) */
+  productImageUrls?: string[];
   /** Style reference images — only for background/lighting/atmosphere */
   styleReferenceUrls?: string[];
   width: number;
