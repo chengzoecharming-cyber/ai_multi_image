@@ -124,6 +124,11 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
   const productDescription = analysis?.productSubjectDescription || analysis?.productType || plan.productName || "the reference product";
   const infoPosterArchetypes = new Set(["technical_breakdown", "comparison_story", "multi_panel_info"]);
   const isInfoPoster = infoPosterArchetypes.has(plan.planArchetype);
+  const promptCopyBlocks = (plan.copyBlocks || [])
+    .filter((b) => b?.title || b?.body)
+    .slice()
+    .sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999))
+    .slice(0, 8);
 
   const parts: string[] = [
     `=== VISUAL STYLE AND COMPOSITION (MANDATORY — OVERRIDE ALL DEFAULT STYLES) ===`,
@@ -218,15 +223,15 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
   }
 
   // Rich copyBlocks-based text instructions
-  if (isInfoPoster && plan.copyBlocks && plan.copyBlocks.length > 0) {
-    const headlineBlocks = plan.copyBlocks.filter(b => b.role === "headline");
-    const subheadlineBlocks = plan.copyBlocks.filter(b => b.role === "subheadline");
-    const coreClaimBlocks = plan.copyBlocks.filter(b => b.role === "core_claim");
-    const featureBlocks = plan.copyBlocks.filter(b => b.role === "feature_point");
-    const technicalBlocks = plan.copyBlocks.filter(b => b.role === "technical_point");
-    const bottomBlocks = plan.copyBlocks.filter(b => b.role === "bottom_info");
-    const comparisonBlocks = plan.copyBlocks.filter(b => b.role === "comparison_label");
-    const applicationBlocks = plan.copyBlocks.filter(b => b.role === "application_label");
+  if (isInfoPoster && promptCopyBlocks.length > 0) {
+    const headlineBlocks = promptCopyBlocks.filter(b => b.role === "headline");
+    const subheadlineBlocks = promptCopyBlocks.filter(b => b.role === "subheadline");
+    const coreClaimBlocks = promptCopyBlocks.filter(b => b.role === "core_claim");
+    const featureBlocks = promptCopyBlocks.filter(b => b.role === "feature_point");
+    const technicalBlocks = promptCopyBlocks.filter(b => b.role === "technical_point");
+    const bottomBlocks = promptCopyBlocks.filter(b => b.role === "bottom_info");
+    const comparisonBlocks = promptCopyBlocks.filter(b => b.role === "comparison_label");
+    const applicationBlocks = promptCopyBlocks.filter(b => b.role === "application_label");
 
     // Headlines
     if (headlineBlocks.length > 0) {
@@ -335,7 +340,7 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
   }
 
   // Fallback to sellingPoints if no copyBlocks
-  if (isInfoPoster && (!plan.copyBlocks || plan.copyBlocks.length === 0)) {
+  if (isInfoPoster && promptCopyBlocks.length === 0) {
     parts.push(
       ``,
       `SELLING POINTS (each as a distinct visual badge, tag, or info block with the exact words):`,
@@ -346,7 +351,7 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
   // ── Dynamic TEXT RENDERING REQUIREMENTS ──
   // Only emit rendering rules for copyBlock roles that actually exist.
   // This prevents 8k-10k prompts when only a headline is present.
-  const cbRoles = new Set(isInfoPoster ? plan.copyBlocks?.map((b) => b.role) || [] : []);
+  const cbRoles = new Set(isInfoPoster ? promptCopyBlocks.map((b) => b.role) : []);
   const hasHeadline = cbRoles.has("headline");
   const hasSubheadline = cbRoles.has("subheadline");
   const hasCoreClaim = cbRoles.has("core_claim");
@@ -355,7 +360,7 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
   const hasComparison = cbRoles.has("comparison_label");
   const hasApplication = cbRoles.has("application_label");
   const hasBottom = cbRoles.has("bottom_info");
-  const hasAnyBlocks = isInfoPoster && plan.copyBlocks && plan.copyBlocks.length > 0;
+  const hasAnyBlocks = isInfoPoster && promptCopyBlocks.length > 0;
 
   const renderingParts: string[] = [
     ``,
@@ -399,7 +404,7 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
       `• ALL CAPS, bold sans-serif, largest text on the image`,
       `• Dominant visual anchor — upper third or center-left`,
       `• Maximum contrast against background — solid text, never outline-only`,
-      hasAnyBlocks && plan.copyBlocks!.filter((b) => b.role === "headline").length > 1
+      hasAnyBlocks && promptCopyBlocks.filter((b) => b.role === "headline").length > 1
         ? `• Multiple headlines: highest-priority is primary; others become secondary at ~60% size`
         : ``,
       ``,
@@ -549,19 +554,6 @@ export function buildImageGenerationPrompt(plan: CreativePlan): string {
 
   // visualDirection, colorDirection, layoutDirection already included at the top of the prompt
   // in the === VISUAL STYLE AND COMPOSITION === section. No need to repeat.
-
-  if (analysis) {
-    const englishOnly = (text: string) => text.replace(/[^\x00-\x7F]/g, " ").trim();
-    const visibleFeatures = analysis.visibleFeatures?.map(englishOnly).filter(Boolean).join(", ") || "industrial metal product";
-    const isolationInstruction = analysis.isolationInstruction ? englishOnly(analysis.isolationInstruction) : "";
-    parts.push(
-      `=== PRODUCT PRESERVATION ===`,
-      `CRITICAL: Preserve the EXACT product structure, proportions, apparent product size/scale, product count, and visible features from the reference image: ${visibleFeatures}.`,
-      `Do NOT alter the product shape, add or remove parts, change proportions, resize the product body, duplicate the product, remove product instances, or create variants unless the user explicitly requested that exact product-level change.`,
-      isolationInstruction ? `Isolation instruction: ${isolationInstruction}` : "",
-      ``,
-    );
-  }
 
   parts.push(
     `=== STYLE & QUALITY ===`,

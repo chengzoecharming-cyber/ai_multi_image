@@ -8,7 +8,7 @@ import type { CreativePlan } from "@/app/ai-image/v2/types";
 
 type DetailType = "detail" | "multi_angle" | "lifestyle" | "feature" | "comparison" | "spec";
 
-function detailTypeDefaultsToMarketingCopy(type: DetailType): boolean {
+function detailTypeDefaultsToMarketingCopy(): boolean {
   return true;
 }
 
@@ -87,11 +87,17 @@ function buildDetailNegativePrompt(
   const geometry =
     "wrong product identity, deformed product, missing holes, extra holes, missing threads, wrong thread pitch, altered contours, invented parts";
   const copyLock = !includeMarketingCopy
-    ? ", no text, textless commercial slide, missing ecommerce copy, empty typography, unreadable product label"
+    ? ", heavy marketing headline, dense text cards, fake product label, unreadable text, garbled typography"
     : "";
 
   if (productLevelChangeAllowed) {
     return `${base}, ${geometry}${copyLock}`;
+  }
+
+  if (type === "detail") {
+    const detailLock =
+      "fake macro detail, invented close-up structure, unrelated object texture, wrong material close-up, altered holes, altered edges, altered threads";
+    return `${base}, ${detailLock}, ${geometry}${copyLock}`;
   }
 
   const scaleLock =
@@ -104,7 +110,7 @@ function buildDetailNegativePrompt(
     "extra product, duplicate product, multiple product copies, missing product, removed product, added variants, bundle lineup, extra bit in use, extra tool bit";
   const lifestyleLock =
     type === "lifestyle"
-      ? ", split product set, partial product set, product part in hand, product part in drill, product part installed in machine, copied product part in use, background duplicate of featured product, missing kit component"
+      ? ", unchanged original background, studio-only product shot, generic blank backdrop, background duplicate of featured product, copied product part in use, missing kit component"
       : "";
   return `${base}, ${scaleLock}, ${countLock}${lifestyleLock}, ${geometry}${copyLock}`;
 }
@@ -128,7 +134,11 @@ function extractHeroContext(plan?: CreativePlan | null): HeroPlanContext | null 
           structureRisks: plan.productAnalysis.structureRisks || undefined,
         }
       : undefined,
-    copyBlocks: plan.copyBlocks?.map((b) => ({ title: b.title, body: b.body, role: b.role })) || undefined,
+    copyBlocks:
+      plan.copyBlocks
+        ?.filter((b) => b.role === "headline" || b.role === "core_claim" || b.role === "feature_point")
+        .slice(0, 3)
+        .map((b) => ({ title: b.title, body: b.body, role: b.role })) || undefined,
   };
 }
 
@@ -148,7 +158,7 @@ function buildDetailPrompt(args: {
   const includeMarketingCopy = args.includeMarketingCopy !== false;
   const preserveExactText = args.preserveExactText === true;
   const isComparison = args.type === "comparison";
-  const typeAllowsMarketingCopy = detailTypeDefaultsToMarketingCopy(args.type);
+  const typeAllowsMarketingCopy = detailTypeDefaultsToMarketingCopy();
   const effectiveIncludeMarketingCopy = includeMarketingCopy && (preserveExactText || typeAllowsMarketingCopy);
   const shouldUseHeroCopyDirection = effectiveIncludeMarketingCopy;
 
@@ -172,7 +182,7 @@ function buildDetailPrompt(args: {
       .join(" | ");
     if (msgs) productLines.push(`Copy Direction Reference (not mandatory output text): ${msgs}`);
   }
-  if (base && !hero?.productAnalysis?.productSubjectDescription) productLines.push(`User Description: ${base}`);
+  if (base) productLines.push(`User Free-Text Instructions: ${base}`);
 
   const productBlock = productLines.length > 0 ? productLines.join("\n") : base;
 
@@ -181,9 +191,13 @@ function buildDetailPrompt(args: {
     "- Treat the active reference image as the factual inventory of the featured product set, not as loose inspiration.",
     allowProductGeometryChange
       ? "- User-requested size/count/lineup changes override the reference only for the specific requested aspect. All non-requested product facts remain locked to the reference."
+      : args.type === "detail"
+        ? "- For detail close-ups, the reference is authoritative for real local structures and materials. Full-product framing, original subject occupancy, and complete product visibility are NOT required."
       : "- If the user does not explicitly request size/count/lineup changes, keep the same visible product instances, same kit composition, and same relative size relationships as the active reference.",
     isComparison
       ? "- Comparison slides may introduce a separate comparison object, but the featured reference product inventory itself must not be duplicated, reduced, resized, or mutated."
+      : args.type === "detail"
+        ? "- Do not invent a new macro structure. Crop into a real visible part of the same product, such as an edge, thread, hole, surface texture, seam, interface, blade, groove, connector, fabric weave, packaging finish, or material transition."
       : "- Do not introduce a second copy of any featured product part as a prop, background object, in-use object, or extra accessory unless the user explicitly asks for it.",
     "- If repeated items look identical in the reference, keep them identical in length, scale, and design. Do not turn equal items into a size range or stepped lineup.",
   ].join("\n");
@@ -198,8 +212,10 @@ function buildDetailPrompt(args: {
     "【视觉张力 / COMMERCIAL VISUAL ENERGY】",
     "- Avoid flat catalog snapshots. Create premium commercial tension through camera angle, lighting contrast, depth, shadows, reflections, material highlights, background layering, and disciplined negative space.",
     "- Visual drama must come from non-product dimensions only: lens choice, perspective, crop, scene depth, surface texture, atmosphere, typography hierarchy, and callout layout.",
-    "- Do NOT create visual energy by changing product count, product size, product proportions, product geometry, or repeated-item length relationships.",
-    "- Match the product category: industrial tools can use CNC/workshop/metal textures; pet products can use home/pet interaction context; baby products can use nursery/parenting context; beauty/home/electronics should use category-appropriate premium environments.",
+    args.type === "detail"
+      ? "- For detail close-ups, visual energy may come from a closer camera distance and local crop. This is not a product-size change as long as the enlarged area is a real visible part of the reference product."
+      : "- Do NOT create visual energy by changing product count, product size, product proportions, product geometry, or repeated-item length relationships.",
+    "- Match the product category rather than forcing an industrial scene: industrial tools can use CNC/workshop/metal textures; pet products can use home/pet interaction context; baby products can use nursery/parenting context; beauty products can use vanity/bathroom/spa surfaces; home goods can use real rooms; electronics can use desk/studio/tech environments; food/kitchen products can use kitchen/tabletop context.",
   ].join("\n");
 
   const userPromptScope: Record<DetailType, string> = {
@@ -208,7 +224,7 @@ function buildDetailPrompt(args: {
     multi_angle:
       "Use the user prompt only for product/category/style hints and the requested viewpoint. Ignore broad scene, background-story, headline, feature-card, comparison, or lifestyle directives that would turn this into a new advertising scene.",
     lifestyle:
-      "Use the user prompt's scene/background/use-environment ideas and heroPlan copy as a copy-material pool for application benefits, use-case labels, and concise scene badges. The featured product inventory remains one intact foreground set with the same visible count and relative size relationships. Do not split the set, move one part into use, copy a component into a hand/tool/machine, or remove any component unless explicitly requested.",
+      "Use the user prompt's scene/background/use-environment ideas and heroPlan copy as a copy-material pool for application benefits, use-case labels, and concise scene badges. The environment must be category-appropriate and visibly different from the source/reference background. The featured product inventory remains one intact foreground hero set with the same visible count and relative size relationships. Do not duplicate, mutate, or remove featured product components unless explicitly requested.",
     feature:
       "Use the user prompt and heroPlan for selling-point direction, but only call out real visible features. The product image itself is not a design canvas and must not be resized, duplicated, or restructured to fit the layout.",
     comparison:
@@ -237,33 +253,55 @@ function buildDetailPrompt(args: {
         .join("\n")
     : "【未提供主图方案】请根据商品描述自主决定视觉风格，保持商业摄影级质感。";
 
-  const productLock = [
-    "【产品保真锁 / PRODUCT FIDELITY LOCK】",
-    allowProductGeometryChange
-      ? "- The user explicitly asked to change product size, scale, dimensions, quantity, or lineup. Apply ONLY that requested product-level change; keep all other product geometry faithful to the references."
-      : isComparison
-        ? "- DEFAULT RULE: The reference image is authoritative for the FEATURED product's structure, apparent product size/scale, and featured-product instance count. The comparison counterpart may appear because this is a comparison slide, but it must not alter the featured product."
-        : "- DEFAULT RULE: The reference image is authoritative for product structure, apparent product size/scale, and product instance count. Do NOT change these unless the user explicitly asks.",
-    "- Preserve exact product geometry: outline, proportions, holes, slots, threads, blade edges, grooves, mounting points, chamfers, radii, contours, thickness relationships, and visible small details.",
-    allowProductGeometryChange
-      ? "- Even when changing the requested dimension/quantity, do not invent unrelated parts, simplify geometry, alter hole count/positions, or transform the product into a different object."
-      : isComparison
-        ? "- Preserve the featured product count exactly. A generic comparison counterpart is allowed, but do NOT duplicate, resize, or mutate the featured reference product."
-        : "- Preserve product count exactly: do NOT add extra copies, variants, accessories, bundles, mirrored duplicates, split duplicate products, or remove any product instance visible in the active reference.",
-    allowProductGeometryChange
-      ? "- Product scale changes are allowed only where the user requested them; otherwise keep scale relationships consistent with the active reference."
-      : "- Preserve apparent product scale and subject occupancy for non-macro slides. The product may be repositioned for layout, but it must not become a different-sized product.",
-    allowProductGeometryChange
-      ? "- If the user requested a size/count change for a kit or set, apply it consistently to the requested items only."
-      : "- For kits/sets/multi-piece products, preserve the exact number of visible pieces and their relative size relationships. Do NOT turn identical items into different-length variants or a size progression.",
-    "- Background, typography, callouts, lighting, and scene elements may change for the carousel slide, but they must never require changing the product body.",
-  ].join("\n");
+  const productLock =
+    args.type === "detail"
+      ? [
+          "【局部细节真实性锁 / LOCAL DETAIL FIDELITY LOCK】",
+          "- This is a local detail close-up, not a full-product restage. The complete product does NOT need to be visible.",
+          "- You may crop tightly into one real visible area of the reference product and enlarge that local area to show material, texture, machining, edge quality, hole/thread detail, interface detail, finish, weave, seam, or surface transition.",
+          "- The close-up must still be traceable to the same product. Preserve local geometry, material family, contour logic, hole/thread/edge positions, surface finish, and visible small details.",
+          "- Do NOT invent a new component, new hole pattern, new thread pitch, new blade/edge shape, new label, new accessory, or a different product model.",
+          "- Full-product apparent size, original subject occupancy, and original framing are intentionally not locked for this detail close-up.",
+        ].join("\n")
+      : args.type === "lifestyle"
+        ? [
+            "【场景图产品锁 / LIFESTYLE PRODUCT LOCK】",
+            allowProductGeometryChange
+              ? "- The user explicitly asked to change product size, scale, dimensions, quantity, or lineup. Apply ONLY that requested product-level change; keep all other product geometry faithful to the references."
+              : "- DEFAULT RULE: Preserve the featured product identity, structure, visible count, kit composition, relative size relationships, and apparent foreground scale.",
+            "- The scene must change around the product: create a category-appropriate usage environment that is clearly different from the reference/source background.",
+            "- Choose the environment from product evidence and user intent. Industrial/workshop scenes are only for industrial tools, machinery, hardware, manufacturing, repair, or construction products; otherwise use the natural category context.",
+            "- Show visible scene evidence: relevant surface, room/work area, props, depth, lighting, background texture, and use-context cues. Avoid returning a near-identical background or only changing color grading.",
+            "- Keep the featured product as one intact foreground hero set. Do NOT add a second copy, remove pieces, split a kit, mutate geometry, or turn identical parts into a size range unless explicitly requested.",
+            "- Category-appropriate hands, tools, furniture, rooms, benches, machines, pets, people, or props may appear as context, but they must not contain a duplicated copy of the featured product or force product geometry changes.",
+          ].join("\n")
+        : [
+            "【产品保真锁 / PRODUCT FIDELITY LOCK】",
+            allowProductGeometryChange
+              ? "- The user explicitly asked to change product size, scale, dimensions, quantity, or lineup. Apply ONLY that requested product-level change; keep all other product geometry faithful to the references."
+              : isComparison
+                ? "- DEFAULT RULE: The reference image is authoritative for the FEATURED product's structure, apparent product size/scale, and featured-product instance count. The comparison counterpart may appear because this is a comparison slide, but it must not alter the featured product."
+                : "- DEFAULT RULE: The reference image is authoritative for product structure, apparent product size/scale, and product instance count. Do NOT change these unless the user explicitly asks.",
+            "- Preserve exact product geometry: outline, proportions, holes, slots, threads, blade edges, grooves, mounting points, chamfers, radii, contours, thickness relationships, and visible small details.",
+            allowProductGeometryChange
+              ? "- Even when changing the requested dimension/quantity, do not invent unrelated parts, simplify geometry, alter hole count/positions, or transform the product into a different object."
+              : isComparison
+                ? "- Preserve the featured product count exactly. A generic comparison counterpart is allowed, but do NOT duplicate, resize, or mutate the featured reference product."
+                : "- Preserve product count exactly: do NOT add extra copies, variants, accessories, bundles, mirrored duplicates, split duplicate products, or remove any product instance visible in the active reference.",
+            allowProductGeometryChange
+              ? "- Product scale changes are allowed only where the user requested them; otherwise keep scale relationships consistent with the active reference."
+              : "- Preserve apparent product scale and subject occupancy for non-macro slides. The product may be repositioned for layout, but it must not become a different-sized product.",
+            allowProductGeometryChange
+              ? "- If the user requested a size/count change for a kit or set, apply it consistently to the requested items only."
+              : "- For kits/sets/multi-piece products, preserve the exact number of visible pieces and their relative size relationships. Do NOT turn identical items into different-length variants or a size progression.",
+            "- Background, typography, callouts, lighting, and scene elements may change for the carousel slide, but they must never require changing the product body.",
+          ].join("\n");
 
   const copyPolicy = !effectiveIncludeMarketingCopy
     ? [
         "【文案策略 / COPY POLICY】",
         includeMarketingCopy
-          ? "- This angle-only slide does not default to heavy marketing typography. Use no headline/card system by default, but one small angle/view label is allowed if it improves ecommerce clarity."
+          ? "- This slide does not default to heavy marketing typography. Use no headline/card system by default, but one small functional label is allowed if it improves ecommerce clarity."
           : "- The user explicitly requested no marketing text or text removal. Do not add headline, subtitle, selling-point cards, or decorative copy.",
         "- Product labels physically printed on the product are product appearance, not marketing copy; keep them readable when visible.",
       ].join("\n")
@@ -286,18 +324,26 @@ function buildDetailPrompt(args: {
 
   const common = [
     "You are generating an e-commerce carousel image (product detail page slide).",
-    isComparison
-      ? "Keep the featured product identity, structure, apparent size, and count consistent with the reference image unless the user explicitly requested a product-level change. A separate comparison counterpart may appear for the comparison story."
-      : "Keep the product identity, structure, apparent size, and count consistent with the reference image unless the user explicitly requested a product-level change.",
-    "Maintain the same lighting, color mood, material treatment, and visual atmosphere as the style reference image.",
+    args.type === "detail"
+      ? "For this detail close-up, preserve product identity and local structure while allowing tight crop and changed subject occupancy."
+      : args.type === "lifestyle"
+        ? "For this lifestyle scene, preserve the featured product identity, structure, visible count, relative size relationships, and foreground scale while changing the surrounding category-appropriate environment."
+        : isComparison
+          ? "Keep the featured product identity, structure, apparent size, and count consistent with the reference image unless the user explicitly requested a product-level change. A separate comparison counterpart may appear for the comparison story."
+          : "Keep the product identity, structure, apparent size, and count consistent with the reference image unless the user explicitly requested a product-level change.",
+    args.type === "lifestyle"
+      ? "Maintain cohesive commercial quality with the hero image, but the surrounding environment must visibly change into a category-appropriate usage scene."
+      : args.type === "detail"
+        ? "Maintain cohesive commercial quality with the hero image, but move the camera into a real local detail area rather than preserving the original full-product framing."
+        : "Maintain the same lighting, color mood, material treatment, and visual atmosphere as the style reference image.",
     "This is a companion image to the main hero image, part of a cohesive product listing set.",
     "Clean commercial look, realistic materials and lighting.",
-    "If multiple reference images are provided, they describe the same product and should be jointly used as factual visual evidence.",
+    "Current provider edit mode uses the active reference image as the actual visual input. Other uploaded images, if any, are only weak contextual memory from the plan/user text, not direct visual evidence.",
     "User free-text instructions are high priority. If the user text assigns semantic roles to images (e.g., dimension image, feature scene image), follow those assignments.",
     "Priority for numeric specs: USER PROMPT explicit values > readable values on uploaded reference images > qualitative non-numeric labels.",
     "If user prompt explicitly provides values/units, copy them exactly as-is. Do not rewrite decimals, units, symbols, or formatting.",
     "If prompt does not provide values but reference image labels include readable values, copy those values exactly.",
-    `Reference images available: ${args.referenceImageCount || 1}. Active reference index: ${args.activeReferenceIndex ?? 0}.`,
+    `Visual input used for this edit: active reference image only. Active reference index: ${args.activeReferenceIndex ?? 0}. Uploaded reference count in UI: ${args.referenceImageCount || 1}.`,
     "",
     providerStrictness,
     "",
@@ -331,10 +377,12 @@ function buildDetailPrompt(args: {
   const perType: Record<DetailType, string> = {
     detail: [
       "【功能定位】细节特写图：展示产品工艺、材质纹理、关键结构。",
-      "Focus: close-up detail shot highlighting craftsmanship, texture, edges, and key functional surfaces.",
-      "Composition: macro / near-macro crop is allowed, shallow depth of field allowed, strong raking light or reflective highlights may be used, product remains recognizable.",
-      "Text layout: include 1 concise headline about craftsmanship/material quality plus 2-3 short callout labels pointing to real visible details. Use compact labels or slim callout cards, not an empty beauty shot.",
-      "Macro means cropping into a real visible area of the same product. Do NOT redesign the part, change dimensions, change count, or invent a new close-up structure.",
+      "Focus: true local close-up detail shot highlighting craftsmanship, material texture, edges, holes, seams, interfaces, threads, finishes, and key functional surfaces from the reference product.",
+      "Composition: use macro / near-macro framing. The full product should usually NOT be visible; crop into one real visible product area and make that local detail the hero.",
+      effectiveIncludeMarketingCopy
+        ? "Text layout: include 1 concise headline about craftsmanship/material quality plus 2-3 short callout labels pointing to real visible details. Use compact labels or slim callout cards, not an empty beauty shot."
+        : "Text layout: avoid marketing headline/card systems. If useful, add only 1-2 tiny technical labels pointing to real visible local details.",
+      "Macro means camera distance/crop changes, not product-size redesign. Do NOT redesign the part, change local dimensions, change count, or invent a new close-up structure.",
     ].join("\n"),
     multi_angle: [
       "【功能定位】多角度展示图：从另一视角展示产品整体形体。",
@@ -345,12 +393,15 @@ function buildDetailPrompt(args: {
     ].join("\n"),
     lifestyle: [
       "【功能定位】使用场景图：展示产品在真实使用环境中的应用。",
-      "Focus: realistic contextual scene that matches the product category, still commercial and clean.",
-      "Composition: show the exact same product set as one intact foreground hero group, with the same visible component count and relative size relationships as the active reference. Use background depth, environmental texture, and cinematic lighting to add energy.",
-      "Text layout: include 1 scene/application headline and 2-3 use-case badges or benefit labels integrated into the environment. This slide must look like a designed ecommerce scene page, not only a restaged product photo.",
-      "The scene may include people, pets, babies, rooms, workshops, tools, furniture, outdoor context, or other category-appropriate environment elements, but those elements are background/context only.",
-      "Do NOT create an action shot that consumes, installs, holds, separates, or duplicates one component from the featured product set unless the user explicitly asks for the product to be shown in use.",
-      "If the user asks for a maintenance/workshop background, keep repair activity in the background/context only. Any drill, hand, screw, machine, cabinet, or tool in the scene must not contain an extra copy of the featured bit/tool.",
+      "Focus: realistic contextual scene that matches the product category and user intent, still commercial and clean. Do not force an industrial scene unless the product/category calls for it.",
+      "Composition: show the exact same product set as one intact foreground hero group, with the same visible component count and relative size relationships as the active reference. Use a clearly new category-appropriate environment, background depth, environmental texture, and cinematic lighting to add energy.",
+      effectiveIncludeMarketingCopy
+        ? "Text layout: include 1 scene/application headline and 2-3 use-case badges or benefit labels integrated into the environment. This slide must look like a designed ecommerce scene page, not only a restaged product photo."
+        : "Text layout: prioritize the photographic scene. Avoid marketing headline/card systems; at most use one subtle scene label if it improves clarity.",
+      "The scene may include category-appropriate people, pets, babies, rooms, workshops, tools, furniture, outdoor context, kitchen/bathroom/desk surfaces, vehicles, machines, or other relevant environment elements.",
+      "Mandatory scene-difference check: the output should not look like the same source image with minor relighting. Add visible new usage-context evidence while preserving the featured product.",
+      "Do NOT create an action shot that consumes, separates, duplicates, or mutates one component from the featured product set unless the user explicitly asks for that product-level change.",
+      "If the product is industrial/tooling/hardware and the user asks for maintenance/workshop context, use repair activity as environment/context. Any drill, hand, screw, machine, cabinet, or tool in the scene must not contain an extra copy of the featured product.",
     ].join("\n"),
     feature: [
       "【功能定位】卖点爆破图：突出核心卖点，信息层次分明。",
@@ -523,13 +574,13 @@ export async function POST(request: NextRequest) {
     let index = 0;
     for (const type of types) {
       const effectiveIncludeMarketingCopy =
-        includeMarketingCopy && (preserveExactText || detailTypeDefaultsToMarketingCopy(type));
+        includeMarketingCopy && (preserveExactText || detailTypeDefaultsToMarketingCopy());
       const prompt = buildDetailPrompt({
         type,
         productDescription: typeof productDescription === "string" ? productDescription : "",
         heroContext,
         referenceImageCount: referenceUrls.length,
-        activeReferenceIndex: currentIndex,
+        activeReferenceIndex: 0,
         allowProductGeometryChange: productLevelChangeAllowed,
         includeMarketingCopy,
         preserveExactText,
@@ -546,7 +597,11 @@ export async function POST(request: NextRequest) {
           userPrompt: typeof productDescription === "string" ? productDescription.trim() : null,
           negativePromptSnapshot: negativePrompt,
           configSnapshot: JSON.stringify({ width, height, detailType: type, sessionId: v2SessionId || undefined, strictSize: true, model: "default", quality: "standard", productLevelChangeAllowed, includeMarketingCopy, preserveExactText }),
-          referenceImagesSnapshot: JSON.stringify({ productImageUrl: activeRefUrl, styleReferenceUrls: referenceUrls }),
+          referenceImagesSnapshot: JSON.stringify({
+            productImageUrl: activeRefUrl,
+            styleReferenceUrls: [],
+            availableReferenceUrls: referenceUrls,
+          }),
           status: "processing",
           provider: providerName,
         },
@@ -556,7 +611,7 @@ export async function POST(request: NextRequest) {
         prompt,
         negativePrompt,
         productImageUrl: activeRefUrl,
-        styleReferenceUrls: referenceUrls,
+        styleReferenceUrls: [],
         width,
         height,
         strictSize: true,
@@ -588,14 +643,14 @@ export async function POST(request: NextRequest) {
 [MANDATORY SPEC FILL RETRY]
 - Do not leave spec rows blank or as '-' / '—' unless truly impossible.
 - If user prompt contains values, copy exactly as-is (highest priority).
-- Else, read values/labels from reference images and copy exactly.
+- Else, read values/labels from the active reference image and copy exactly.
 - Else, fill with concrete qualitative labels (e.g., "Custom", "By Drawing", "High Precision", "CNC Machined", "Metal Body").
 - Ensure most rows are meaningfully filled.`;
           const retry = await provider.generate({
             prompt: retryPrompt,
             negativePrompt,
             productImageUrl: activeRefUrl,
-            styleReferenceUrls: referenceUrls,
+            styleReferenceUrls: [],
             width,
             height,
             strictSize: true,
