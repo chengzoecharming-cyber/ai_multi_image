@@ -72,6 +72,26 @@ export function PlanCard({
     ? COPY_DENSITY_PROFILES[plan.copyDensity]?.label
     : null;
 
+  const densityTag = (() => {
+    switch (plan.copyDensity) {
+      case "headline_only":
+      case "minimal": return "低";
+      case "medium": return "中";
+      case "rich": return "高";
+      default: return null;
+    }
+  })();
+
+  const toneTag = (() => {
+    const sid = plan.visualStyleId || "";
+    const vp = plan.visualPresentation || "";
+    if (sid.includes("clean_catalog") || sid.includes("light_") || sid.includes("empty_light_") || vp.includes("白") || vp.includes("浅")) return "亮";
+    if (sid.includes("dark_") || sid.includes("premium_black") || sid.includes("macro_") || vp.includes("深") || vp.includes("黑")) return "暗";
+    if (sid.includes("workshop_") || sid.includes("scene_") || sid.includes("lifestyle") || vp.includes("场景") || vp.includes("车间")) return "亮";
+    if (vp.includes("渐变")) return "亮";
+    return null;
+  })();
+
   return (
     <div
       className={cn(
@@ -122,9 +142,14 @@ export function PlanCard({
           <Badge variant="outline" className={cn("text-[11px] h-5 px-2 font-normal", meta.color, meta.border)}>
             {meta.label}
           </Badge>
-          {copyDensityLabel && (
+          {densityTag && (
             <Badge variant="secondary" className="text-[11px] h-5 px-2 font-normal">
-              {copyDensityLabel}
+              密度{densityTag}
+            </Badge>
+          )}
+          {toneTag && (
+            <Badge variant="secondary" className="text-[11px] h-5 px-2 font-normal">
+              色调{toneTag}
             </Badge>
           )}
           {bgLabel && (
