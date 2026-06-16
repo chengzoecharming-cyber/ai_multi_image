@@ -161,9 +161,12 @@ export async function POST(request: NextRequest) {
         // ── Replace plans (source of truth from frontend) ──
         await tx.aiImageV2Plan.deleteMany({ where: { sessionId: session.id, tenantId, userId: ownerUserId } });
         if (session.singlePlans?.length) {
+          const uniquePlans = Array.from(
+            new Map(session.singlePlans.map((plan) => [plan.id, plan])).values()
+          );
           try {
             await tx.aiImageV2Plan.createMany({
-              data: session.singlePlans.map((plan, i) => toPlanCreateInput(plan, session.id, tenantId, ownerUserId, i)),
+              data: uniquePlans.map((plan, i) => toPlanCreateInput(plan, session.id, tenantId, ownerUserId, i)),
             });
           } catch (e) {
             if (!isUniqueConstraintError(e)) throw e;
@@ -178,9 +181,12 @@ export async function POST(request: NextRequest) {
           (img) => !existingImageIds.has(img.id) && !(img.taskId && existingTaskIds.has(img.taskId))
         );
         if (newImages.length > 0) {
+          const uniqueNewImages = Array.from(
+            new Map(newImages.map((img) => [img.id, img])).values()
+          );
           try {
             await tx.aiImageV2GeneratedImage.createMany({
-              data: newImages.map((img) => toImageCreateInput(img, session.id, tenantId, ownerUserId)),
+              data: uniqueNewImages.map((img) => toImageCreateInput(img, session.id, tenantId, ownerUserId)),
             });
           } catch (e) {
             if (!isUniqueConstraintError(e)) throw e;
@@ -230,9 +236,12 @@ export async function POST(request: NextRequest) {
         }
 
         if (session.singlePlans?.length) {
+          const uniquePlans = Array.from(
+            new Map(session.singlePlans.map((plan) => [plan.id, plan])).values()
+          );
           try {
             await tx.aiImageV2Plan.createMany({
-              data: session.singlePlans.map((plan, i) => toPlanCreateInput(plan, session.id, tenantId, ownerUserId, i)),
+              data: uniquePlans.map((plan, i) => toPlanCreateInput(plan, session.id, tenantId, ownerUserId, i)),
             });
           } catch (e) {
             if (!isUniqueConstraintError(e)) throw e;
@@ -241,9 +250,12 @@ export async function POST(request: NextRequest) {
         }
 
         if (session.generatedImages?.length) {
+          const uniqueImages = Array.from(
+            new Map(session.generatedImages.map((img) => [img.id, img])).values()
+          );
           try {
             await tx.aiImageV2GeneratedImage.createMany({
-              data: session.generatedImages.map((img) => toImageCreateInput(img, session.id, tenantId, ownerUserId)),
+              data: uniqueImages.map((img) => toImageCreateInput(img, session.id, tenantId, ownerUserId)),
             });
           } catch (e) {
             if (!isUniqueConstraintError(e)) throw e;

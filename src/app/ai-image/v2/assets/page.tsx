@@ -16,6 +16,7 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { getFavorites, removeFavorite, type FavoriteItem } from "../lib/favorites";
 import ImageDetailOverlay from "../components/ImageDetailOverlay";
 import type { ImageDetailData } from "../components/ImageDetailOverlay";
@@ -180,10 +181,22 @@ export default function AssetsPage() {
 
   const openImageDetail = (item: TaskItem | FavoriteItem) => {
     const isFav = activeTab === "favorite";
-    const imageUrl = isFav ? (item as FavoriteItem).imageUrl : (item as TaskItem).resultImageUrl || "";
+    const imageUrl = isFav
+      ? (item as FavoriteItem).imageUrl
+      : (item as TaskItem).resultImageUrl || "";
     const prompt = isFav ? (item as FavoriteItem).prompt : (item as TaskItem).userPrompt;
+    const thumbImageUrl = isFav
+      ? undefined
+      : (item as TaskItem).thumbImageUrl || undefined;
+
+    if (!imageUrl) {
+      toast.error("图片地址无效，无法打开");
+      return;
+    }
+
     setImageDetailData({
       imageUrl,
+      thumbImageUrl,
       prompt: prompt || null,
       source: "asset",
       status: "success",

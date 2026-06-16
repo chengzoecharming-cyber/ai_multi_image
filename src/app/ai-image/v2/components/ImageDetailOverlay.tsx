@@ -23,6 +23,8 @@ export type ImageDetailStatus = "loading" | "success" | "error";
 
 export interface ImageDetailData {
   imageUrl: string;
+  /** 缩略图 URL，用于 overlay 先显示占位 */
+  thumbImageUrl?: string;
   prompt?: string | null;
   referenceImageUrls?: string[];
   productImageUrls?: string[];
@@ -104,10 +106,14 @@ function ImageDetailOverlay({
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [favorited, setFavorited] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageLoadError, setImageLoadError] = useState(false);
+  const [imgKey, setImgKey] = useState(0); // 用于强制重新加载 img 标签
 
-  // Reset imageLoaded when imageUrl changes
+  // Reset states when imageUrl changes
   useEffect(() => {
     setImageLoaded(false);
+    setImageLoadError(false);
+    setImgKey((k) => k + 1);
   }, [data?.imageUrl]);
 
   const openLightbox = useCallback((url: string) => setLightboxUrl(url), []);
@@ -157,6 +163,13 @@ function ImageDetailOverlay({
       onRetry(data.plan);
     }
   }, [data?.plan, onRetry]);
+
+  /** 重新加载图片（改变 key 强制 img 标签重新 mount） */
+  const handleReloadImage = useCallback(() => {
+    setImageLoaded(false);
+    setImageLoadError(false);
+    setImgKey((k) => k + 1);
+  }, []);
 
   // Parse prompt lines for display
   const promptLines = useMemo(() => {
@@ -238,26 +251,69 @@ function ImageDetailOverlay({
                 padding: "0 60px",
               }}
             >
-              {!imageLoaded && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
+              {!imageLoaded && !imageLoadError && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-10">
                   <LoadingPlaceholder width={121} height={121} />
                   <p className="text-sm text-gray-400">图片加载中...</p>
                 </div>
               )}
+
+              {/* 缩略图占位：主图加载失败或未加载时，先显示缩略图 */}
+              {data.thumbImageUrl && !imageLoaded && (
+                <img
+                  key={`thumb-${imgKey}`}
+                  src={data.thumbImageUrl}
+                  alt=""
+                  className={cn(
+                    "object-contain rounded-lg shadow-sm transition-opacity duration-300",
+                    imageLoaded ? "opacity-0 absolute" : "opacity-100"
+                  )}
+                  style={{
+                    maxHeight: "calc(100vh - 48px)",
+                    maxWidth: "100%",
+                    filter: imageLoadError ? "none" : "blur(2px)",
+                  }}
+                />
+              )}
+
               <img
+                key={`main-${imgKey}`}
                 src={data.imageUrl}
                 alt=""
                 className={cn(
                   "object-contain rounded-lg shadow-sm transition-opacity duration-300",
-                  imageLoaded ? "opacity-100" : "opacity-0"
+                  imageLoaded && !imageLoadError ? "opacity-100" : "opacity-0 absolute"
                 )}
                 style={{
                   maxHeight: "calc(100vh - 48px)",
                   maxWidth: "100%",
                 }}
                 onLoad={() => setImageLoaded(true)}
-                onError={() => setImageLoaded(true)}
+                onError={() => {
+                  setImageLoadError(true);
+                  setImageLoaded(true);
+                }}
               />
+
+              {/* 图片加载失败 UI */}
+              {imageLoadError && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-20">
+                  <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center">
+                    <AlertCircle className="w-8 h-8 text-red-400" />
+                  </div>
+                  <p className="text-base font-medium text-gray-700">图片加载失败</p>
+                  <p className="text-xs text-gray-400 max-w-xs text-center">
+                    可能是图片地址已失效，请尝试重新加载
+                  </p>
+                  <button
+                    onClick={handleReloadImage}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-bbg hover:bg-bbg-hover text-[#0f1419]"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    重新加载
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

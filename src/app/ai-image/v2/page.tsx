@@ -354,22 +354,53 @@ function V2WorkbenchPageInner() {
         {/* Right Panel — inline because it has many callbacks */}
         <div className="flex-1 flex flex-col overflow-hidden bg-[rgb(248,249,250)]">
           <div className="flex-1 flex flex-col overflow-hidden">
-            {tab === "product" && step === "input" && (
-            <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-10">
-              <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
-                <Wand2 className="w-8 h-8 text-gray-300" />
-              </div>
-              <p className="text-base font-medium text-gray-500 mb-1">上传商品图并输入制图目标</p>
-              <p className="text-sm text-gray-400">
-                AI 将分析商品图片并生成多个方案
-              </p>
-              {selectedTemplate && (
-                <div className="mt-4 px-4 py-2 rounded-lg bg-gray-100 border border-gray-200">
-                  <p className="text-sm text-gray-700">已选择模板：{selectedTemplate.name}</p>
+            {tab === "product" && step === "input" && activeSession.directGenerating && (
+              <div className="flex-1 flex flex-col items-center justify-center p-10">
+                <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center mb-4 animate-pulse">
+                  <Sparkles className="w-6 h-6 text-indigo-400" />
                 </div>
-              )}
-            </div>
-          )}
+                <p className="text-base font-medium text-gray-700 mb-1">AI 正在直接生成图片...</p>
+                <p className="text-sm text-gray-400">基于用户输入的 prompt 和商品图生成</p>
+                <p className="text-xs text-amber-500 mt-2 font-medium">⏱ 约需 30-90 秒，请耐心等待</p>
+              </div>
+            )}
+
+            {tab === "product" && step === "input" && !activeSession.directGenerating && (
+              activeSession.generatedImages.length > 0 ? (
+                <div className="flex-1 flex flex-col overflow-hidden bg-white">
+                  <div className="px-6 py-4 border-b border-gray-200/80 flex items-center justify-between shrink-0">
+                    <div className="flex items-center gap-3">
+                      <h2 className="text-base font-bold text-gray-900">直接生成结果</h2>
+                    </div>
+                  </div>
+                  <div className="flex-1 flex items-center justify-center p-8 bg-[#F5F6F8]">
+                    <img
+                      src={
+                        activeSession.generatedImages[activeSession.generatedImages.length - 1].imageBase64
+                        || activeSession.generatedImages[activeSession.generatedImages.length - 1].imageUrl
+                      }
+                      alt="直接生成结果"
+                      className="max-w-full max-h-full object-contain rounded-xl shadow-lg"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-10">
+                  <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+                    <Wand2 className="w-8 h-8 text-gray-300" />
+                  </div>
+                  <p className="text-base font-medium text-gray-500 mb-1">上传商品图并输入制图目标</p>
+                  <p className="text-sm text-gray-400">
+                    AI 将分析商品图片并生成多个方案
+                  </p>
+                  {selectedTemplate && (
+                    <div className="mt-4 px-4 py-2 rounded-lg bg-gray-100 border border-gray-200">
+                      <p className="text-sm text-gray-700">已选择模板：{selectedTemplate.name}</p>
+                    </div>
+                  )}
+                </div>
+              )
+            )}
 
           {tab === "product" && step === "generating" && (
             <div className="flex-1 flex flex-col items-center justify-center p-10">
