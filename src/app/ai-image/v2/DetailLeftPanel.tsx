@@ -229,7 +229,7 @@ export function DetailLeftPanel({
         <Button
           onClick={onGenerate}
           disabled={generating || !activeDetailImage || selectedTypes.length === 0}
-          className="w-full h-10 bg-[rgb(235,236,237)] hover:bg-[rgb(220,221,222)] text-[#0f1419] border-0"
+          className="w-full h-10 bg-bbg hover:bg-bbg-hover text-[#0f1419] border-0"
         >
           {generating ? (
             <>

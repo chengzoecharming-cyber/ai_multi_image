@@ -24,12 +24,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
+  V2DropdownMenu,
+  V2DropdownMenuTrigger,
+  V2DropdownMenuContent,
+  V2DropdownMenuItem,
+} from "./components/ui/V2DropdownMenu";
 import { cn } from "@/lib/utils";
 import { V2_NAV_ITEMS } from "./constants/navigation";
 
@@ -258,22 +257,22 @@ export function V2Header() {
                 </button>
 
                 {/* User dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger>
+                <V2DropdownMenu>
+                  <V2DropdownMenuTrigger>
                     <div
                       className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-[#536471] transition-colors hover:text-[#0f1419] active:text-[#0f1419]"
                       title={user.name || user.email || "用户菜单"}
                     >
                       <User className="h-4 w-4" />
                     </div>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <div className="border-b border-gray-100 px-3 py-2 text-sm text-gray-500">
+                  </V2DropdownMenuTrigger>
+                  <V2DropdownMenuContent align="end" className="w-48">
+                    <div className="border-b border-[#e5e7eb] px-3 py-2 text-sm text-[#506672]">
                       {user.email}
                     </div>
                     {/* Quota */}
                     <div className="px-3 py-2">
-                      <span className="text-xs text-gray-400">剩余额度</span>
+                      <span className="text-xs text-[#72808a]">剩余额度</span>
                       <Badge
                         variant="secondary"
                         className={cn(
@@ -286,34 +285,30 @@ export function V2Header() {
                         {remainingQuota}/{quotaMax}
                       </Badge>
                     </div>
-                    <DropdownMenuSeparator />
                     {isAdmin && (
-                      <>
-                        <DropdownMenuItem className="cursor-pointer">
-                          <Link href="/admin/users" className="flex w-full items-center gap-2">
-                            <Users className="h-4 w-4" />
-                            用户管理
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                      </>
+                      <V2DropdownMenuItem className="cursor-pointer">
+                        <Link href="/admin/users" className="flex w-full items-center gap-2">
+                          <Users className="h-4 w-4" />
+                          用户管理
+                        </Link>
+                      </V2DropdownMenuItem>
                     )}
-                    <DropdownMenuItem
+                    <V2DropdownMenuItem
                       onClick={() => setSettingsOpen(true)}
                       className="cursor-pointer"
                     >
                       <Settings className="h-4 w-4" />
                       设置
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
+                    </V2DropdownMenuItem>
+                    <V2DropdownMenuItem
                       onClick={() => signOut()}
                       className="cursor-pointer text-red-600 focus:text-red-600"
                     >
                       <LogOut className="h-4 w-4" />
                       登出
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                    </V2DropdownMenuItem>
+                  </V2DropdownMenuContent>
+                </V2DropdownMenu>
               </div>
             ) : (
               <Link

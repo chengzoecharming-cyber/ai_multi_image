@@ -179,10 +179,9 @@ export default function AssetsPage() {
                 className={cn(
                   "flex items-center gap-1 px-3 py-1.5 rounded-[8px] text-[14px] font-medium transition-colors",
                   selectedIds.size === 0
-                    ? "text-[#72808a] cursor-default"
-                    : "text-[#0f1419] hover:opacity-80"
+                    ? "text-[#72808a] cursor-default bg-bbg"
+                    : "text-[#0f1419] bg-bbg hover:bg-bbg-hover"
                 )}
-                style={{ backgroundColor: BBG }}
               >
                 <Trash2 className="w-4 h-4" />
                 删除
@@ -193,10 +192,9 @@ export default function AssetsPage() {
                 className={cn(
                   "flex items-center gap-1 px-3 py-1.5 rounded-[8px] text-[14px] font-medium transition-colors",
                   selectedIds.size === 0
-                    ? "text-[#72808a] cursor-default"
-                    : "text-[#0f1419] hover:opacity-80"
+                    ? "text-[#72808a] cursor-default bg-bbg"
+                    : "text-[#0f1419] bg-bbg hover:bg-bbg-hover"
                 )}
-                style={{ backgroundColor: BBG }}
               >
                 <Download className="w-4 h-4" />
                 下载
@@ -208,10 +206,9 @@ export default function AssetsPage() {
                   className={cn(
                     "flex items-center gap-1 px-3 py-1.5 rounded-[8px] text-[14px] font-medium transition-colors",
                     selectedIds.size === 0
-                      ? "text-[#72808a] cursor-default"
-                      : "text-[#0f1419] hover:opacity-80"
+                      ? "text-[#72808a] cursor-default bg-bbg"
+                      : "text-[#0f1419] bg-bbg hover:bg-bbg-hover"
                   )}
-                  style={{ backgroundColor: BBG }}
                 >
                   <Star className="w-4 h-4" />
                   收藏
@@ -219,8 +216,7 @@ export default function AssetsPage() {
               )}
               <button
                 onClick={exitBatchMode}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-[8px] text-[14px] font-medium text-[#0f1419] transition-colors hover:opacity-80"
-                style={{ backgroundColor: BBG }}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-[8px] text-[14px] font-medium text-[#0f1419] transition-colors bg-bbg hover:bg-bbg-hover"
               >
                 <X className="w-4 h-4" />
                 退出

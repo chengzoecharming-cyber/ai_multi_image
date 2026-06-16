@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Loader2, RefreshCw, X, Copy, Download } from "lucide-react";
+import { RefreshCw, X, Copy, Download } from "lucide-react";
+import { LoadingPlaceholder } from "./components/LoadingPlaceholder";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -194,9 +195,7 @@ export function DetailRightPanel({
                   <div className="space-y-3">
                     {isQueued && (
                       <div className="relative h-[280px] flex flex-col items-center justify-center text-center px-4 overflow-hidden bg-white rounded-xl">
-                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/70 via-white/40 to-violet-100/70 animate-pulse" />
-                        <div className="absolute inset-3 rounded-lg bg-white/35 animate-pulse" />
-                        <Loader2 className="relative w-7 h-7 animate-spin text-indigo-400 mb-3" />
+                        <LoadingPlaceholder className="relative mb-3" />
                         <div className="relative text-sm font-medium text-gray-700">{V2_DETAIL_TYPE_LABELS[type] || type}</div>
                         <div className="relative text-xs text-gray-400 mt-1">
                           {isActive ? "AI 正在生成" : "已加入生成队列"}
@@ -209,7 +208,7 @@ export function DetailRightPanel({
                           type="button"
                           onClick={() => onRetryType?.(type)}
                           disabled={!onRetryType || generating}
-                          className="h-8 px-4 text-[12px] bg-[rgb(235,236,237)] text-[#0f1419] border-0 hover:bg-[rgb(220,222,224)] font-medium"
+                          className="h-8 px-4 text-[12px] bg-bbg text-[#0f1419] border-0 hover:bg-bbg-hover font-medium"
                         >
                           重新生成
                         </Button>
@@ -222,7 +221,7 @@ export function DetailRightPanel({
                         onClick={() =>
                           onOpenImageDetail({
                             imageUrl: img.imageUrl,
-                            prompt: activeSession.detail?.heroPlan?.imageGenerationPrompt || activeSession.detail?.heroPlan?.finalPrompt,
+                            prompt: activeSession.goal,
                             plan: activeSession.detail?.heroPlan || null,
                             taskId: img.taskId,
                           })
@@ -241,7 +240,7 @@ export function DetailRightPanel({
             })}
             {generating && displayTypes.length === 0 && (
               <div className="w-[280px] h-[280px] flex flex-col items-center justify-center text-center px-4 bg-white rounded-xl">
-                <Loader2 className="w-7 h-7 animate-spin text-indigo-400 mb-3" />
+                <LoadingPlaceholder className="mb-3" />
                 <div className="text-sm font-medium text-gray-700">商详图</div>
                 <div className="text-xs text-gray-400 mt-1">AI 正在生成</div>
               </div>

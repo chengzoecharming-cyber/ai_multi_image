@@ -35,7 +35,7 @@ export function TemplateCard({ template, onOpen, onUse }: TemplateCardProps) {
         className="block text-left mt-3"
         onClick={onOpen}
       >
-        <h2 className="text-sm font-medium text-[#0f1419]">
+        <h2 className="text-sm font-medium" style={{ color: "#08829B" }}>
           {template.name}
         </h2>
         <p className="mt-1 text-xs text-[#72808a] truncate">

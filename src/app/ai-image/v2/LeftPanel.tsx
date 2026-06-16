@@ -517,14 +517,14 @@ export function LeftPanel({
             <Button
               onClick={onGenerate}
               disabled={!activeProductImage || !goal.trim()}
-              className="flex-1 h-10 bg-[rgb(235,236,237)] hover:bg-[rgb(220,221,222)] text-[#0f1419] border-0"
+              className="flex-1 h-10 bg-bbg hover:bg-bbg-hover text-[#0f1419] border-0"
             >
               <Sparkles className="w-4 h-4 mr-2" stroke="url(#icon-gradient)" />AI 生成方案
             </Button>
             <Button
-              onClick={handleDirectGenerate}
-              disabled={!activeProductImage || !goal.trim()}
-              className="flex-1 h-10 bg-[rgb(235,236,237)] hover:bg-[rgb(220,221,222)] text-[#0f1419] border-0"
+               onClick={handleDirectGenerate}
+               disabled={!activeProductImage || !goal.trim()}
+               className="flex-1 h-10 bg-bbg hover:bg-bbg-hover text-[#0f1419] border-0"
             >
               <Wand2 className="w-4 h-4 mr-2" stroke="url(#icon-gradient)" />直接生成
             </Button>

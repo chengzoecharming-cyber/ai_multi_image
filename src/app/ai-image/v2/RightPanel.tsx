@@ -19,6 +19,7 @@ export interface RightPanelProps {
   onClosePreview: () => void;
   onUpdateSingle: (plan: CreativePlan) => void;
   onOpenImageDetail: (data: ImageDetailData) => void;
+  userGoal?: string;
 }
 
 export function RightPanel({
@@ -31,6 +32,7 @@ export function RightPanel({
   onClosePreview,
   onUpdateSingle,
   onOpenImageDetail,
+  userGoal,
 }: RightPanelProps) {
   const [infoPlan, setInfoPlan] = useState<CreativePlan | null>(null);
 
@@ -217,6 +219,7 @@ export function RightPanel({
         isGeneratingImage={generatingImage}
         productImageUrls={activeSession.productImageUrls}
         referenceImageUrls={activeSession.referenceImageUrls}
+        userGoal={userGoal}
         onBack={onClosePreview}
         onGenerateImage={onGenerateImage}
         onGenerateDetails={onGenerateDetails}

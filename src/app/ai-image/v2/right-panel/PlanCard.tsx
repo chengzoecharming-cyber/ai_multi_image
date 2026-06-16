@@ -36,14 +36,12 @@ export function PlanCard({
   const [showCn, setShowCn] = useState(false);
   const hasCn = !!(plan.headlineCn || plan.subtitleCn || (plan.sellingPointsCn && plan.sellingPointsCn.length > 0) || (plan.copyBlocksCn && plan.copyBlocksCn.length > 0));
 
-  // 文案区显示内容（中英切换）
   const displayHeadline = showCn && plan.headlineCn ? plan.headlineCn : plan.headline;
   const displaySubtitle = showCn && plan.subtitleCn ? plan.subtitleCn : plan.subtitle;
   const displaySellingPoints = (showCn && plan.sellingPointsCn ? plan.sellingPointsCn : plan.sellingPoints || []).filter(Boolean);
   const displayCopyBlocks = showCn && plan.copyBlocksCn && plan.copyBlocksCn.length > 0
     ? plan.copyBlocksCn
     : plan.copyBlocks || [];
-  // 排除已在单独区域展示的 role，展示全部不折叠
   const filteredCopyBlocks = displayCopyBlocks
     .filter((b) =>
       b.role !== "headline" &&
@@ -52,7 +50,6 @@ export function PlanCard({
       b.role !== "technical_point"
     );
 
-  // role 中文映射
   const ROLE_LABELS: Record<string, string> = {
     core_claim: "核心卖点",
     comparison_label: "对比标签",
@@ -61,7 +58,6 @@ export function PlanCard({
     badge: "标签",
   };
 
-  // 推断底色标签
   const bgLabel = (() => {
     const sid = plan.visualStyleId || "";
     const vp = plan.visualPresentation || "";
@@ -72,7 +68,6 @@ export function PlanCard({
     return null;
   })();
 
-  // Tag 数据
   const copyDensityLabel = plan.copyDensity
     ? COPY_DENSITY_PROFILES[plan.copyDensity]?.label
     : null;
@@ -86,7 +81,6 @@ export function PlanCard({
       style={{ height: "578px" }}
       onPointerDown={(e) => e.stopPropagation()}
     >
-      {/* ========== 1. 标题 + 操作区 ========== */}
       <div className="px-6 pt-5 pb-2 shrink-0">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -123,7 +117,6 @@ export function PlanCard({
         </div>
       </div>
 
-      {/* ========== 2. Tag 区 ========== */}
       <div className="px-6 pb-3 shrink-0">
         <div className="flex flex-wrap gap-1.5">
           <Badge variant="outline" className={cn("text-[11px] h-5 px-2 font-normal", meta.color, meta.border)}>
@@ -147,14 +140,10 @@ export function PlanCard({
         </div>
       </div>
 
-      {/* ========== 3. 图片文案区 + 4. 风格区（合并滚动区） ========== */}
       <div className="flex-1 px-6 py-1 overflow-y-auto min-h-0">
         <div className="space-y-4">
-
-          {/* 图片文案区 */}
           {(displayHeadline || displaySubtitle || displaySellingPoints.length > 0 || filteredCopyBlocks.length > 0) && (
             <div>
-              {/* 标题 */}
               {displayHeadline && (
                 <div className="mb-3">
                   <div className="text-[14px] font-normal text-[#72808a] mb-1">标题</div>
@@ -162,7 +151,6 @@ export function PlanCard({
                 </div>
               )}
 
-              {/* 副标题 */}
               {displaySubtitle && (
                 <div className="mb-3">
                   <div className="text-[14px] font-normal text-[#72808a] mb-1">副标题</div>
@@ -170,7 +158,6 @@ export function PlanCard({
                 </div>
               )}
 
-              {/* 卖点 */}
               {displaySellingPoints.length > 0 && (
                 <div className="mb-3">
                   <div className="text-[14px] font-normal text-[#72808a] mb-1">卖点</div>
@@ -185,11 +172,9 @@ export function PlanCard({
                 </div>
               )}
 
-              {/* 其他文案块（按 role 分组展示） */}
               {filteredCopyBlocks.length > 0 && (
                 <div className="space-y-3">
                   {(() => {
-                    // Group by role
                     const groups = new Map<string, typeof filteredCopyBlocks>();
                     filteredCopyBlocks.forEach((block) => {
                       const list = groups.get(block.role) || [];
@@ -219,7 +204,6 @@ export function PlanCard({
             </div>
           )}
 
-          {/* 风格区 */}
           {plan.visualPresentation && (
             <div className="pt-1">
               <div className="text-[14px] font-normal text-[#72808a] mb-2">风格</div>
@@ -231,7 +215,16 @@ export function PlanCard({
 
       {/* ========== 按钮区 ========== */}
       <div className={cn("px-6 py-4 shrink-0 flex gap-2.5", hasGeneratedImage || isGenerating ? "flex-row" : "flex-col")}>
-        {hasGeneratedImage && (
+        {isGenerating && (
+          <Button
+            variant="outline"
+            onClick={() => onViewImage(plan)}
+            className="h-10 flex-[3] border-amber-200 text-amber-600 bg-amber-50/50 text-sm font-semibold cursor-pointer"
+          >
+            <Sparkles className="w-4 h-4 mr-1.5 animate-pulse" />生成中
+          </Button>
+        )}
+        {hasGeneratedImage && !isGenerating && (
           <Button
             variant="outline"
             onClick={() => onViewImage(plan)}
@@ -240,26 +233,17 @@ export function PlanCard({
             <Eye className="w-4 h-4 mr-1.5" />查看图片
           </Button>
         )}
-        {isGenerating && (
-          <Button
-            variant="outline"
-            onClick={() => onViewImage(plan)}
-            disabled
-            className="h-10 flex-[3] border-amber-200 text-amber-600 bg-amber-50/50 text-sm font-semibold cursor-pointer"
-          >
-            <Sparkles className="w-4 h-4 mr-1.5 animate-pulse" />生成中
-          </Button>
-        )}
         <Button
           onClick={() => onGenerateImage(plan)}
           disabled={isGenerating}
           className={cn(
-            "bg-[rgb(235,236,237)] hover:bg-[rgb(220,222,224)] text-[#0f1419] border-0 shadow-sm text-sm font-semibold",
+            "bg-bbg hover:bg-bbg-hover text-[#0f1419] border-0 shadow-sm text-sm font-semibold",
             hasGeneratedImage || isGenerating ? "h-10 flex-[2]" : "w-full h-10",
             isGenerating && "opacity-50 cursor-not-allowed"
           )}
         >
-          <Wand2 className="w-4 h-4 mr-1.5" />生成图片
+          <Wand2 className="w-4 h-4 mr-1.5" />
+          {hasGeneratedImage ? "重新生成" : "生成图片"}
         </Button>
       </div>
     </div>

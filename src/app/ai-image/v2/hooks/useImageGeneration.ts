@@ -13,20 +13,28 @@ export interface UseImageGenerationOptions {
   onSessionPersist?: (session: V2Session) => Promise<void> | void;
 }
 
+export interface ImageGenerationResult {
+  success: boolean;
+  imageUrl?: string;
+  imageBase64?: string;
+  error?: string;
+  taskId?: string;
+}
+
 export interface ImageGenerationActions {
-  handleGenerateImage: (plan: CreativePlan) => Promise<void>;
+  handleGenerateImage: (plan: CreativePlan) => Promise<ImageGenerationResult>;
 }
 
 export function useImageGeneration(options: UseImageGenerationOptions): ImageGenerationActions {
   const { activeSession, updateActiveSession, onSessionPersist } = options;
 
   const handleGenerateImage = useCallback(
-    async (rawPlan: CreativePlan) => {
+    async (rawPlan: CreativePlan): Promise<ImageGenerationResult> => {
       const plan = refreshPlanPrompts(rawPlan);
       const activeProductImage = activeSession?.productImageUrls?.[activeSession?.activeProductImageIndex ?? 0];
       if (!activeProductImage) {
         toast.error("请先上传商品图");
-        return;
+        return { success: false, error: "请先上传商品图" };
       }
       updateActiveSession((s) => ({ ...s, generatingImage: true, generatingImagePlanId: plan.id, lastError: null }));
 
@@ -45,8 +53,6 @@ export function useImageGeneration(options: UseImageGenerationOptions): ImageGen
 
         const userGoal = activeSession?.goal || "";
         const limitedScope = isLimitedScope(userGoal);
-        // When user explicitly limits scope (e.g. "only change size text"), use a minimal prompt
-        // even if the plan already has a full finalPrompt from LLM generation.
         const promptContent = limitedScope
           ? buildNoTextImagePrompt(plan, userGoal)
           : (plan.finalPrompt || plan.imageGenerationPrompt || buildNoTextImagePrompt(plan, userGoal));
@@ -86,11 +92,10 @@ export function useImageGeneration(options: UseImageGenerationOptions): ImageGen
           const imageBase64 =
             rawBase64 && rawBase64.startsWith("data:")
               ? rawBase64
-              : rawBase64 && rawBase64.startsWith("http")
-                ? ""
-                : rawBase64 && rawBase64.length > 64
-                  ? `data:image/png;base64,${rawBase64}`
-                  : "";
+              : rawBase64 && !rawBase64.startsWith("http") && rawBase64.length > 0
+                ? `data:image/png;base64,${rawBase64}`
+                : "";
+          const taskId = data.data?.id as string | undefined;
           let nextSession: V2Session | null = null;
           updateActiveSession((s) => ({
             ...(nextSession = {
@@ -101,7 +106,7 @@ export function useImageGeneration(options: UseImageGenerationOptions): ImageGen
                 {
                   id: globalThis.crypto?.randomUUID?.() || `img-${nowTs()}-${Math.random().toString(36).slice(2, 6)}`,
                   planId: plan.id,
-                  taskId: data.data?.id,
+                  taskId,
                   tab: "product" as const,
                   imageUrl,
                   imageBase64,
@@ -115,37 +120,42 @@ export function useImageGeneration(options: UseImageGenerationOptions): ImageGen
             void onSessionPersist?.(nextSession);
           }
           toast.success("图片生成成功");
+          return { success: true, imageUrl, imageBase64, taskId };
         } else {
-          if (res.status === 429 && data.code === "QUOTA_EXHAUSTED") {
-            toast.error(data.error || "配额已耗尽");
-          } else {
-            toast.error(data.error || "生成失败");
-          }
+          const errorMsg = (res.status === 429 && data.code === "QUOTA_EXHAUSTED")
+            ? (data.error || "配额已耗尽")
+            : (data.error || "生成失败");
+          toast.error(errorMsg);
           updateActiveSession((s) => ({
             ...s,
             generatingImage: false,
             generatingImagePlanId: null,
-            lastError: data.error || "生成失败",
+            lastError: errorMsg,
           }));
+          return { success: false, error: errorMsg };
         }
       } catch (err: unknown) {
         clearTimeout(timeoutId);
         if (err instanceof Error && err.name === "AbortError") {
-          toast.error("生成超时（90秒），请重试");
+          const errorMsg = "生成超时（90秒），请重试";
+          toast.error(errorMsg);
           updateActiveSession((s) => ({
             ...s,
             generatingImage: false,
             generatingImagePlanId: null,
-            lastError: "生成超时（90秒）",
+            lastError: errorMsg,
           }));
+          return { success: false, error: errorMsg };
         } else {
-          toast.error("网络错误，请重试");
+          const errorMsg = "网络错误，请重试";
+          toast.error(errorMsg);
           updateActiveSession((s) => ({
             ...s,
             generatingImage: false,
             generatingImagePlanId: null,
-            lastError: "网络错误",
+            lastError: errorMsg,
           }));
+          return { success: false, error: errorMsg };
         }
       }
     },

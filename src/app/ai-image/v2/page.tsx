@@ -15,6 +15,7 @@ import ImageGalleryDrawer from "./components/ImageGalleryDrawer";
 import ImageDetailOverlay from "./components/ImageDetailOverlay";
 import type { GalleryApplyData } from "./components/ImageGalleryDrawer";
 import type { ImageDetailData } from "./components/ImageDetailOverlay";
+import type { CreativePlan } from "./types";
 
 function V2WorkbenchPageInner() {
   const {
@@ -144,6 +145,124 @@ function V2WorkbenchPageInner() {
     toast.error("该记录不存在（修复中）");
   }, [sessions, setActiveSessionId, setWorkspaceTab, updateActiveSession]);
 
+  // ── Handle image generation with overlay state ──
+  const handleGenerateImageWithOverlay = useCallback(async (plan: CreativePlan) => {
+    const userGoal = activeSession?.goal || "";
+    const existingImage = activeSession?.generatedImages?.find((g) => g.planId === plan.id);
+
+    if (existingImage) {
+      // Re-generate: show loading overlay then trigger generation
+      openImageDetail({
+        imageUrl: "",
+        prompt: userGoal,
+        referenceImageUrls: activeSession?.referenceImageUrls,
+        productImageUrls: activeSession?.productImageUrls,
+        plan,
+        status: "loading",
+      });
+
+      const result = await handleGenerateImage(plan);
+
+      if (result.success && result.imageUrl) {
+        setImageDetailData((prev) =>
+          prev && prev.plan?.id === plan.id
+            ? {
+                ...prev,
+                imageUrl: result.imageBase64 || result.imageUrl!,
+                taskId: result.taskId,
+                status: "success",
+              }
+            : prev
+        );
+      } else {
+        setImageDetailData((prev) =>
+          prev && prev.plan?.id === plan.id
+            ? {
+                ...prev,
+                status: "error",
+                errorMessage: result.error || "生成失败",
+              }
+            : prev
+        );
+      }
+      return;
+    }
+
+    // Open overlay with loading state
+    openImageDetail({
+      imageUrl: "",
+      prompt: userGoal,
+      referenceImageUrls: activeSession?.referenceImageUrls,
+      productImageUrls: activeSession?.productImageUrls,
+      plan,
+      status: "loading",
+    });
+
+    // Trigger generation
+    const result = await handleGenerateImage(plan);
+
+    // Update overlay based on result
+    if (result.success && result.imageUrl) {
+      setImageDetailData((prev) =>
+        prev && prev.plan?.id === plan.id
+          ? {
+              ...prev,
+              imageUrl: result.imageBase64 || result.imageUrl!,
+              taskId: result.taskId,
+              status: "success",
+            }
+          : prev
+      );
+    } else {
+      setImageDetailData((prev) =>
+        prev && prev.plan?.id === plan.id
+          ? {
+              ...prev,
+              status: "error",
+              errorMessage: result.error || "生成失败",
+            }
+          : prev
+      );
+    }
+  }, [activeSession, handleGenerateImage, openImageDetail]);
+
+  // ── Handle retry from overlay ──
+  const handleRetryImage = useCallback(async (plan: CreativePlan) => {
+    // Update overlay to loading state
+    setImageDetailData((prev) =>
+      prev && prev.plan?.id === plan.id
+        ? { ...prev, status: "loading", errorMessage: undefined }
+        : prev
+    );
+
+    // Trigger generation again
+    const result = await handleGenerateImage(plan);
+
+    if (result.success && result.imageUrl) {
+      setImageDetailData((prev) =>
+        prev && prev.plan?.id === plan.id
+          ? {
+              ...prev,
+              imageUrl: result.imageBase64 || result.imageUrl!,
+              taskId: result.taskId,
+              status: "success",
+            }
+          : prev
+      );
+    } else {
+      setImageDetailData((prev) =>
+        prev && prev.plan?.id === plan.id
+          ? {
+              ...prev,
+              status: "error",
+              errorMessage: result.error || "生成失败",
+            }
+          : prev
+      );
+    }
+  }, [handleGenerateImage]);
+
+
   if (!activeSession) {
     return (
       <div className="flex flex-col h-screen bg-[rgb(248,249,250)] overflow-hidden items-center justify-center">
@@ -239,14 +358,12 @@ function V2WorkbenchPageInner() {
           {tab === "product" && (step === "plans" || step === "preview") && (
             <RightPanel
               activeSession={activeSession}
+              userGoal={activeSession?.goal}
               onSelectPlan={(planId) => updateActiveSession((s) => ({ ...s, expandedSingleId: planId }))}
               onOpenPreview={handleOpenPlanPreview}
               onUpdateSingle={handleUpdateSinglePlan}
               onSave={handleOpenSaveTemplate}
-              onGenerateImage={(plan) => {
-                handleOpenPlanPreview(plan);
-                handleGenerateImage(plan);
-              }}
+              onGenerateImage={handleGenerateImageWithOverlay}
               onGenerateDetails={async (plan, imageUrl) => {
                 const matchedGenerated = activeSession.generatedImages?.find(
                   (img) => img.planId === plan.id && img.imageUrl === imageUrl
@@ -340,7 +457,7 @@ function V2WorkbenchPageInner() {
       />
 
       {/* Image Detail Overlay */}
-      <ImageDetailOverlay data={imageDetailData} onClose={closeImageDetail} />
+      <ImageDetailOverlay data={imageDetailData} onClose={closeImageDetail} onRetry={handleRetryImage} />
 
       {/* Plan Template Library Drawer */}
       <PlanTemplateLibraryDrawer

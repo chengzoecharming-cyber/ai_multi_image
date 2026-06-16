@@ -38,6 +38,7 @@ export interface ImagePreviewPanelProps {
   isGeneratingImage: boolean;
   productImageUrls?: string[];
   referenceImageUrls?: string[];
+  userGoal?: string;
   onBack: () => void;
   onGenerateImage: (plan: CreativePlan) => void;
   onGenerateDetails: (plan: CreativePlan, imageUrl: string) => void;
@@ -73,6 +74,7 @@ export function ImagePreviewPanel({
   isGeneratingImage,
   productImageUrls,
   referenceImageUrls,
+  userGoal,
   onBack,
   onGenerateImage,
   onGenerateDetails,
@@ -148,9 +150,9 @@ export function ImagePreviewPanel({
     }
   }, [favorited, imageSrc, plan, productImageUrls, referenceImageUrls]);
 
-  // Parse prompt lines for display
+  // Parse prompt lines for display — show user-entered goal only
   const promptLines = (() => {
-    const prompt = plan.imageGenerationPrompt;
+    const prompt = userGoal || plan.imageGenerationPrompt;
     if (!prompt) return [];
     const text = prompt.trim();
     if (text.length > 200) {
@@ -268,7 +270,7 @@ export function ImagePreviewPanel({
                 onClick={() =>
                   onOpenImageDetail({
                     imageUrl: imageSrc,
-                    prompt: plan.imageGenerationPrompt,
+                    prompt: userGoal,
                     productImageUrls,
                     referenceImageUrls,
                     plan,
@@ -292,7 +294,7 @@ export function ImagePreviewPanel({
               <p className="text-sm text-gray-400 mb-3">尚未生成图片</p>
               <Button
                 onClick={() => onGenerateImage(plan)}
-                className="h-10 bg-[rgb(235,236,237)] hover:bg-[rgb(220,222,224)] text-[#0f1419] border-0"
+                className="h-10 bg-bbg hover:bg-bbg-hover text-[#0f1419] border-0"
               >
                 <Wand2 className="w-4 h-4 mr-2" />
                 生成图片
