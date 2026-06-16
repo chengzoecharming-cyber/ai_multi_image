@@ -259,14 +259,14 @@ function ImageDetailOverlay({
               )}
 
               {/* 缩略图占位：主图加载失败或未加载时，先显示缩略图 */}
-              {data.thumbImageUrl && !imageLoaded && (
+              {data.thumbImageUrl && (!imageLoaded || imageLoadError) && (
                 <img
                   key={`thumb-${imgKey}`}
                   src={data.thumbImageUrl}
                   alt=""
                   className={cn(
                     "object-contain rounded-lg shadow-sm transition-opacity duration-300",
-                    imageLoaded ? "opacity-0 absolute" : "opacity-100"
+                    imageLoaded && !imageLoadError ? "opacity-0 absolute" : "opacity-100"
                   )}
                   style={{
                     maxHeight: "calc(100vh - 48px)",
@@ -297,21 +297,49 @@ function ImageDetailOverlay({
 
               {/* 图片加载失败 UI */}
               {imageLoadError && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-20">
-                  <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center">
-                    <AlertCircle className="w-8 h-8 text-red-400" />
-                  </div>
-                  <p className="text-base font-medium text-gray-700">图片加载失败</p>
-                  <p className="text-xs text-gray-400 max-w-xs text-center">
-                    可能是图片地址已失效，请尝试重新加载
-                  </p>
-                  <button
-                    onClick={handleReloadImage}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-bbg hover:bg-bbg-hover text-[#0f1419]"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                    重新加载
-                  </button>
+                <div
+                  className={cn(
+                    "absolute inset-0 flex flex-col items-center justify-center gap-4 z-20",
+                    data.thumbImageUrl
+                      ? "bg-black/40 backdrop-blur-[2px]"
+                      : ""
+                  )}
+                >
+                  {data.thumbImageUrl ? (
+                    <>
+                      <div className="w-16 h-16 rounded-2xl bg-white/90 flex items-center justify-center shadow-sm">
+                        <AlertCircle className="w-8 h-8 text-amber-500" />
+                      </div>
+                      <p className="text-base font-medium text-white drop-shadow">原图加载失败</p>
+                      <p className="text-xs text-white/80 max-w-xs text-center drop-shadow">
+                        已自动显示缩略图。原图地址可能已失效，可尝试重新加载。
+                      </p>
+                      <button
+                        onClick={handleReloadImage}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-white/90 hover:bg-white text-[#0f1419] shadow-sm"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        重新加载原图
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center">
+                        <AlertCircle className="w-8 h-8 text-red-400" />
+                      </div>
+                      <p className="text-base font-medium text-gray-700">图片加载失败</p>
+                      <p className="text-xs text-gray-400 max-w-xs text-center">
+                        可能是图片地址已失效，请尝试重新加载
+                      </p>
+                      <button
+                        onClick={handleReloadImage}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-bbg hover:bg-bbg-hover text-[#0f1419]"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        重新加载
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>

@@ -63,6 +63,9 @@ function V2WorkbenchPageInner() {
     handleGenerateDetail,
     handleRetryDetailType,
     handleRefreshDetailType,
+    stopAllDetailGeneration,
+    stopDetailTypeGeneration,
+    isDetailGenerating,
     workspaceTab,
     lastDebugPrompt,
   } = useV2Session();
@@ -347,6 +350,7 @@ function V2WorkbenchPageInner() {
             onUpdateSession={updateActiveSession}
             onToggleDetailType={toggleDetailType}
             onGenerate={handleGenerateDetail}
+            onStopAll={stopAllDetailGeneration}
             onOpenImageDetail={openImageDetail}
           />
         )}
@@ -440,6 +444,7 @@ function V2WorkbenchPageInner() {
                 activeSession={activeSession}
                 onRetryType={handleRetryDetailType}
                 onRefreshType={handleRefreshDetailType}
+                onStopType={stopDetailTypeGeneration}
                 onOpenImageDetail={openImageDetail}
               />
             )}

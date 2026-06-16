@@ -190,6 +190,9 @@ export function useV2Session() {
     handleGenerateDetail: detailGeneration.handleGenerateDetail,
     handleRetryDetailType: detailGeneration.handleRetryDetailType,
     handleRefreshDetailType: detailGeneration.handleRefreshDetailType,
+    stopAllDetailGeneration: detailGeneration.stopAllDetailGeneration,
+    stopDetailTypeGeneration: detailGeneration.stopDetailTypeGeneration,
+    isDetailGenerating: detailGeneration.isDetailGenerating,
 
     // Debug
     lastDebugPrompt: planGeneration.lastDebugPrompt,

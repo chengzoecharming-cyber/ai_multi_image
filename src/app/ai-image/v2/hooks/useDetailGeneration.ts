@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { toast } from "sonner";
 import type { V2Session, V2DetailType } from "../types";
 import { nowTs } from "./utils/session-utils";
@@ -16,10 +16,19 @@ export interface DetailGenerationActions {
   handleGenerateDetail: () => Promise<void>;
   handleRetryDetailType: (type: V2DetailType) => Promise<void>;
   handleRefreshDetailType: (type: V2DetailType) => void;
+  stopAllDetailGeneration: () => void;
+  stopDetailTypeGeneration: (type: V2DetailType) => void;
+  /** Whether there is any active detail generation in progress */
+  isDetailGenerating: boolean;
 }
 
 export function useDetailGeneration(options: UseDetailGenerationOptions): DetailGenerationActions {
   const { activeSession, updateActiveSession, onSessionPersist } = options;
+
+  const shouldStopAll = useRef(false);
+  const stoppedTypes = useRef<Set<V2DetailType>>(new Set());
+
+  const isDetailGenerating = activeSession?.detail?.generating || false;
 
   const toggleDetailType = useCallback(
     (type: V2DetailType) => {
@@ -51,6 +60,10 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
       return;
     }
 
+    // Reset cancellation flags before starting
+    shouldStopAll.current = false;
+    stoppedTypes.current = new Set();
+
     let startedSession: V2Session | null = null;
     updateActiveSession((s) => ({
       ...(startedSession = {
@@ -61,6 +74,7 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
           generatingTypes: selectedTypes,
           activeGeneratingType: selectedTypes[0] || null,
           failedTypes: (s.detail?.failedTypes || []).filter((item) => !selectedTypes.includes(item.type)),
+          stoppedTypes: (s.detail?.stoppedTypes || []).filter((item) => !selectedTypes.includes(item)),
           lastError: null,
         },
       }),
@@ -76,6 +90,48 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
 
       for (let index = 0; index < selectedTypes.length; index++) {
         const currentType = selectedTypes[index];
+
+        // Check if user requested to stop all generation
+        if (shouldStopAll.current) {
+          // Remaining types are considered stopped (not failed)
+          const remainingStopped = selectedTypes.slice(index).filter((t) => !stoppedTypes.current.has(t));
+          updateActiveSession((s) => ({
+            ...s,
+            detail: {
+              ...(s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: false, results: [], lastError: null }),
+              generating: false,
+              generatingTypes: [],
+              activeGeneratingType: null,
+              stoppedTypes: [
+                ...(s.detail?.stoppedTypes || []).filter((item) => !remainingStopped.includes(item)),
+                ...remainingStopped,
+              ],
+              lastError: null,
+            },
+          }));
+          toast.info("已停止生成");
+          return;
+        }
+
+        // Check if this specific type was stopped by user
+        if (stoppedTypes.current.has(currentType)) {
+          updateActiveSession((s) => ({
+            ...s,
+            detail: {
+              ...(s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: true, results: [], lastError: null }),
+              generating: true,
+              generatingTypes: selectedTypes.slice(index + 1),
+              activeGeneratingType: selectedTypes[index + 1] || null,
+              stoppedTypes: [
+                ...(s.detail?.stoppedTypes || []).filter((item) => item !== currentType),
+                currentType,
+              ],
+              lastError: null,
+            },
+          }));
+          continue;
+        }
+
         updateActiveSession((s) => ({
           ...s,
           detail: {
@@ -103,6 +159,45 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
             heroPlan,
           }),
         });
+
+        // Check again after the network call (user might have clicked stop while waiting)
+        if (shouldStopAll.current) {
+          const remainingStopped = selectedTypes.slice(index).filter((t) => !stoppedTypes.current.has(t));
+          updateActiveSession((s) => ({
+            ...s,
+            detail: {
+              ...(s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: false, results: [], lastError: null }),
+              generating: false,
+              generatingTypes: [],
+              activeGeneratingType: null,
+              stoppedTypes: [
+                ...(s.detail?.stoppedTypes || []).filter((item) => !remainingStopped.includes(item)),
+                ...remainingStopped,
+              ],
+              lastError: null,
+            },
+          }));
+          toast.info("已停止生成");
+          return;
+        }
+
+        if (stoppedTypes.current.has(currentType)) {
+          updateActiveSession((s) => ({
+            ...s,
+            detail: {
+              ...(s.detail || { detailImageUrls: [], activeDetailImageIndex: 0, selectedTypes: [], generating: true, results: [], lastError: null }),
+              generating: true,
+              generatingTypes: selectedTypes.slice(index + 1),
+              activeGeneratingType: selectedTypes[index + 1] || null,
+              stoppedTypes: [
+                ...(s.detail?.stoppedTypes || []).filter((item) => item !== currentType),
+                currentType,
+              ],
+              lastError: null,
+            },
+          }));
+          continue;
+        }
 
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -295,5 +390,13 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
     [updateActiveSession, handleGenerateDetailTypes, onSessionPersist]
   );
 
-  return { toggleDetailType, handleGenerateDetail, handleRetryDetailType, handleRefreshDetailType };
+  const stopAllDetailGeneration = useCallback(() => {
+    shouldStopAll.current = true;
+  }, []);
+
+  const stopDetailTypeGeneration = useCallback((type: V2DetailType) => {
+    stoppedTypes.current.add(type);
+  }, []);
+
+  return { toggleDetailType, handleGenerateDetail, handleRetryDetailType, handleRefreshDetailType, stopAllDetailGeneration, stopDetailTypeGeneration, isDetailGenerating };
 }

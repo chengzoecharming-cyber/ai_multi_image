@@ -1,20 +1,14 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { RefreshCw, X, Copy, Download } from "lucide-react";
-import { LoadingPlaceholder } from "./components/LoadingPlaceholder";
+import { Copy, Download, X, RefreshCw, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
-import { toast } from "sonner";
-import type { V2DetailType, V2Session } from "./types";
 import { V2_DETAIL_TYPE_LABELS } from "./types";
+import type { V2DetailType, V2Session } from "./types";
+import { LoadingPlaceholder } from "./components/LoadingPlaceholder";
 import type { ImageDetailData } from "./components/ImageDetailOverlay";
 
 interface LightboxProps {
@@ -27,29 +21,15 @@ function Lightbox({ imageUrl, onClose }: LightboxProps) {
     try {
       const res = await fetch(imageUrl);
       const blob = await res.blob();
-      if (navigator.clipboard && navigator.clipboard.write) {
-        await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
-        toast.success("图片已复制到剪贴板");
-      } else {
-        toast.error("当前浏览器不支持复制图片");
-      }
+      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+      alert("图片已复制到剪贴板");
     } catch {
-      toast.error("复制失败，请重试");
+      alert("复制失败，请尝试下载后手动复制");
     }
   };
 
   const handleDownload = async () => {
     try {
-      if (imageUrl.startsWith("data:")) {
-        const a = document.createElement("a");
-        a.href = imageUrl;
-        a.download = `image-${Date.now()}.png`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        toast.success("下载已开始");
-        return;
-      }
       const res = await fetch(imageUrl);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -60,9 +40,8 @@ function Lightbox({ imageUrl, onClose }: LightboxProps) {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      toast.success("下载已开始");
     } catch {
-      toast.error("下载失败，请重试");
+      alert("下载失败，请尝试右键保存图片");
     }
   };
 
@@ -119,11 +98,13 @@ export function DetailRightPanel({
   activeSession,
   onRetryType,
   onRefreshType,
+  onStopType,
   onOpenImageDetail,
 }: {
   activeSession: V2Session;
   onRetryType?: (type: V2DetailType) => void;
   onRefreshType?: (type: V2DetailType) => void;
+  onStopType?: (type: V2DetailType) => void;
   onOpenImageDetail: (data: ImageDetailData) => void;
 }) {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
@@ -180,6 +161,15 @@ export function DetailRightPanel({
                   <div className="flex items-center justify-between mb-3">
                     <div className="text-sm font-semibold text-gray-700">{V2_DETAIL_TYPE_LABELS[type] || type}</div>
                     <div className="flex items-center gap-1.5">
+                      {isQueued && onStopType && (
+                        <button
+                          onClick={() => onStopType(type)}
+                          className="text-gray-400 hover:text-red-500 transition-colors"
+                          title="停止生成该图"
+                        >
+                          <Square className="w-3.5 h-3.5 fill-current" />
+                        </button>
+                      )}
                       {!isActive && !isQueued && (
                         <button
                           onClick={() => failedError ? onRetryType?.(type) : setRefreshDialogType(type)}
@@ -221,6 +211,7 @@ export function DetailRightPanel({
                         onClick={() =>
                           onOpenImageDetail({
                             imageUrl: img.imageUrl,
+                            thumbImageUrl: img.thumbUrl || undefined,
                             prompt: activeSession.goal,
                             plan: activeSession.detail?.heroPlan || null,
                             source: "detail",
@@ -241,49 +232,45 @@ export function DetailRightPanel({
             })}
             {generating && displayTypes.length === 0 && (
               <div className="w-[280px] h-[280px] flex flex-col items-center justify-center text-center px-4 bg-white rounded-xl">
-                <LoadingPlaceholder className="mb-3" />
-                <div className="text-sm font-medium text-gray-700">商详图</div>
-                <div className="text-xs text-gray-400 mt-1">AI 正在生成</div>
+                <LoadingPlaceholder className="relative mb-3" />
+                <div className="relative text-sm font-medium text-gray-700">正在准备生成...</div>
               </div>
             )}
           </div>
         )}
       </div>
 
+      {/* Lightbox overlay */}
+      {lightboxUrl && <Lightbox imageUrl={lightboxUrl} onClose={closeLightbox} />}
+
       {/* Refresh confirmation dialog */}
       <Dialog open={!!refreshDialogType} onOpenChange={(open) => !open && setRefreshDialogType(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>重新生成图片</DialogTitle>
+            <DialogTitle>确认重新生成</DialogTitle>
             <DialogDescription>
-              刷新会替换当前类型的旧图片，新的图片将在同一位置生成。
-              如需保留旧图，请提前下载保存。
-              <br />
-              <span className="text-indigo-600 font-medium mt-1 inline-block">
-                确定要重新生成「{refreshDialogType ? V2_DETAIL_TYPE_LABELS[refreshDialogType] : ""}」吗？
-              </span>
+              重新生成将替换当前「{refreshDialogType ? V2_DETAIL_TYPE_LABELS[refreshDialogType] : ""}」的图片，原图仍会保留在素材库中。是否继续？
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-4">
-            <Button variant="outline" size="sm" onClick={() => setRefreshDialogType(null)}>
+            <Button
+              variant="outline"
+              onClick={() => setRefreshDialogType(null)}
+            >
               取消
             </Button>
             <Button
-              size="sm"
               onClick={() => {
-                if (refreshDialogType) {
-                  onRefreshType?.(refreshDialogType);
-                }
+                if (refreshDialogType) onRefreshType?.(refreshDialogType);
                 setRefreshDialogType(null);
               }}
+              className="bg-bbg hover:bg-bbg-hover text-[#0f1419] border-0"
             >
               确认重新生成
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {lightboxUrl && <Lightbox imageUrl={lightboxUrl} onClose={closeLightbox} />}
     </div>
   );
 }

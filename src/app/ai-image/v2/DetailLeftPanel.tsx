@@ -3,7 +3,7 @@
 import { RefObject } from "react";
 import {
   ImageIcon, Upload, Sparkles, Aperture, Focus, Layers, Box,
-  Lightbulb, LayoutGrid, Scale, Ruler, X, Plus,
+  Lightbulb, LayoutGrid, Scale, Ruler, X, Plus, Square,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,6 +21,7 @@ export function DetailLeftPanel({
   onUpdateSession,
   onToggleDetailType,
   onGenerate,
+  onStopAll,
   onOpenImageDetail,
 }: {
   activeSession: V2Session | undefined;
@@ -29,6 +30,7 @@ export function DetailLeftPanel({
   onUpdateSession: (updater: (s: V2Session) => V2Session) => void;
   onToggleDetailType?: (type: V2DetailType) => void;
   onGenerate: () => void;
+  onStopAll?: () => void;
   onOpenImageDetail?: (data: ImageDetailData) => void;
 }) {
 
@@ -217,7 +219,7 @@ export function DetailLeftPanel({
         </div>
       </div>
 
-      <div className="shrink-0 px-4 pb-3 pt-3 bg-white border-t border-gray-100">
+      <div className="shrink-0 px-4 pb-3 pt-3 bg-white border-t border-gray-100 space-y-2">
         <svg width="0" height="0" className="absolute">
           <defs>
             <linearGradient id="icon-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -243,6 +245,17 @@ export function DetailLeftPanel({
             </>
           )}
         </Button>
+        {generating && onStopAll && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onStopAll}
+            className="w-full h-9 text-xs border-gray-200 text-gray-600 hover:text-red-500 hover:border-red-200 hover:bg-red-50"
+          >
+            <Square className="w-3.5 h-3.5 mr-1.5 fill-current" />
+            停止全部生成
+          </Button>
+        )}
       </div>
     </div>
   );

@@ -246,6 +246,8 @@ export interface V2DetailState {
   generatingTypes?: V2DetailType[];
   activeGeneratingType?: V2DetailType | null;
   failedTypes?: Array<{ type: V2DetailType; error: string }>;
+  /** 被用户手动停止的类型（非失败） */
+  stoppedTypes?: V2DetailType[];
   results: Array<{ type: V2DetailType; imageId: string }>;
   lastError?: string | null;
 }
