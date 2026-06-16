@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   ImageIcon,
   Loader2,
@@ -24,6 +24,7 @@ interface TaskItem {
   id: string;
   status: string;
   resultImageUrl: string | null;
+  thumbImageUrl: string | null;
   createdAt: string;
   userPrompt: string | null;
 }
@@ -37,6 +38,39 @@ const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
 ];
 
 import { BBG } from "../design-tokens";
+
+function formatDateGroup(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const isToday =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+  if (isToday) return "今天";
+
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday =
+    date.getFullYear() === yesterday.getFullYear() &&
+    date.getMonth() === yesterday.getMonth() &&
+    date.getDate() === yesterday.getDate();
+  if (isYesterday) return "昨天";
+
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function groupByDate(items: TaskItem[]): { date: string; items: TaskItem[] }[] {
+  const map = new Map<string, TaskItem[]>();
+  for (const item of items) {
+    const key = formatDateGroup(item.createdAt);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(item);
+  }
+  return Array.from(map.entries()).map(([date, items]) => ({ date, items }));
+}
 
 export default function AssetsPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("image");
@@ -92,6 +126,11 @@ export default function AssetsPage() {
       task.id.toLowerCase().includes(q)
     );
   });
+
+  const groupedItems = useMemo(() => {
+    if (activeTab === "favorite") return [];
+    return groupByDate(filteredItems as TaskItem[]);
+  }, [filteredItems, activeTab]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -151,6 +190,78 @@ export default function AssetsPage() {
   };
 
   const closeImageDetail = () => setImageDetailData(null);
+
+  const renderImageCard = (item: TaskItem | FavoriteItem, isFavoriteTab: boolean) => {
+    const id = item.id;
+    const taskItem = item as TaskItem;
+    const imageUrl = isFavoriteTab
+      ? (item as FavoriteItem).imageUrl
+      : taskItem.thumbImageUrl || taskItem.resultImageUrl || "";
+    const prompt = isFavoriteTab ? (item as FavoriteItem).prompt : taskItem.userPrompt;
+    const isSelected = selectedIds.has(id);
+
+    return (
+      <div
+        key={id}
+        className={cn(
+          "group relative rounded-xl overflow-hidden border border-stone-200 bg-stone-100 hover:shadow-md transition-all shrink-0",
+          batchMode ? "cursor-pointer" : "cursor-pointer"
+        )}
+        style={{ width: 192, height: 192 }}
+        onClick={() => {
+          if (batchMode) {
+            toggleSelect(id);
+          } else {
+            openImageDetail(item);
+          }
+        }}
+      >
+        {/* Checkbox */}
+        {batchMode && (
+          <div className="absolute top-2 left-2 z-20">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleSelect(id);
+              }}
+              className={cn(
+                "flex items-center justify-center w-5 h-5 rounded border transition-colors",
+                isSelected
+                  ? "bg-[#0f1419] border-[#0f1419] text-white"
+                  : "bg-white/80 border-stone-300 text-transparent hover:border-[#0f1419]"
+              )}
+            >
+              <CheckSquare className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        <img
+          src={imageUrl}
+          alt={prompt || "图片"}
+          className={cn(
+            "w-full h-full object-cover transition-transform duration-300",
+            !batchMode && "group-hover:scale-105"
+          )}
+          loading="lazy"
+        />
+
+        {/* Hover overlay */}
+        {!batchMode && (
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
+            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white/90 text-[#0f1419]">
+              <ArrowUpRight className="w-4 h-4" />
+            </div>
+          </div>
+        )}
+
+        {/* Selected overlay */}
+        {batchMode && isSelected && (
+          <div className="absolute inset-0 bg-[#0f1419]/10 ring-2 ring-[#0f1419] rounded-xl pointer-events-none" />
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -292,75 +403,29 @@ export default function AssetsPage() {
               </div>
             )}
 
-            <div className="mx-auto max-w-7xl grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 pb-8">
-              {filteredItems.map((item) => {
-                const isFavorite = activeTab === "favorite";
-                const id = item.id;
-                const imageUrl = isFavorite ? (item as FavoriteItem).imageUrl : (item as TaskItem).resultImageUrl || "";
-                const prompt = isFavorite ? (item as FavoriteItem).prompt : (item as TaskItem).userPrompt;
-
-                return (
-                  <div
-                    key={id}
-                    className={cn(
-                      "group relative aspect-square rounded-xl overflow-hidden border border-stone-200 bg-stone-100 hover:shadow-md transition-all",
-                      batchMode ? "cursor-pointer" : "cursor-pointer"
-                    )}
-                    onClick={() => {
-                      if (batchMode) {
-                        toggleSelect(id);
-                      } else {
-                        openImageDetail(item);
-                      }
-                    }}
-                  >
-                    {/* Checkbox */}
-                    {batchMode && (
-                      <div className="absolute top-2 left-2 z-20">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleSelect(id);
-                          }}
-                          className={cn(
-                            "flex items-center justify-center w-5 h-5 rounded border transition-colors",
-                            selectedIds.has(id)
-                              ? "bg-[#0f1419] border-[#0f1419] text-white"
-                              : "bg-white/80 border-stone-300 text-transparent hover:border-[#0f1419]"
-                          )}
-                        >
-                          <CheckSquare className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
-
-                    <img
-                      src={imageUrl}
-                      alt={prompt || "图片"}
-                      className={cn(
-                        "w-full h-full object-cover transition-transform duration-300",
-                        !batchMode && "group-hover:scale-105"
-                      )}
-                      loading="lazy"
-                    />
-
-                    {/* Hover overlay */}
-                    {!batchMode && (
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
-                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white/90 text-[#0f1419]">
-                          <ArrowUpRight className="w-4 h-4" />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Selected overlay */}
-                    {batchMode && selectedIds.has(id) && (
-                      <div className="absolute inset-0 bg-[#0f1419]/10 ring-2 ring-[#0f1419] rounded-xl pointer-events-none" />
-                    )}
+            {activeTab === "favorite" ? (
+              /* Favorite tab: keep original flat grid */
+              <div className="mx-auto max-w-7xl grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 pb-8">
+                {filteredItems.map((item) => renderImageCard(item, true))}
+              </div>
+            ) : (
+              /* Image tab: grouped by date, horizontal masonry */
+              <div className="mx-auto max-w-7xl pb-8 space-y-8">
+                {groupedItems.map((group) => (
+                  <div key={group.date}>
+                    <h2
+                      className="text-[24px] font-semibold text-[#0f1419] mb-3"
+                      style={{ fontWeight: 600, marginBottom: 12 }}
+                    >
+                      {group.date}
+                    </h2>
+                    <div className="flex flex-wrap gap-4">
+                      {group.items.map((item) => renderImageCard(item, false))}
+                    </div>
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            )}
 
             {filteredItems.length === 0 ? (
               <div className="mx-auto flex flex-col items-center justify-center py-16 text-center">
