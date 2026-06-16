@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   X,
   Download,
@@ -11,6 +11,7 @@ import {
   AlertCircle,
   Grid3x3,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { LoadingPlaceholder } from "./LoadingPlaceholder";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -102,6 +103,12 @@ function ImageDetailOverlay({
 }: ImageDetailOverlayProps) {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [favorited, setFavorited] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+
+  // Reset imageLoaded when imageUrl changes
+  useEffect(() => {
+    setImageLoaded(false);
+  }, [data?.imageUrl]);
 
   const openLightbox = useCallback((url: string) => setLightboxUrl(url), []);
   const closeLightbox = useCallback(() => setLightboxUrl(null), []);
@@ -231,14 +238,25 @@ function ImageDetailOverlay({
                 padding: "0 60px",
               }}
             >
+              {!imageLoaded && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
+                  <LoadingPlaceholder width={121} height={121} />
+                  <p className="text-sm text-gray-400">图片加载中...</p>
+                </div>
+              )}
               <img
                 src={data.imageUrl}
                 alt=""
-                className="object-contain rounded-lg shadow-sm"
+                className={cn(
+                  "object-contain rounded-lg shadow-sm transition-opacity duration-300",
+                  imageLoaded ? "opacity-100" : "opacity-0"
+                )}
                 style={{
                   maxHeight: "calc(100vh - 48px)",
                   maxWidth: "100%",
                 }}
+                onLoad={() => setImageLoaded(true)}
+                onError={() => setImageLoaded(true)}
               />
             </div>
           )}

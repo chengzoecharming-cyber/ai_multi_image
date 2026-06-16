@@ -82,6 +82,7 @@ export default function AssetsPage() {
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [imageDetailData, setImageDetailData] = useState<ImageDetailData | null>(null);
+  const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetch("/api/ai-image/tasks?limit=50")
@@ -199,6 +200,7 @@ export default function AssetsPage() {
       : taskItem.thumbImageUrl || taskItem.resultImageUrl || "";
     const prompt = isFavoriteTab ? (item as FavoriteItem).prompt : taskItem.userPrompt;
     const isSelected = selectedIds.has(id);
+    const hasError = imgErrors[id];
 
     return (
       <div
@@ -213,6 +215,12 @@ export default function AssetsPage() {
             toggleSelect(id);
           } else {
             openImageDetail(item);
+          }
+        }}
+        onMouseEnter={() => {
+          if (!isFavoriteTab && taskItem.resultImageUrl) {
+            const img = new Image();
+            img.src = taskItem.resultImageUrl;
           }
         }}
       >
@@ -236,18 +244,26 @@ export default function AssetsPage() {
           </div>
         )}
 
-        <img
-          src={imageUrl}
-          alt={prompt || "图片"}
-          className={cn(
-            "w-full h-full object-cover transition-transform duration-300",
-            !batchMode && "group-hover:scale-105"
-          )}
-          loading="lazy"
-        />
+        {hasError ? (
+          <div className="w-full h-full bg-stone-200 flex flex-col items-center justify-center gap-2">
+            <ImageIcon className="w-8 h-8 text-stone-400" />
+            <span className="text-xs text-stone-400">图片加载失败</span>
+          </div>
+        ) : (
+          <img
+            src={imageUrl}
+            alt={prompt || "图片"}
+            className={cn(
+              "w-full h-full object-cover transition-transform duration-300",
+              !batchMode && "group-hover:scale-105"
+            )}
+            loading="lazy"
+            onError={() => setImgErrors((prev) => ({ ...prev, [id]: true }))}
+          />
+        )}
 
         {/* Hover overlay */}
-        {!batchMode && (
+        {!batchMode && !hasError && (
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
             <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white/90 text-[#0f1419]">
               <ArrowUpRight className="w-4 h-4" />
