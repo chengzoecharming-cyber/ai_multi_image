@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   ImageIcon,
   Loader2,
@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { getFavorites, removeFavorite, type FavoriteItem } from "../lib/favorites";
+import { parseTaskResultImages } from "../hooks/utils/session-utils";
 import ImageDetailOverlay from "../components/ImageDetailOverlay";
 import type { ImageDetailData } from "../components/ImageDetailOverlay";
 
@@ -82,25 +83,47 @@ export default function AssetsPage() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [offset, setOffset] = useState(0);
+  const LIMIT = 50;
   const [imageDetailData, setImageDetailData] = useState<ImageDetailData | null>(null);
   const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
-    fetch("/api/ai-image/tasks?limit=50")
-      .then((res) => (res.ok ? res.json() : { data: [] }))
-      .then((data: { data?: TaskItem[] }) => {
-        setTasks(
-          (data.data || [])
-            .filter((t) => t.resultImageUrl && t.status === "completed")
-            .sort(
-              (a, b) =>
-                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-            )
-        );
-      })
-      .catch(() => setTasks([]))
-      .finally(() => setLoading(false));
+  const loadTasks = useCallback(async (loadOffset: number, append: boolean) => {
+    if (loadOffset === 0) setLoading(true);
+    else setLoadingMore(true);
+
+    try {
+      const res = await fetch(`/api/ai-image/tasks?limit=${LIMIT}&offset=${loadOffset}`);
+      const data = await res.json();
+      const fetched = (data.data || []).filter(
+        (t: TaskItem) => t.resultImageUrl && t.status === "completed"
+      );
+
+      setTasks((prev) =>
+        append ? [...prev, ...fetched] : fetched
+      );
+      setTotal(data.total || 0);
+      setOffset(loadOffset + fetched.length);
+    } catch {
+      if (!append) setTasks([]);
+    } finally {
+      if (loadOffset === 0) setLoading(false);
+      else setLoadingMore(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadTasks(0, false);
+  }, [loadTasks]);
+
+  const hasMore = tasks.length < total;
+  const handleLoadMore = () => {
+    if (!loadingMore && hasMore) {
+      loadTasks(offset, true);
+    }
+  };
 
   // Load favorites from localStorage
   useEffect(() => {
@@ -181,9 +204,10 @@ export default function AssetsPage() {
 
   const openImageDetail = (item: TaskItem | FavoriteItem) => {
     const isFav = activeTab === "favorite";
-    const imageUrl = isFav
+    const rawImageUrl = isFav
       ? (item as FavoriteItem).imageUrl
       : (item as TaskItem).resultImageUrl || "";
+    const imageUrl = parseTaskResultImages(rawImageUrl)[0] || rawImageUrl;
     const prompt = isFav ? (item as FavoriteItem).prompt : (item as TaskItem).userPrompt;
     const thumbImageUrl = isFav
       ? undefined
@@ -208,9 +232,11 @@ export default function AssetsPage() {
   const renderImageCard = (item: TaskItem | FavoriteItem, isFavoriteTab: boolean) => {
     const id = item.id;
     const taskItem = item as TaskItem;
+    const rawResult = taskItem.resultImageUrl || "";
+    const parsedResult = parseTaskResultImages(rawResult)[0] || rawResult;
     const imageUrl = isFavoriteTab
       ? (item as FavoriteItem).imageUrl
-      : taskItem.thumbImageUrl || taskItem.resultImageUrl || "";
+      : taskItem.thumbImageUrl || parsedResult || "";
     const prompt = isFavoriteTab ? (item as FavoriteItem).prompt : taskItem.userPrompt;
     const isSelected = selectedIds.has(id);
     const hasError = imgErrors[id];
@@ -231,9 +257,9 @@ export default function AssetsPage() {
           }
         }}
         onMouseEnter={() => {
-          if (!isFavoriteTab && taskItem.resultImageUrl) {
+          if (!isFavoriteTab && parsedResult) {
             const img = new Image();
-            img.src = taskItem.resultImageUrl;
+            img.src = parsedResult;
           }
         }}
       >
@@ -433,28 +459,56 @@ export default function AssetsPage() {
             )}
 
             {activeTab === "favorite" ? (
-              /* Favorite tab: keep original flat grid */
-              <div className="mx-auto max-w-7xl grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 pb-8">
-                {filteredItems.map((item) => renderImageCard(item, true))}
-              </div>
-            ) : (
-              /* Image tab: grouped by date, horizontal masonry */
-              <div className="mx-auto max-w-7xl pb-8 space-y-8">
-                {groupedItems.map((group) => (
-                  <div key={group.date}>
-                    <h2
-                      className="text-[24px] font-semibold text-[#0f1419] mb-3"
-                      style={{ fontWeight: 600, marginBottom: 12 }}
-                    >
-                      {group.date}
-                    </h2>
-                    <div className="flex flex-wrap gap-4">
-                      {group.items.map((item) => renderImageCard(item, false))}
+                /* Favorite tab: keep original flat grid */
+                <div className="mx-auto max-w-7xl grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 pb-8">
+                  {filteredItems.map((item) => renderImageCard(item, true))}
+                </div>
+              ) : (
+                /* Image tab: grouped by date, horizontal masonry */
+                <div className="mx-auto max-w-7xl pb-8 space-y-8">
+                  {groupedItems.map((group) => (
+                    <div key={group.date}>
+                      <h2
+                        className="text-[24px] font-semibold text-[#0f1419] mb-3"
+                        style={{ fontWeight: 600, marginBottom: 12 }}
+                      >
+                        {group.date}
+                      </h2>
+                      <div className="flex flex-wrap gap-4">
+                        {group.items.map((item) => renderImageCard(item, false))}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+  
+                  {/* Load more button */}
+                  {hasMore && !loading && (
+                    <div className="flex justify-center pt-4">
+                      <button
+                        onClick={handleLoadMore}
+                        disabled={loadingMore}
+                        className={cn(
+                          "flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                          loadingMore
+                            ? "text-gray-400 cursor-default"
+                            : "text-[#0f1419] bg-bbg hover:bg-bbg-hover"
+                        )}
+                      >
+                        {loadingMore ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            加载中...
+                          </>
+                        ) : (
+                          <>
+                            加载更多
+                            <span className="text-xs text-gray-400">({tasks.length} / {total})</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
             {filteredItems.length === 0 ? (
               <div className="mx-auto flex flex-col items-center justify-center py-16 text-center">

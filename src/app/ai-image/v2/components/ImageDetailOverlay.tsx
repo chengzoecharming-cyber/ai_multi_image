@@ -208,7 +208,7 @@ function ImageDetailOverlay({
           {/* Close button — top-right of left area */}
           <button
             onClick={onClose}
-            className="absolute top-0 right-0 z-10 flex items-center justify-center rounded-lg transition-colors bg-bbg hover:bg-bbg-hover"
+            className="absolute top-0 right-0 z-[30] flex items-center justify-center rounded-lg transition-colors bg-bbg hover:bg-bbg-hover"
             style={{ width: 40, height: 40 }}
             title="关闭"
           >
