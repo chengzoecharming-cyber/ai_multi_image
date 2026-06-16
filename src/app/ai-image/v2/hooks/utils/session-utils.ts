@@ -71,6 +71,10 @@ function reconcileStep(seed?: Partial<V2Session>): Step {
   if (step === "input" && ((seed?.singlePlans?.length || 0) > 0 || (seed?.generatedImages?.length || 0) > 0)) {
     return "plans";
   }
+  // 历史 session 加载时：从 preview 降级为 plans，让用户重新看到方案卡片列表
+  if (step === "preview") {
+    return "plans";
+  }
   return step;
 }
 
