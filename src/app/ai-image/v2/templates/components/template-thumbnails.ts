@@ -19,6 +19,8 @@ export interface TemplateThumbnail {
   icon: LucideIcon;
   gradient: string;
   iconColor: string;
+  /** 可选：实际图片 URL，优先于图标展示 */
+  imageUrl?: string;
 }
 
 export const TEMPLATE_THUMBNAILS: Record<string, TemplateThumbnail> = {
@@ -36,21 +38,25 @@ export const TEMPLATE_THUMBNAILS: Record<string, TemplateThumbnail> = {
     icon: Info,
     gradient: "from-blue-50 to-indigo-50",
     iconColor: "text-blue-400",
+    imageUrl: "/templates/feature.jpg",
   },
   "tpl-macro-detail": {
     icon: Search,
     gradient: "from-stone-100 to-stone-200",
     iconColor: "text-stone-500",
+    imageUrl: "/templates/macro.jpg",
   },
   "tpl-advantage-comparison": {
     icon: Scale,
     gradient: "from-purple-50 to-violet-50",
     iconColor: "text-purple-400",
+    imageUrl: "/templates/comparison.jpg",
   },
   "tpl-lifestyle-scene": {
     icon: TreePine,
     gradient: "from-emerald-50 to-green-50",
     iconColor: "text-emerald-400",
+    imageUrl: "/templates/lifestyle.jpg",
   },
   "tpl-environment-scene": {
     icon: Mountain,
@@ -76,6 +82,7 @@ export const TEMPLATE_THUMBNAILS: Record<string, TemplateThumbnail> = {
     icon: Ruler,
     gradient: "from-yellow-50 to-amber-50",
     iconColor: "text-yellow-500",
+    imageUrl: "/templates/dimension.jpg",
   },
   "tpl-image-set-5": {
     icon: Grid3x3,

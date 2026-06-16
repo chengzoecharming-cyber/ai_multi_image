@@ -25,7 +25,15 @@ export function TemplateCard({ template, onOpen, onUse }: TemplateCardProps) {
         onClick={onOpen}
       >
         <div className="relative flex items-center justify-center w-[280px] h-[280px] rounded-[12px] overflow-hidden bg-[rgb(248,249,250)]">
-          <Icon className={cn("w-7 h-7", thumbnail.iconColor)} />
+          {thumbnail.imageUrl ? (
+            <img
+              src={thumbnail.imageUrl}
+              alt={template.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <Icon className={cn("w-7 h-7", thumbnail.iconColor)} />
+          )}
         </div>
       </button>
 
