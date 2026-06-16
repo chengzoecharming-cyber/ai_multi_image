@@ -52,6 +52,7 @@ interface RawImage {
   tab: string;
   detailType: string | null;
   imageUrl: string | null;
+  thumbImageUrl: string | null;
   imageBase64: string | null;
   createdAt: Date;
 }
@@ -141,6 +142,7 @@ export function deserializeSession(row: RawSession): V2Session {
       tab: (img.tab as "product" | "detail") || "product",
       detailType: (img.detailType as V2DetailType) ?? undefined,
       imageUrl: img.imageUrl!,
+      thumbUrl: img.thumbImageUrl ?? undefined,
       imageBase64: img.imageBase64 ?? undefined,
       createdAt: new Date(img.createdAt).getTime(),
     }));
@@ -317,6 +319,7 @@ export interface AiImageV2GeneratedImageCreateData {
   tab: string;
   detailType: string | null;
   imageUrl: string;
+  thumbImageUrl: string | null;
   imageBase64: string | null;
   createdAt: Date;
 }
@@ -429,6 +432,7 @@ export function toImageCreateInput(
     tab: image.tab || "product",
     detailType: image.detailType ?? null,
     imageUrl: image.imageUrl,
+    thumbImageUrl: image.thumbUrl ?? null,
     imageBase64: image.imageBase64 ?? null,
     createdAt: new Date(image.createdAt),
   };

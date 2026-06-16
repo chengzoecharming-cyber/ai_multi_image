@@ -130,7 +130,7 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
           continue;
         }
 
-        const pages: Array<{ type: V2DetailType; imageUrl: string; taskId?: string; imageBase64?: string }> = Array.isArray(data?.pages)
+        const pages: Array<{ type: V2DetailType; imageUrl: string; thumbUrl?: string; taskId?: string; imageBase64?: string }> = Array.isArray(data?.pages)
           ? data.pages
           : [];
 
@@ -167,6 +167,7 @@ export function useDetailGeneration(options: UseDetailGenerationOptions): Detail
                 tab: "detail" as const,
                 detailType: p.type,
                 imageUrl: p.imageUrl,
+                thumbUrl: p.thumbUrl,
                 imageBase64: p.imageBase64,
                 createdAt: nowTs(),
               };

@@ -231,6 +231,7 @@ export interface V2GeneratedImage {
   tab?: V2WorkspaceTab;
   detailType?: V2DetailType;
   imageUrl: string;
+  thumbUrl?: string;
   imageBase64?: string;
   createdAt: number;
 }

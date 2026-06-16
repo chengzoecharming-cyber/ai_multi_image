@@ -359,6 +359,7 @@ const providerName = body.provider || process.env.IMAGE_PROVIDER || "chatgpt2api
                 taskId: task.id,
                 tab: "product",
                 imageUrl: effectiveImageUrl,
+                thumbImageUrl: effectiveThumbUrl,
                 imageBase64: imageBase64 || null,
               },
             });
@@ -372,6 +373,7 @@ const providerName = body.provider || process.env.IMAGE_PROVIDER || "chatgpt2api
       return NextResponse.json({
         data: updatedTask,
         imageBase64,
+        thumbUrl: effectiveThumbUrl,
         remainingQuota,
         debug: {
           generationModeId,

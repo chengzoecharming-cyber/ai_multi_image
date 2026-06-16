@@ -145,6 +145,7 @@ export default function AssetsPage() {
     setImageDetailData({
       imageUrl,
       prompt: prompt || null,
+      source: "asset",
       status: "success",
     });
   };

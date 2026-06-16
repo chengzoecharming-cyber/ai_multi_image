@@ -15,7 +15,7 @@ export interface RightPanelProps {
   onOpenPreview: (plan: CreativePlan) => void;
   onSave: (plan: CreativePlan) => void;
   onGenerateImage: (plan: CreativePlan) => void;
-  onGenerateDetails: (plan: CreativePlan, imageUrl: string) => void;
+  onGenerateDetails: (plan: CreativePlan | null, imageUrl: string) => void;
   onClosePreview: () => void;
   onUpdateSingle: (plan: CreativePlan) => void;
   onOpenImageDetail: (data: ImageDetailData) => void;
@@ -165,6 +165,7 @@ export function RightPanel({
               productImageUrls: activeSession.productImageUrls,
               referenceImageUrls: activeSession.referenceImageUrls,
               plan,
+              source: "product",
               status: "success",
               taskId: generatedImage.taskId,
             });

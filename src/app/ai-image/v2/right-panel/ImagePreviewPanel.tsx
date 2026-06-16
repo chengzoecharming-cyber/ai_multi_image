@@ -41,7 +41,7 @@ export interface ImagePreviewPanelProps {
   userGoal?: string;
   onBack: () => void;
   onGenerateImage: (plan: CreativePlan) => void;
-  onGenerateDetails: (plan: CreativePlan, imageUrl: string) => void;
+  onGenerateDetails: (plan: CreativePlan | null, imageUrl: string) => void;
   onSave: (plan: CreativePlan) => void;
   onOpenInfo: (plan: CreativePlan) => void;
   onOpenImageDetail: (data: ImageDetailData) => void;
@@ -274,6 +274,7 @@ export function ImagePreviewPanel({
                     productImageUrls,
                     referenceImageUrls,
                     plan,
+                    source: "product",
                   })
                 }
                 title="点击查看详情"

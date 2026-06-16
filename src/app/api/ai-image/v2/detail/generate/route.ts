@@ -5,11 +5,36 @@ import { prisma } from "@/lib/db";
 import { getAuthScope, requireActiveAuthorizationCode, scopedTenantUserWhere } from "@/lib/auth-scope";
 import { checkAndResetQuotaForScope, deductQuotaForScope, quotaErrorMessage } from "@/lib/quota";
 import type { CreativePlan } from "@/app/ai-image/v2/types";
+import { writeFile } from "fs/promises";
+import path from "path";
 
 type DetailType = "detail" | "multi_angle" | "lifestyle" | "feature" | "comparison" | "spec";
 
 function detailTypeDefaultsToMarketingCopy(): boolean {
   return true;
+}
+
+const LOCAL_GENERATED_DIR = path.join(process.cwd(), "public", "generated");
+
+async function generateThumbnail(imageUrl: string, taskId: string, origin: string): Promise<string | null> {
+  try {
+    const fetchUrl = imageUrl.startsWith("/") && origin ? `${origin}${imageUrl}` : imageUrl;
+    const imgRes = await fetch(fetchUrl, { signal: AbortSignal.timeout(30000) });
+    if (!imgRes.ok) return null;
+    const buffer = Buffer.from(await imgRes.arrayBuffer());
+    const sharp = (await import("sharp")).default;
+    const thumbBuffer = await sharp(buffer)
+      .resize(192, 192, { fit: "cover" })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+    const thumbName = `detail-${taskId}.jpg`;
+    const thumbPath = path.join(LOCAL_GENERATED_DIR, thumbName);
+    await writeFile(thumbPath, thumbBuffer);
+    return `/generated/${thumbName}`;
+  } catch (e) {
+    console.warn("[DetailGenerate] thumbnail generation failed:", e);
+    return null;
+  }
 }
 
 interface HeroPlanContext {
@@ -570,7 +595,7 @@ export async function POST(request: NextRequest) {
       typeof productDescription === "string" ? productDescription : ""
     );
 
-    const pages: Array<{ type: DetailType; imageUrl: string; taskId?: string }> = [];
+    const pages: Array<{ type: DetailType; imageUrl: string; thumbUrl: string; taskId?: string }> = [];
     let index = 0;
     for (const type of types) {
       const effectiveIncludeMarketingCopy =
@@ -634,6 +659,7 @@ export async function POST(request: NextRequest) {
       let finalImageUrl = result.imageUrl;
       let localUrl = await persistGeneratedImage(finalImageUrl, fileName, origin);
       let effectiveUrl = localUrl || finalImageUrl;
+      let effectiveThumbUrl = await generateThumbnail(effectiveUrl, task.id, origin);
 
       // Post-check for spec pages: if fields are mostly placeholders, retry once with stricter fill guidance.
       if (type === "spec") {
@@ -665,6 +691,7 @@ export async function POST(request: NextRequest) {
             finalImageUrl = retry.imageUrl;
             localUrl = await persistGeneratedImage(finalImageUrl, fileName, origin);
             effectiveUrl = localUrl || finalImageUrl;
+            effectiveThumbUrl = await generateThumbnail(effectiveUrl, task.id, origin);
           }
         }
       }
@@ -674,6 +701,7 @@ export async function POST(request: NextRequest) {
         data: {
           status: "completed",
           resultImageUrl: JSON.stringify([effectiveUrl]),
+          thumbImageUrl: effectiveThumbUrl ?? effectiveUrl,
         },
       });
       if (v2SessionId) {
@@ -696,6 +724,7 @@ export async function POST(request: NextRequest) {
                 tab: "detail",
                 detailType: type,
                 imageUrl: effectiveUrl,
+                thumbImageUrl: effectiveThumbUrl ?? effectiveUrl,
               },
             });
             await prisma.aiImageV2Session.update({
@@ -706,7 +735,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      pages.push({ type, imageUrl: effectiveUrl, taskId: task.id });
+      pages.push({ type, imageUrl: effectiveUrl, thumbUrl: effectiveThumbUrl ?? effectiveUrl, taskId: task.id });
       index++;
     }
 

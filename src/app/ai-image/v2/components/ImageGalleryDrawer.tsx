@@ -355,6 +355,7 @@ export default function ImageGalleryDrawer({ open, onClose, onApply, onOpenImage
                           imageUrl: img.url,
                           prompt: img.userPrompt,
                           referenceImageUrls: undefined,
+                          source: "gallery",
                           taskId: img.taskId,
                           createdAt: img.createdAt,
                         });

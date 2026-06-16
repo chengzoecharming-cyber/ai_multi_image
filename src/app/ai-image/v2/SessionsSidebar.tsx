@@ -36,9 +36,10 @@ const DEFAULT_WIDTH = 220;
 const MAX_WIDTH = 320;
 
 function getSessionThumbnail(session: V2Session): string | null {
-  // Prefer generated image, fallback to placeholder
-  const genImg = session.generatedImages?.[0]?.imageUrl;
-  if (genImg) return genImg;
+  // Prefer thumbnail for faster loading, fallback to full image
+  const genImg = session.generatedImages?.[0];
+  if (genImg?.thumbUrl) return genImg.thumbUrl;
+  if (genImg?.imageUrl) return genImg.imageUrl;
   return null;
 }
 

@@ -356,6 +356,7 @@ export async function POST(request: NextRequest) {
               taskId: task.id,
               tab: "product",
               imageUrl: effectiveImageUrl,
+              thumbImageUrl: effectiveThumbUrl,
               imageBase64: imageBase64 || null,
             },
           });

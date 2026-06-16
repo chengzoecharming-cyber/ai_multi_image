@@ -223,12 +223,13 @@ export function DetailRightPanel({
                             imageUrl: img.imageUrl,
                             prompt: activeSession.goal,
                             plan: activeSession.detail?.heroPlan || null,
+                            source: "detail",
                             taskId: img.taskId,
                           })
                         }
                         title="点击查看详情"
                       >
-                        <img src={img.imageUrl} alt={V2_DETAIL_TYPE_LABELS[type] || "商详图"} className="w-[280px] h-[280px] object-cover" />
+                        <img src={img.thumbUrl || img.imageUrl} alt={V2_DETAIL_TYPE_LABELS[type] || "商详图"} className="w-[280px] h-[280px] object-cover" />
                         <div className="px-3 py-2 text-[10px] text-gray-400 truncate">
                           {new Date(img.createdAt).toLocaleString()}
                         </div>

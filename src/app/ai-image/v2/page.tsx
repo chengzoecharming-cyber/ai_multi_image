@@ -158,6 +158,7 @@ function V2WorkbenchPageInner() {
         referenceImageUrls: activeSession?.referenceImageUrls,
         productImageUrls: activeSession?.productImageUrls,
         plan,
+        source: "product",
         status: "loading",
       });
 
@@ -195,6 +196,7 @@ function V2WorkbenchPageInner() {
       referenceImageUrls: activeSession?.referenceImageUrls,
       productImageUrls: activeSession?.productImageUrls,
       plan,
+      source: "product",
       status: "loading",
     });
 
@@ -225,6 +227,38 @@ function V2WorkbenchPageInner() {
       );
     }
   }, [activeSession, handleGenerateImage, openImageDetail]);
+
+  // ── Handle generate details from overlay / preview panel ──
+  const handleGenerateDetails = useCallback(
+    async (plan: CreativePlan | null, imageUrl: string) => {
+      if (!activeSession) return;
+      const matchedGenerated = plan
+        ? activeSession.generatedImages?.find(
+            (img) => img.planId === plan.id && img.imageUrl === imageUrl
+          ) || activeSession.generatedImages?.find((img) => img.planId === plan.id)
+        : activeSession.generatedImages?.find((img) => img.imageUrl === imageUrl);
+      const safeImageUrl = await ensureLocalTaskImage(matchedGenerated?.taskId, imageUrl);
+      createNewSession({
+        workspaceTab: "detail",
+        goal: activeSession.goal,
+        step: "input",
+        provider: activeSession.provider,
+        detail: {
+          detailImageUrls: [safeImageUrl],
+          activeDetailImageIndex: 0,
+          heroPlan: plan,
+          selectedTypes: ["detail", "multi_angle", "lifestyle", "feature", "comparison", "spec"],
+          generating: false,
+          generatingTypes: [],
+          activeGeneratingType: null,
+          failedTypes: [],
+          results: [],
+          lastError: null,
+        },
+      });
+    },
+    [activeSession, createNewSession, ensureLocalTaskImage]
+  );
 
   // ── Handle retry from overlay ──
   const handleRetryImage = useCallback(async (plan: CreativePlan) => {
@@ -364,30 +398,7 @@ function V2WorkbenchPageInner() {
               onUpdateSingle={handleUpdateSinglePlan}
               onSave={handleOpenSaveTemplate}
               onGenerateImage={handleGenerateImageWithOverlay}
-              onGenerateDetails={async (plan, imageUrl) => {
-                const matchedGenerated = activeSession.generatedImages?.find(
-                  (img) => img.planId === plan.id && img.imageUrl === imageUrl
-                ) || activeSession.generatedImages?.find((img) => img.planId === plan.id);
-                const safeImageUrl = await ensureLocalTaskImage(matchedGenerated?.taskId, imageUrl);
-                createNewSession({
-                  workspaceTab: "detail",
-                  goal: activeSession.goal,
-                  step: "input",
-                  provider: activeSession.provider,
-                  detail: {
-                    detailImageUrls: [safeImageUrl],
-                    activeDetailImageIndex: 0,
-                    heroPlan: plan,
-                    selectedTypes: ["detail", "multi_angle", "lifestyle", "feature", "comparison", "spec"],
-                    generating: false,
-                    generatingTypes: [],
-                    activeGeneratingType: null,
-                    failedTypes: [],
-                    results: [],
-                    lastError: null,
-                  },
-                });
-              }}
+              onGenerateDetails={handleGenerateDetails}
               onClosePreview={() => updateActiveSession((s) => ({ ...s, previewPlanId: null, step: "plans" }))}
               onOpenImageDetail={openImageDetail}
             />
@@ -457,7 +468,12 @@ function V2WorkbenchPageInner() {
       />
 
       {/* Image Detail Overlay */}
-      <ImageDetailOverlay data={imageDetailData} onClose={closeImageDetail} onRetry={handleRetryImage} />
+      <ImageDetailOverlay
+        data={imageDetailData}
+        onClose={closeImageDetail}
+        onRetry={handleRetryImage}
+        onGenerateDetails={handleGenerateDetails}
+      />
 
       {/* Plan Template Library Drawer */}
       <PlanTemplateLibraryDrawer

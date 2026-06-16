@@ -113,6 +113,7 @@ export function LeftPanel({
             id: `direct-${Date.now()}`,
             taskId: data.data?.id,
             imageUrl: data.imageUrl,
+            thumbUrl: data.thumbUrl,
             imageBase64: data.imageBase64,
             tab: "product",
             createdAt: Date.now(),

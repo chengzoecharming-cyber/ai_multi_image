@@ -1,9 +1,19 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { X, Download, Heart, Wand2, RefreshCw, MapPin, AlertCircle } from "lucide-react";
+import {
+  X,
+  Download,
+  Heart,
+  Wand2,
+  RefreshCw,
+  MapPin,
+  AlertCircle,
+  Grid3x3,
+} from "lucide-react";
 import { LoadingPlaceholder } from "./LoadingPlaceholder";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import type { CreativePlan } from "../types";
 
 import { GBG, P0, P2 } from "../design-tokens";
@@ -16,6 +26,8 @@ export interface ImageDetailData {
   referenceImageUrls?: string[];
   productImageUrls?: string[];
   plan?: CreativePlan | null;
+  /** 图片来源/类型 */
+  source?: "product" | "detail" | "asset" | "gallery";
   /** 图片库素材的额外信息 */
   createdAt?: string;
   taskId?: string;
@@ -31,6 +43,7 @@ interface ImageDetailOverlayProps {
   data: ImageDetailData | null;
   onClose: () => void;
   onRetry?: (plan: CreativePlan) => void;
+  onGenerateDetails?: (plan: CreativePlan | null, imageUrl: string) => void;
 }
 
 /* ── Lightbox for reference thumbnails ── */
@@ -81,7 +94,12 @@ function ActionButton({
   );
 }
 
-function ImageDetailOverlay({ data, onClose, onRetry }: ImageDetailOverlayProps) {
+function ImageDetailOverlay({
+  data,
+  onClose,
+  onRetry,
+  onGenerateDetails,
+}: ImageDetailOverlayProps) {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [favorited, setFavorited] = useState(false);
 
@@ -314,7 +332,20 @@ function ImageDetailOverlay({ data, onClose, onRetry }: ImageDetailOverlayProps)
               </div>
             )}
 
-            {/* 5. Action groups */}
+            {/* 5. Generate details button */}
+            {data.source === "product" && isSuccess && onGenerateDetails && (
+              <div className="mb-5">
+                <Button
+                  onClick={() => onGenerateDetails(data.plan ?? null, data.imageUrl)}
+                  className="w-full h-12 bg-[#0f1419] hover:bg-[#1a1f2e] text-white border-0 shadow-lg text-sm font-medium"
+                >
+                  <Grid3x3 className="w-4 h-4 mr-2" />
+                  生成商详图
+                </Button>
+              </div>
+            )}
+
+            {/* 6. Action groups */}
             <div className="space-y-1">
               {/* Group 1 */}
               <div className="bg-white rounded-lg p-2 grid grid-cols-2 gap-1">

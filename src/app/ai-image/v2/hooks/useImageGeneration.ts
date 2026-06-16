@@ -86,6 +86,7 @@ export function useImageGeneration(options: UseImageGenerationOptions): ImageGen
         const data = await res.json();
         const rawResultImageUrl = data?.data?.resultImageUrl ?? data?.data?.imageUrl ?? data?.imageUrl ?? null;
         const imageUrl = resolveImageUrl(rawResultImageUrl);
+        const thumbUrl = data?.thumbUrl as string | undefined;
 
         if (res.ok && imageUrl) {
           const rawBase64 = (data?.imageBase64 as string | undefined) || "";
@@ -109,6 +110,7 @@ export function useImageGeneration(options: UseImageGenerationOptions): ImageGen
                   taskId,
                   tab: "product" as const,
                   imageUrl,
+                  thumbUrl,
                   imageBase64,
                   createdAt: nowTs(),
                 },
