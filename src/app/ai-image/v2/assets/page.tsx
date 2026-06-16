@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getFavorites, removeFavorite, type FavoriteItem } from "../lib/favorites";
+import ImageDetailOverlay from "../components/ImageDetailOverlay";
+import type { ImageDetailData } from "../components/ImageDetailOverlay";
 
 interface TaskItem {
   id: string;
@@ -45,13 +47,14 @@ export default function AssetsPage() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [imageDetailData, setImageDetailData] = useState<ImageDetailData | null>(null);
 
   useEffect(() => {
     fetch("/api/ai-image/tasks?limit=50")
-      .then((res) => (res.ok ? res.json() : { tasks: [] }))
-      .then((data: { tasks?: TaskItem[] }) => {
+      .then((res) => (res.ok ? res.json() : { data: [] }))
+      .then((data: { data?: TaskItem[] }) => {
         setTasks(
-          (data.tasks || [])
+          (data.data || [])
             .filter((t) => t.resultImageUrl && t.status === "completed")
             .sort(
               (a, b) =>
@@ -135,9 +138,18 @@ export default function AssetsPage() {
     exitBatchMode();
   };
 
-  const handleOpenImage = (url: string) => {
-    window.open(url, "_blank");
+  const openImageDetail = (item: TaskItem | FavoriteItem) => {
+    const isFav = activeTab === "favorite";
+    const imageUrl = isFav ? (item as FavoriteItem).imageUrl : (item as TaskItem).resultImageUrl || "";
+    const prompt = isFav ? (item as FavoriteItem).prompt : (item as TaskItem).userPrompt;
+    setImageDetailData({
+      imageUrl,
+      prompt: prompt || null,
+      status: "success",
+    });
   };
+
+  const closeImageDetail = () => setImageDetailData(null);
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -291,9 +303,15 @@ export default function AssetsPage() {
                     key={id}
                     className={cn(
                       "group relative aspect-square rounded-xl overflow-hidden border border-stone-200 bg-stone-100 hover:shadow-md transition-all",
-                      batchMode ? "cursor-pointer" : "cursor-default"
+                      batchMode ? "cursor-pointer" : "cursor-pointer"
                     )}
-                    onClick={() => batchMode && toggleSelect(id)}
+                    onClick={() => {
+                      if (batchMode) {
+                        toggleSelect(id);
+                      } else {
+                        openImageDetail(item);
+                      }
+                    }}
                   >
                     {/* Checkbox */}
                     {batchMode && (
@@ -327,16 +345,10 @@ export default function AssetsPage() {
 
                     {/* Hover overlay */}
                     {!batchMode && (
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenImage(imageUrl);
-                          }}
-                          className="flex items-center justify-center w-10 h-10 rounded-full bg-white/90 text-[#0f1419]"
-                        >
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white/90 text-[#0f1419]">
                           <ArrowUpRight className="w-4 h-4" />
-                        </button>
+                        </div>
                       </div>
                     )}
 
@@ -375,6 +387,9 @@ export default function AssetsPage() {
           </div>
         )}
       </main>
+
+      {/* Image Detail Overlay */}
+      <ImageDetailOverlay data={imageDetailData} onClose={closeImageDetail} />
     </div>
   );
 }

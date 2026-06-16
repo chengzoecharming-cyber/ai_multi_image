@@ -156,7 +156,19 @@ export function RightPanel({
           }}
           onSave={onSave}
           onGenerateImage={onGenerateImage}
-          onViewImage={onOpenPreview}
+          onViewImage={(plan) => {
+            const generatedImage = activeSession.generatedImages.find((g) => g.planId === plan.id);
+            if (!generatedImage) return;
+            onOpenImageDetail({
+              imageUrl: generatedImage.imageBase64 || generatedImage.imageUrl,
+              prompt: userGoal || plan.imageGenerationPrompt,
+              productImageUrls: activeSession.productImageUrls,
+              referenceImageUrls: activeSession.referenceImageUrls,
+              plan,
+              status: "success",
+              taskId: generatedImage.taskId,
+            });
+          }}
           onOpenInfo={setInfoPlan}
         />
         {infoDialogPlan && (

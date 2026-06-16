@@ -31,6 +31,7 @@ import {
 } from "./components/ui/V2DropdownMenu";
 import { cn } from "@/lib/utils";
 import { V2_NAV_ITEMS } from "./constants/navigation";
+import { SignInDialog } from "@/components/auth/SignInDialog";
 
 /* ── 消息中心 ─────────────────────────────────────── */
 
@@ -120,6 +121,7 @@ export function V2Header() {
   const [settingsPassword, setSettingsPassword] = useState("");
   const [messagesOpen, setMessagesOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [signInOpen, setSignInOpen] = useState(false);
 
   const user = session?.user as
     | ({
@@ -305,12 +307,12 @@ export function V2Header() {
                 </V2DropdownMenu>
               </div>
             ) : (
-              <Link
-                href="/sign-in"
+              <button
+                onClick={() => setSignInOpen(true)}
                 className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-100"
               >
                 登录
-              </Link>
+              </button>
             )}
           </div>
         </div>
@@ -436,6 +438,8 @@ export function V2Header() {
           </div>
         </>
       )}
+
+      <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} />
     </>
   );
 }

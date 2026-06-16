@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   Sparkles,
@@ -21,6 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { SignInDialog } from "@/components/auth/SignInDialog";
 
 const navItems = [
   { href: "/", label: "首页", icon: LayoutDashboard },
@@ -32,6 +34,7 @@ export default function AppHeader() {
   const pathname = usePathname();
   const { data: session, isPending } = useSession();
   const user = session?.user;
+  const [signInOpen, setSignInOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-50 bg-black border-b border-gray-800 shadow-sm">
@@ -104,12 +107,19 @@ export default function AppHeader() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Link href="/sign-in">
-              <Button variant="outline" size="sm" className="border-gray-600 text-white hover:bg-gray-800 hover:text-white">登录</Button>
-            </Link>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-gray-600 text-white hover:bg-gray-800 hover:text-white"
+              onClick={() => setSignInOpen(true)}
+            >
+              登录
+            </Button>
           )}
         </div>
       </div>
+
+      <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} />
     </header>
   );
 }
