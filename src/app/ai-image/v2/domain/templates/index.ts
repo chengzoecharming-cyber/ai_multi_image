@@ -22,6 +22,7 @@ export {
   systemTemplateToPlanTemplate,
   savedTemplateToPlanTemplate,
   planTemplateToSavedTemplate,
+  getTemplateCategory,
 } from "./adapter";
 export {
   getSavedTemplates,

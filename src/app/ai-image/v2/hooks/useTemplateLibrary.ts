@@ -31,7 +31,7 @@ export interface TemplateLibraryState {
 
 export function useTemplateLibrary(): TemplateLibraryState {
   const [templateLibraryOpen, setTemplateLibraryOpen] = useState(false);
-  const [systemTemplates, setSystemTemplates] = useState<PlanTemplate[]>([]);
+  const [systemTemplates, setSystemTemplates] = useState<PlanTemplate[]>(() => getSystemTemplates());
   const [userTemplates, setUserTemplates] = useState<PlanTemplate[]>([]);
 
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
@@ -40,8 +40,6 @@ export function useTemplateLibrary(): TemplateLibraryState {
   // ── Load templates on mount ──
   useEffect(() => {
     let cancelled = false;
-
-    setSystemTemplates(getSystemTemplates());
 
     void (async () => {
       try {

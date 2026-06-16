@@ -1,9 +1,9 @@
 "use client";
 
-import { RefObject, useState, useCallback } from "react";
+import { RefObject } from "react";
 import {
   ImageIcon, Upload, Sparkles, Aperture, Focus, Layers, Box,
-  FileText, LayoutGrid, Scale, Ruler, X, Plus,
+  Lightbulb, LayoutGrid, Scale, Ruler, X, Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,22 +12,7 @@ import { cn } from "@/lib/utils";
 import { AuthCodeAuditCard } from "./components/AuthCodeAuditCard";
 import type { V2DetailType, V2Session } from "./types";
 import { V2_DETAIL_TYPE_LABELS } from "./types";
-
-function SimpleLightbox({ imageUrl, onClose }: { imageUrl: string; onClose: () => void }) {
-  return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70"
-      onClick={onClose}
-    >
-      <img
-        src={imageUrl}
-        alt=""
-        className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg"
-        onClick={(e) => e.stopPropagation()}
-      />
-    </div>
-  );
-}
+import type { ImageDetailData } from "./components/ImageDetailOverlay";
 
 export function DetailLeftPanel({
   activeSession,
@@ -36,6 +21,7 @@ export function DetailLeftPanel({
   onUpdateSession,
   onToggleDetailType,
   onGenerate,
+  onOpenImageDetail,
 }: {
   activeSession: V2Session | undefined;
   fileInputRef: RefObject<HTMLInputElement | null>;
@@ -43,10 +29,8 @@ export function DetailLeftPanel({
   onUpdateSession: (updater: (s: V2Session) => V2Session) => void;
   onToggleDetailType?: (type: V2DetailType) => void;
   onGenerate: () => void;
+  onOpenImageDetail?: (data: ImageDetailData) => void;
 }) {
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-  const openLightbox = useCallback((url: string) => setLightboxUrl(url), []);
-  const closeLightbox = useCallback(() => setLightboxUrl(null), []);
 
   if (!activeSession) return null;
 
@@ -68,7 +52,7 @@ export function DetailLeftPanel({
   };
 
   return (
-    <div className="w-[320px] h-full flex flex-col border-r border-gray-200 bg-white overflow-hidden shrink-0">
+    <div className="w-[310px] h-full flex flex-col border-r border-gray-200 bg-white overflow-hidden shrink-0">
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         <AuthCodeAuditCard authorizationCode={activeSession.authorizationCode} />
 
@@ -91,7 +75,7 @@ export function DetailLeftPanel({
               /* Empty state: single large upload area */
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full flex flex-col items-center justify-center gap-1.5 aspect-square rounded-xl border-2 border-dashed border-gray-300 hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors"
+                className="w-full flex flex-col items-center justify-center gap-1.5 aspect-square rounded-xl border border-dashed border-gray-300 hover:border-gray-500 hover:bg-gray-50 transition-colors"
               >
                 <Upload className="w-6 h-6 text-gray-400" />
                 <span className="text-xs text-gray-500">点击上传</span>
@@ -104,10 +88,10 @@ export function DetailLeftPanel({
                     <div
                       key={url + idx}
                       className={cn(
-                        "relative w-12 h-12 rounded-lg overflow-hidden border cursor-pointer group",
+                        "relative w-12 h-12 rounded-lg overflow-hidden cursor-pointer group",
                         idx === activeDetailImageIndex
-                          ? "border-indigo-400 ring-1 ring-indigo-400"
-                          : "border-gray-200 hover:border-indigo-300"
+                          ? "ring-1 ring-gray-400"
+                          : ""
                       )}
                       onClick={() =>
                         onUpdateSession((s) => ({
@@ -119,8 +103,7 @@ export function DetailLeftPanel({
                           },
                         }))
                       }
-                      onDoubleClick={() => openLightbox(url)}
-                      title="单击切换，双击放大"
+                      title="单击切换"
                     >
                       <img src={url} alt={`参考图 ${idx + 1}`} className="w-full h-full object-cover" />
                       <button
@@ -149,10 +132,10 @@ export function DetailLeftPanel({
                   ))}
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-12 h-12 rounded-lg border-2 border-dashed border-gray-300 hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors flex items-center justify-center text-gray-400 shrink-0"
+                    className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors flex items-center justify-center text-gray-400 shrink-0 self-center"
                     title="添加参考图"
                   >
-                    <Plus className="w-5 h-5" />
+                    <Plus className="w-4 h-4" />
                   </button>
                 </div>
 
@@ -160,8 +143,8 @@ export function DetailLeftPanel({
                 <div className="flex-1 min-w-0">
                   <div
                     className="relative rounded-xl overflow-hidden border border-gray-200 bg-[#F5F6F8] cursor-pointer"
-                    onDoubleClick={() => openLightbox(activeDetailImage || detailImageUrls[0])}
-                    title="双击放大"
+                    onClick={() => onOpenImageDetail?.({ imageUrl: activeDetailImage || detailImageUrls[0] })}
+                    title="点击查看详情"
                   >
                     <img
                       src={activeDetailImage || detailImageUrls[0]}
@@ -178,15 +161,15 @@ export function DetailLeftPanel({
 
         {/* Product Description */}
         <div className="space-y-2">
-          <Label className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
-            <FileText className="w-3 h-3 text-gray-400" />
-            商品描述
+          <Label className="text-[13px] font-medium text-gray-700 flex items-center gap-1.5">
+            <Lightbulb className="w-3 h-3 text-gray-400" />
+            prompt
           </Label>
           <Textarea
             value={productDescription}
             onChange={(e) => onUpdateSession((s) => ({ ...s, goal: e.target.value, lastError: null }))}
             placeholder="例如：彩虹镀膜钨钢立铣刀，突出锋利刃口、镀层质感与耐磨性"
-            className="h-[220px] resize-none text-xs overflow-y-auto"
+            className="min-h-[120px] h-[120px] resize-y text-xs overflow-y-auto"
             disabled={generating}
           />
         </div>
@@ -231,35 +214,36 @@ export function DetailLeftPanel({
               );
             })}
           </div>
-          {selectedTypes.length > 0 && (
-            <p className="text-xs text-indigo-500">
-              已选择：{selectedTypes.map((t) => V2_DETAIL_TYPE_LABELS[t]).join("、")}
-            </p>
-          )}
         </div>
       </div>
 
       <div className="shrink-0 px-4 pb-3 pt-3 bg-white border-t border-gray-100">
+        <svg width="0" height="0" className="absolute">
+          <defs>
+            <linearGradient id="icon-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#93c5fd" />
+              <stop offset="100%" stopColor="#a78bfa" />
+            </linearGradient>
+          </defs>
+        </svg>
         <Button
           onClick={onGenerate}
           disabled={generating || !activeDetailImage || selectedTypes.length === 0}
-          className="w-full bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white border-0"
+          className="w-full h-10 bg-bbg hover:bg-bbg-hover text-[#0f1419] border-0"
         >
           {generating ? (
             <>
-              <Sparkles className="w-4 h-4 mr-2 animate-pulse" />
+              <Sparkles className="w-4 h-4 mr-2 animate-pulse" stroke="url(#icon-gradient)" />
               生成中...
             </>
           ) : (
             <>
-              <Sparkles className="w-4 h-4 mr-2" />
-              一键生成全套商详图（{selectedTypes.length || 6}张）
+              <Sparkles className="w-4 h-4 mr-2" stroke="url(#icon-gradient)" />
+              一键生成（{selectedTypes.length}）
             </>
           )}
         </Button>
       </div>
-
-      {lightboxUrl && <SimpleLightbox imageUrl={lightboxUrl} onClose={closeLightbox} />}
     </div>
   );
 }
