@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useState, useCallback, useEffect } from "react";
-import { Wand2, Sparkles } from "lucide-react";
+import { Wand2, Sparkles, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useV2Session } from "./hooks/useV2Session";
 import { SessionsSidebar } from "./SessionsSidebar";
@@ -13,6 +13,7 @@ import SaveAsTemplateDialog from "@/components/template-library/SaveAsTemplateDi
 import PlanTemplateLibraryDrawer from "@/components/template-library/PlanTemplateLibraryDrawer";
 import ImageGalleryDrawer from "./components/ImageGalleryDrawer";
 import ImageDetailOverlay from "./components/ImageDetailOverlay";
+import AssetLibrarySidebar from "./components/AssetLibrarySidebar";
 import type { GalleryApplyData } from "./components/ImageGalleryDrawer";
 import type { ImageDetailData } from "./components/ImageDetailOverlay";
 import type { CreativePlan } from "./types";
@@ -72,6 +73,7 @@ function V2WorkbenchPageInner() {
 
   const [imageGalleryOpen, setImageGalleryOpen] = useState(false);
   const [imageDetailData, setImageDetailData] = useState<ImageDetailData | null>(null);
+  const [assetLibraryOpen, setAssetLibraryOpen] = useState(false);
 
   const openImageDetail = useCallback((data: ImageDetailData) => setImageDetailData(data), []);
   const closeImageDetail = useCallback(() => setImageDetailData(null), []);
@@ -367,143 +369,124 @@ function V2WorkbenchPageInner() {
           />
         )}
 
-        {/* Right Panel — inline because it has many callbacks */}
+        {/* Right Panel */}
         <div className="flex-1 flex flex-col overflow-hidden bg-[rgb(248,249,250)]">
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {tab === "product" && step === "input" && activeSession.directGenerating && (
-              <div className="flex-1 flex flex-col items-center justify-center p-10">
-                <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center mb-4 animate-pulse">
-                  <Sparkles className="w-6 h-6 text-indigo-400" />
-                </div>
-                <p className="text-base font-medium text-gray-700 mb-1">AI 正在直接生成图片...</p>
-                <p className="text-sm text-gray-400">基于用户输入的 prompt 和商品图生成</p>
-                <p className="text-xs text-amber-500 mt-2 font-medium">⏱ 约需 30-90 秒，请耐心等待</p>
+          {tab === "product" && (
+            <div className="flex items-center justify-end px-6 py-3 border-b border-gray-200/80 shrink-0 bg-white">
+              <div className="flex items-center bg-white rounded-lg px-3 py-1.5">
+                <button
+                  onClick={() => setAssetLibraryOpen((v) => !v)}
+                  className="flex items-center gap-1.5 px-1 text-[13px] font-semibold text-[#0f1419] hover:opacity-80 transition-opacity"
+                >
+                  <ImageIcon className="w-4 h-4" />
+                  资产库
+                </button>
               </div>
-            )}
-
-            {tab === "product" && step === "input" && !activeSession.directGenerating && (
-              activeSession.generatedImages.length > 0 ? (
-                <div className="flex-1 flex flex-col overflow-hidden bg-white">
-                  <div className="px-6 py-4 border-b border-gray-200/80 flex items-center justify-between shrink-0">
-                    <div className="flex items-center gap-3">
-                      <h2 className="text-base font-bold text-gray-900">直接生成结果</h2>
-                    </div>
-                  </div>
-                  <div className="flex-1 flex items-center justify-center p-8 bg-[#F5F6F8]">
-                    <img
-                      src={
-                        activeSession.generatedImages[activeSession.generatedImages.length - 1].imageBase64
-                        || activeSession.generatedImages[activeSession.generatedImages.length - 1].imageUrl
-                      }
-                      alt="直接生成结果"
-                      className="max-w-full max-h-full object-contain rounded-xl shadow-lg"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-10">
-                  <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
-                    <Wand2 className="w-8 h-8 text-gray-300" />
-                  </div>
-                  <p className="text-base font-medium text-gray-500 mb-1">上传商品图并输入制图目标</p>
-                  <p className="text-sm text-gray-400">
-                    AI 将分析商品图片并生成多个方案
-                  </p>
-                  {selectedTemplate && (
-                    <div className="mt-4 px-4 py-2 rounded-lg bg-gray-100 border border-gray-200">
-                      <p className="text-sm text-gray-700">已选择模板：{selectedTemplate.name}</p>
-                    </div>
-                  )}
-                </div>
-              )
-            )}
-
-          {tab === "product" && step === "generating" && (
-            <div className="flex-1 flex flex-col items-center justify-center p-10">
-              <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mb-4 animate-pulse">
-                <Sparkles className="w-6 h-6 text-gray-500" />
-              </div>
-              <p className="text-base font-medium text-gray-700 mb-1">AI 正在分析商品图片并生成方案...</p>
-              <p className="text-sm text-gray-400">
-                识别产品类型、可见结构、材质预估，生成多组方案...
-              </p>
-              <p className="text-xs text-amber-500 mt-2 font-medium">
-                ⏱ 约需 30-60 秒，请耐心等待
-              </p>
-              {selectedTemplate && (
-                <p className="text-xs text-gray-500 mt-1">基于模板：{selectedTemplate.name}</p>
-              )}
             </div>
           )}
 
-          {tab === "product" && (step === "plans" || step === "preview") && (
-            <RightPanel
-              activeSession={activeSession}
-              userGoal={activeSession?.goal}
-              onSelectPlan={(planId) => updateActiveSession((s) => ({ ...s, expandedSingleId: planId }))}
-              onOpenPreview={handleOpenPlanPreview}
-              onUpdateSingle={handleUpdateSinglePlan}
-              onSave={handleOpenSaveTemplate}
-              onGenerateImage={handleGenerateImageWithOverlay}
-              onGenerateDetails={handleGenerateDetails}
-              onClosePreview={() => updateActiveSession((s) => ({ ...s, previewPlanId: null, step: "plans" }))}
-              onOpenImageDetail={openImageDetail}
-            />
-          )}
+          <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {tab === "product" && step === "input" && activeSession.directGenerating && (
+                <div className="flex-1 flex flex-col items-center justify-center p-10">
+                  <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center mb-4 animate-pulse">
+                    <Sparkles className="w-6 h-6 text-indigo-400" />
+                  </div>
+                  <p className="text-base font-medium text-gray-700 mb-1">AI 正在直接生成图片...</p>
+                  <p className="text-sm text-gray-400">基于用户输入的 prompt 和商品图生成</p>
+                  <p className="text-xs text-amber-500 mt-2 font-medium">⏱ 约需 30-90 秒，请耐心等待</p>
+                </div>
+              )}
 
-            {tab === "detail" && (
-              <DetailRightPanel
+              {tab === "product" && step === "input" && !activeSession.directGenerating && (
+                activeSession.generatedImages.length > 0 ? (
+                  <div className="flex-1 flex flex-col overflow-hidden bg-white">
+                    <div className="px-6 py-4 border-b border-gray-200/80 flex items-center justify-between shrink-0">
+                      <div className="flex items-center gap-3">
+                        <h2 className="text-base font-bold text-gray-900">直接生成结果</h2>
+                      </div>
+                    </div>
+                    <div className="flex-1 flex items-center justify-center p-8 bg-[#F5F6F8]">
+                      <img
+                        src={
+                          activeSession.generatedImages[activeSession.generatedImages.length - 1].imageBase64
+                          || activeSession.generatedImages[activeSession.generatedImages.length - 1].imageUrl
+                        }
+                        alt="直接生成结果"
+                        className="max-w-full max-h-full object-contain rounded-xl shadow-lg"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-10">
+                    <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+                      <Wand2 className="w-8 h-8 text-gray-300" />
+                    </div>
+                    <p className="text-base font-medium text-gray-500 mb-1">上传商品图并输入制图目标</p>
+                    <p className="text-sm text-gray-400">
+                      AI 将分析商品图片并生成多个方案
+                    </p>
+                    {selectedTemplate && (
+                      <div className="mt-4 px-4 py-2 rounded-lg bg-gray-100 border border-gray-200">
+                        <p className="text-sm text-gray-700">已选择模板：{selectedTemplate.name}</p>
+                      </div>
+                    )}
+                  </div>
+                )
+              )}
+
+            {tab === "product" && step === "generating" && (
+              <div className="flex-1 flex flex-col items-center justify-center p-10">
+                <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mb-4 animate-pulse">
+                  <Sparkles className="w-6 h-6 text-gray-500" />
+                </div>
+                <p className="text-base font-medium text-gray-700 mb-1">AI 正在分析商品图片并生成方案...</p>
+                <p className="text-sm text-gray-400">
+                  识别产品类型、可见结构、材质预估，生成多组方案...
+                </p>
+                <p className="text-xs text-amber-500 mt-2 font-medium">
+                  ⏱ 约需 30-60 秒，请耐心等待
+                </p>
+                {selectedTemplate && (
+                  <p className="text-xs text-gray-500 mt-1">基于模板：{selectedTemplate.name}</p>
+                )}
+              </div>
+            )}
+
+            {tab === "product" && (step === "plans" || step === "preview") && (
+              <RightPanel
                 activeSession={activeSession}
-                onRetryType={handleRetryDetailType}
-                onRefreshType={handleRefreshDetailType}
-                onStopType={stopDetailTypeGeneration}
+                userGoal={activeSession?.goal}
+                onSelectPlan={(planId) => updateActiveSession((s) => ({ ...s, expandedSingleId: planId }))}
+                onOpenPreview={handleOpenPlanPreview}
+                onUpdateSingle={handleUpdateSinglePlan}
+                onSave={handleOpenSaveTemplate}
+                onGenerateImage={handleGenerateImageWithOverlay}
+                onGenerateDetails={handleGenerateDetails}
+                onClosePreview={() => updateActiveSession((s) => ({ ...s, previewPlanId: null, step: "plans" }))}
+                onOpenImageDetail={openImageDetail}
+              />
+            )}
+
+              {tab === "detail" && (
+                <DetailRightPanel
+                  activeSession={activeSession}
+                  onRetryType={handleRetryDetailType}
+                  onRefreshType={handleRefreshDetailType}
+                  onStopType={stopDetailTypeGeneration}
+                  onOpenImageDetail={openImageDetail}
+                />
+              )}
+            </div>
+
+            {tab === "product" && (
+              <AssetLibrarySidebar
+                open={assetLibraryOpen}
+                onClose={() => setAssetLibraryOpen(false)}
                 onOpenImageDetail={openImageDetail}
               />
             )}
           </div>
-
-          {/* 开发调试：Prompt 对比区域 */}
-          {lastDebugPrompt && (
-            <details className="shrink-0 border-t border-gray-200 bg-white">
-              <summary className="px-4 py-2 text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-50 select-none flex items-center gap-2">
-                <span>🔧</span>
-                Debug Prompt Compare
-                <span className="ml-auto text-gray-400 font-normal">
-                  old: {lastDebugPrompt.oldTemplatePromptLength ?? 0} chars / brief: {lastDebugPrompt.briefPromptLength ?? 0} chars
-                </span>
-              </summary>
-              <div className="px-4 py-3 space-y-3 max-h-[300px] overflow-y-auto">
-                {lastDebugPrompt.selectedTemplateId && (
-                  <div className="text-xs text-gray-500">selectedTemplateId: {String(lastDebugPrompt.selectedTemplateId)}</div>
-                )}
-                {lastDebugPrompt.requestId && (
-                  <div className="text-xs text-gray-500">requestId: {String(lastDebugPrompt.requestId)}</div>
-                )}
-                {lastDebugPrompt.briefSourceType && (
-                  <div className="grid grid-cols-2 md:grid-cols-6 gap-2 text-xs text-gray-500">
-                    <div>source: {String(lastDebugPrompt.briefSourceType)}</div>
-                    <div>sourceId: {String(lastDebugPrompt.briefSourceId)}</div>
-                    <div>imageType: {String(lastDebugPrompt.briefImageType)}</div>
-                    <div>layouts: {String(lastDebugPrompt.briefLayoutCount ?? 0)}</div>
-                    <div>variants: {String(lastDebugPrompt.briefVariantCount ?? 0)}</div>
-                    <div>style: {String(lastDebugPrompt.briefStyleMode)}</div>
-                  </div>
-                )}
-                {lastDebugPrompt.oldTemplatePrompt && (
-                  <div>
-                    <div className="text-xs font-semibold text-gray-600 mb-1">Old Template Prompt</div>
-                    <pre className="text-[11px] text-gray-700 bg-gray-50 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap border border-gray-100">{String(lastDebugPrompt.oldTemplatePrompt)}</pre>
-                  </div>
-                )}
-                {lastDebugPrompt.briefPrompt && (
-                  <div>
-                    <div className="text-xs font-semibold text-gray-600 mb-1">Brief Prompt</div>
-                    <pre className="text-[11px] text-gray-700 bg-gray-50 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap border border-gray-100">{String(lastDebugPrompt.briefPrompt)}</pre>
-                  </div>
-                )}
-              </div>
-            </details>
-          )}
         </div>
       </main>
 

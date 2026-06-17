@@ -273,14 +273,10 @@ export default function AssetLibrarySidebar({
   if (!open) return null;
 
   return (
-    <div className="w-[360px] border-l border-gray-200 bg-white flex flex-col shrink-0 animate-in slide-in-from-right duration-200">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
-        <div className="flex items-center gap-2">
-          <ImageIcon className="w-4 h-4 text-indigo-500" />
-          <h2 className="text-sm font-semibold text-gray-800">资产库</h2>
-          <span className="text-xs text-gray-400">{totalCount} 张</span>
-        </div>
+    <div className="w-[380px] max-w-[90vw] bg-white shadow-[-16px_0_20px_-12px_rgba(0,0,0,0.14)] rounded-l-[12px] rounded-r-none flex flex-col shrink-0 animate-in slide-in-from-right duration-200">
+      {/* Header — aligned with message center */}
+      <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
+        <h2 className="text-[20px] font-medium text-[#0f1419]">资产库</h2>
         <div className="flex items-center gap-2">
           {/* Search */}
           <div className="flex items-center overflow-hidden">
@@ -302,15 +298,15 @@ export default function AssetLibrarySidebar({
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-md hover:bg-gray-100 flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-[#536471] transition-colors hover:text-[#0f1419] active:text-[#0f1419]"
           >
-            <X className="w-4 h-4 text-gray-500" />
+            <X className="w-4 h-4" />
           </button>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
+      <div className="flex-1 overflow-y-auto px-4 pb-4 bg-white">
         {loading && images.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <Loader2 className="w-5 h-5 text-indigo-500 animate-spin" />
@@ -331,12 +327,14 @@ export default function AssetLibrarySidebar({
           </div>
         )}
 
-        {Object.entries(filteredImagesByDate).map(([dateLabel, items]) => (
-          <div key={dateLabel}>
-            <h3 className="text-xs font-semibold text-gray-500 mb-3 sticky top-0 bg-white py-1 z-10">
-              {dateLabel}
-            </h3>
-            <div className="flex flex-wrap gap-3">
+        {Object.entries(filteredImagesByDate).map(([dateLabel, items], idx) => (
+          <div key={dateLabel} className={`bg-white ${idx > 0 ? "pt-4" : ""}`}>
+            <div className="sticky top-0 bg-white z-10 border-b border-gray-100 py-2 -mx-4 px-4">
+              <h3 className="text-xs font-semibold text-gray-500">
+                {dateLabel}
+              </h3>
+            </div>
+            <div className="flex flex-wrap gap-3 pt-3">
               {items.map((img, idx) => (
                 <div
                   key={`${img.taskId}-${idx}`}
