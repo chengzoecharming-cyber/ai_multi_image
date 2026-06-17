@@ -96,6 +96,18 @@ function V2WorkbenchPageInner() {
     }
   }, [activeSession, handleUseTemplate]);
 
+  // 当生成的图片被持久化到本地后，同步更新 ImageDetailOverlay 中的 imageUrl
+  useEffect(() => {
+    if (!imageDetailData || !imageDetailData.taskId) return;
+    const match = activeSession?.generatedImages?.find(
+      (g) => g.taskId === imageDetailData.taskId && g.imageUrl !== imageDetailData.imageUrl
+    );
+    if (!match) return;
+    setImageDetailData((prev) =>
+      prev ? { ...prev, imageUrl: match.imageUrl, thumbImageUrl: match.thumbUrl ?? prev.thumbImageUrl } : prev
+    );
+  }, [activeSession?.generatedImages, imageDetailData?.taskId]);
+
   const ensureLocalTaskImage = useCallback(async (taskId: string | undefined, imageUrl: string) => {
     if (!imageUrl) return imageUrl;
     if (typeof window !== "undefined") {

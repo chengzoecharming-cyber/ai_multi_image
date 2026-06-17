@@ -161,7 +161,7 @@ export function RightPanel({
             if (!generatedImage) return;
             onOpenImageDetail({
               imageUrl: generatedImage.imageBase64 || generatedImage.imageUrl,
-              prompt: userGoal || plan.imageGenerationPrompt,
+              prompt: userGoal,
               productImageUrls: activeSession.productImageUrls,
               referenceImageUrls: activeSession.referenceImageUrls,
               plan,

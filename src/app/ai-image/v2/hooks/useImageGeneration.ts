@@ -121,6 +121,36 @@ export function useImageGeneration(options: UseImageGenerationOptions): ImageGen
           if (nextSession) {
             void onSessionPersist?.(nextSession);
           }
+
+          // 后台持久化外部图片到本地，避免后续加载慢或 URL 失效
+          if (taskId && imageUrl && !imageUrl.startsWith("/") && !imageUrl.startsWith("data:")) {
+            fetch(`/api/ai-image/tasks/${taskId}/persist-image`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ imageUrl }),
+            })
+              .then(async (persistRes) => {
+                if (!persistRes.ok) return;
+                const persistData = (await persistRes.json()) as { localUrl?: string; thumbUrl?: string };
+                if (!persistData.localUrl) return;
+                updateActiveSession((s) => {
+                  const next = {
+                    ...s,
+                    generatedImages: s.generatedImages.map((g) =>
+                      g.taskId === taskId
+                        ? { ...g, imageUrl: persistData.localUrl as string, thumbUrl: persistData.thumbUrl || g.thumbUrl }
+                        : g
+                    ),
+                  };
+                  void onSessionPersist?.(next);
+                  return next;
+                });
+              })
+              .catch(() => {
+                /* 忽略后台错误 */
+              });
+          }
+
           toast.success("图片生成成功");
           return { success: true, imageUrl, imageBase64, taskId };
         } else {
