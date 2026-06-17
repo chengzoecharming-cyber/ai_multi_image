@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Wand2, Sparkles, ChevronLeft } from "lucide-react";
+import { Wand2, Sparkles, ChevronLeft, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { CreativePlan, Step, V2Session } from "./types";
 import { PlanInfoDialog } from "./components";
 import type { ImageDetailData } from "./components/ImageDetailOverlay";
 import { PlanCardStack } from "./right-panel/PlanCardStack";
 import { ImagePreviewPanel } from "./right-panel/ImagePreviewPanel";
+import AssetLibrarySidebar from "./components/AssetLibrarySidebar";
 
 export interface RightPanelProps {
   activeSession: V2Session | undefined;
@@ -35,6 +36,7 @@ export function RightPanel({
   userGoal,
 }: RightPanelProps) {
   const [infoPlan, setInfoPlan] = useState<CreativePlan | null>(null);
+  const [assetLibraryOpen, setAssetLibraryOpen] = useState(false);
 
   if (!activeSession) {
     return (
@@ -144,33 +146,70 @@ export function RightPanel({
     const infoDialogPlan = infoPlan || singlePlans[0] || null;
 
     return (
-      <>
-        <PlanCardStack
-          plans={singlePlans}
-          activeIndex={cardIndex}
-          generatedImages={activeSession.generatedImages}
-          generatingImagePlanId={activeSession.generatingImagePlanId}
-          onChangeIndex={(index) => {
-            const plan = singlePlans[index];
-            if (plan) onSelectPlan(plan.id);
-          }}
-          onSave={onSave}
-          onGenerateImage={onGenerateImage}
-          onViewImage={(plan) => {
-            const generatedImage = activeSession.generatedImages.find((g) => g.planId === plan.id);
-            if (!generatedImage) return;
-            onOpenImageDetail({
-              imageUrl: generatedImage.imageBase64 || generatedImage.imageUrl,
-              prompt: userGoal,
-              productImageUrls: activeSession.productImageUrls,
-              referenceImageUrls: activeSession.referenceImageUrls,
-              plan,
-              source: "product",
-              status: "success",
-              taskId: generatedImage.taskId,
-            });
-          }}
-          onOpenInfo={setInfoPlan}
+      <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Header with asset library button */}
+          <div className="px-6 py-3 border-b border-gray-200/80 flex items-center justify-between shrink-0 bg-white">
+            <div className="flex items-center gap-3">
+              <h2 className="text-base font-bold text-gray-900">方案列表</h2>
+              <span className="text-xs text-gray-400">{singlePlans.length} 个方案</span>
+            </div>
+            <div className="flex items-center bg-white rounded-lg px-3 py-1.5 border border-gray-200">
+              <button
+                onClick={() => setAssetLibraryOpen((v) => !v)}
+                className="flex items-center gap-1.5 px-1 text-[13px] font-semibold text-[#0f1419] hover:opacity-80 transition-opacity"
+              >
+                <ImageIcon className="w-4 h-4" />
+                资产库
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <PlanCardStack
+              plans={singlePlans}
+              activeIndex={cardIndex}
+              generatedImages={activeSession.generatedImages}
+              generatingImagePlanId={activeSession.generatingImagePlanId}
+              onChangeIndex={(index) => {
+                const plan = singlePlans[index];
+                if (plan) onSelectPlan(plan.id);
+              }}
+              onSave={onSave}
+              onGenerateImage={onGenerateImage}
+              onViewImage={(plan) => {
+                const generatedImage = activeSession.generatedImages.find((g) => g.planId === plan.id);
+                if (generatedImage) {
+                  onOpenImageDetail({
+                    imageUrl: generatedImage.imageBase64 || generatedImage.imageUrl,
+                    thumbImageUrl: generatedImage.thumbUrl,
+                    prompt: userGoal,
+                    productImageUrls: activeSession.productImageUrls,
+                    referenceImageUrls: activeSession.referenceImageUrls,
+                    plan,
+                    source: "product",
+                    status: "success",
+                    taskId: generatedImage.taskId,
+                  });
+                } else if (activeSession.generatingImagePlanId === plan.id) {
+                  onOpenImageDetail({
+                    imageUrl: "",
+                    prompt: userGoal,
+                    productImageUrls: activeSession.productImageUrls,
+                    referenceImageUrls: activeSession.referenceImageUrls,
+                    plan,
+                    source: "product",
+                    status: "loading",
+                  });
+                }
+              }}
+              onOpenInfo={setInfoPlan}
+            />
+          </div>
+        </div>
+        <AssetLibrarySidebar
+          open={assetLibraryOpen}
+          onClose={() => setAssetLibraryOpen(false)}
+          onOpenImageDetail={onOpenImageDetail}
         />
         {infoDialogPlan && (
           <PlanInfoDialog
@@ -183,7 +222,7 @@ export function RightPanel({
             }}
           />
         )}
-      </>
+      </div>
     );
   }
 
@@ -225,19 +264,27 @@ export function RightPanel({
   }
 
   return (
-    <>
-      <ImagePreviewPanel
-        plan={previewPlan}
-        generatedImage={generatedForPreview}
-        isGeneratingImage={generatingImage}
-        productImageUrls={activeSession.productImageUrls}
-        referenceImageUrls={activeSession.referenceImageUrls}
-        userGoal={userGoal}
-        onBack={onClosePreview}
-        onGenerateImage={onGenerateImage}
-        onGenerateDetails={onGenerateDetails}
-        onSave={onSave}
-        onOpenInfo={setInfoPlan}
+    <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <ImagePreviewPanel
+          plan={previewPlan}
+          generatedImage={generatedForPreview}
+          isGeneratingImage={generatingImage}
+          productImageUrls={activeSession.productImageUrls}
+          referenceImageUrls={activeSession.referenceImageUrls}
+          userGoal={userGoal}
+          onBack={onClosePreview}
+          onGenerateImage={onGenerateImage}
+          onGenerateDetails={onGenerateDetails}
+          onSave={onSave}
+          onOpenInfo={setInfoPlan}
+          onOpenImageDetail={onOpenImageDetail}
+          onOpenAssetLibrary={() => setAssetLibraryOpen((v) => !v)}
+        />
+      </div>
+      <AssetLibrarySidebar
+        open={assetLibraryOpen}
+        onClose={() => setAssetLibraryOpen(false)}
         onOpenImageDetail={onOpenImageDetail}
       />
       <PlanInfoDialog
@@ -249,6 +296,6 @@ export function RightPanel({
           setInfoPlan(null);
         }}
       />
-    </>
+    </div>
   );
 }
