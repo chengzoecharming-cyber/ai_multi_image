@@ -25,11 +25,8 @@ export const tplBlank: SystemTemplate = {
     headlineRequirement: "none",
     defaultCreativeFreedom: "expressive",
     productScaleStrategy: "balanced",
-    safetyRules: [
-      "产品必须保持物理真实，不得产生变形或虚构结构",
-      "不得生成任何违规、敏感或不适当内容",
-    ],
-    conflictResolution: "用户拥有完全控制权，prompt 直发，不做任何模板规则注入。",
+    safetyRules: [],
+    conflictResolution: "空白模板：不注入任何系统规则，完全由用户配置决定。",
   },
 
   // ── 新控制字段 ──
@@ -38,7 +35,7 @@ export const tplBlank: SystemTemplate = {
   creativeFreedom: "expressive",
   productScaleStrategy: "balanced",
 
-  // ── 旧字段（最小化保留） ──
+  // ── 旧字段（空白模板不预设任何方向） ──
   visualComplexity: "medium",
   informationDensity: "medium",
   copyProfile: "headline_only",

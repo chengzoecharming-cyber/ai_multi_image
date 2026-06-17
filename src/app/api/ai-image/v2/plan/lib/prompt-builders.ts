@@ -117,7 +117,77 @@ export function buildPlanSummaryPrompt(plan: CreativePlan): string {
   return parts.join("\n");
 }
 
+// 空白模板：极简 prompt，不注入任何系统方向
+function buildBlankImageGenerationPrompt(plan: CreativePlan): string {
+  const parts: string[] = [];
+
+  // 产品主体（如果分析存在）
+  if (plan.productAnalysis) {
+    const visibleFeatures = plan.productAnalysis.visibleFeatures?.join(", ") || "all visible product features";
+    parts.push(
+      `=== PRODUCT ===`,
+      `Product: "${plan.productName}".`,
+      `Type: ${plan.productAnalysis.productType}.`,
+      `Visible features: ${visibleFeatures}.`,
+      ``,
+    );
+  } else {
+    parts.push(
+      `=== PRODUCT ===`,
+      `Product: "${plan.productName}".`,
+      ``,
+    );
+  }
+
+  // 文案（仅当用户提供了才注入）
+  const copyParts: string[] = [];
+  if (plan.headline) copyParts.push(`Headline: "${plan.headline}"`);
+  if (plan.subtitle) copyParts.push(`Subtitle: "${plan.subtitle}"`);
+  if (plan.sellingPoints && plan.sellingPoints.length > 0) {
+    copyParts.push(`Selling Points:`);
+    plan.sellingPoints.forEach((s) => copyParts.push(`  • "${s}"`));
+  }
+  if (plan.copyBlocks && plan.copyBlocks.length > 0) {
+    const nonEmpty = plan.copyBlocks.filter((b) => b?.title?.trim());
+    if (nonEmpty.length > 0) {
+      copyParts.push(`Copy Blocks:`);
+      nonEmpty.forEach((b) => {
+        copyParts.push(`  [${b.role}] "${b.title}"${b.body ? ` | ${b.body}` : ""}${b.subtitle ? ` — ${b.subtitle}` : ""}`);
+      });
+    }
+  }
+  if (copyParts.length > 0) {
+    parts.push(`=== COPY ===`, ...copyParts, ``);
+  }
+
+  // 用户自定义方向（如果配置区有输入）
+  if (plan.layoutDirection?.trim()) {
+    parts.push(`Layout: ${plan.layoutDirection.trim()}`, ``);
+  }
+  if (plan.visualDirection?.trim()) {
+    parts.push(`Visual Style: ${plan.visualDirection.trim()}`, ``);
+  }
+  if (plan.colorDirection?.trim()) {
+    parts.push(`Color Direction: ${plan.colorDirection.trim()}`, ``);
+  }
+
+  // 基础质量要求（最小底线）
+  parts.push(
+    `=== QUALITY ===`,
+    `Photorealistic commercial product photography, professional studio quality, crisp edges, high resolution.`,
+    `NO fake logos, prices, certification marks, or platform branding.`,
+    `NO CTA buttons, Buy Now, Shop Now, price badges, discount badges, or shipping labels.`,
+    `NO watermark, NO "AI generated" mark, NO logo mark, NO signature, NO copyright stamp, NO platform UI badge.`,
+  );
+
+  return parts.join("\n");
+}
+
 export function buildImageGenerationPrompt(plan: CreativePlan): string {
+  if (plan.templateId === "tpl-blank-free") {
+    return buildBlankImageGenerationPrompt(plan);
+  }
+
   const analysis = plan.productAnalysis;
   const lo = plan.layoutOverlay;
   const visibleFeatures = analysis?.visibleFeatures?.join(", ") || "all visible product features from the reference image";

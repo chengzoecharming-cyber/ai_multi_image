@@ -50,6 +50,7 @@ export function PlanInfoDialog({
 
   const sellingPointsText = (draft.sellingPoints || []).join("\n");
   const copyBlocksJson = JSON.stringify(draft.copyBlocks || [], null, 2);
+  const isBlank = draft.templateId === "tpl-blank-free";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -138,32 +139,45 @@ export function PlanInfoDialog({
               )}
             </div>
 
-            <div>
-              <Label className="text-[11px] text-gray-500">版式方向</Label>
-              {manualEditing ? (
-                <Textarea value={draft.layoutDirection} onChange={(e) => updateDraft("layoutDirection", e.target.value)} className="min-h-[70px] text-sm mt-1" />
-              ) : (
-                <div className="text-xs text-gray-700 mt-1 whitespace-pre-wrap">{draft.layoutDirection}</div>
-              )}
-            </div>
+            {!isBlank && (
+              <>
+                <div>
+                  <Label className="text-[11px] text-gray-500">版式方向</Label>
+                  {manualEditing ? (
+                    <Textarea value={draft.layoutDirection} onChange={(e) => updateDraft("layoutDirection", e.target.value)} className="min-h-[70px] text-sm mt-1" />
+                  ) : (
+                    <div className="text-xs text-gray-700 mt-1 whitespace-pre-wrap">{draft.layoutDirection}</div>
+                  )}
+                </div>
 
-            <div>
-              <Label className="text-[11px] text-gray-500">视觉方向</Label>
-              {manualEditing ? (
-                <Textarea value={draft.visualDirection} onChange={(e) => updateDraft("visualDirection", e.target.value)} className="min-h-[70px] text-sm mt-1" />
-              ) : (
-                <div className="text-xs text-gray-700 mt-1 whitespace-pre-wrap">{draft.visualDirection}</div>
-              )}
-            </div>
+                <div>
+                  <Label className="text-[11px] text-gray-500">视觉方向</Label>
+                  {manualEditing ? (
+                    <Textarea value={draft.visualDirection} onChange={(e) => updateDraft("visualDirection", e.target.value)} className="min-h-[70px] text-sm mt-1" />
+                  ) : (
+                    <div className="text-xs text-gray-700 mt-1 whitespace-pre-wrap">{draft.visualDirection}</div>
+                  )}
+                </div>
 
-            <div>
-              <Label className="text-[11px] text-gray-500">色彩方向</Label>
-              {manualEditing ? (
-                <Textarea value={draft.colorDirection} onChange={(e) => updateDraft("colorDirection", e.target.value)} className="min-h-[60px] text-sm mt-1" />
-              ) : (
-                <div className="text-xs text-gray-700 mt-1 whitespace-pre-wrap">{draft.colorDirection}</div>
-              )}
-            </div>
+                <div>
+                  <Label className="text-[11px] text-gray-500">色彩方向</Label>
+                  {manualEditing ? (
+                    <Textarea value={draft.colorDirection} onChange={(e) => updateDraft("colorDirection", e.target.value)} className="min-h-[60px] text-sm mt-1" />
+                  ) : (
+                    <div className="text-xs text-gray-700 mt-1 whitespace-pre-wrap">{draft.colorDirection}</div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {isBlank && (
+              <div className="pt-1">
+                <div className="text-[11px] text-gray-400 mb-1">空白模板</div>
+                <p className="text-sm text-gray-600 leading-snug">
+                  此方案使用空白模板，不注入任何系统方向。生成指令完全由用户配置决定。
+                </p>
+              </div>
+            )}
 
             <div>
               <Label className="text-[11px] text-gray-500">copyBlocks（JSON，可选）</Label>

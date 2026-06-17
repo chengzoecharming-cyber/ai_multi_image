@@ -78,36 +78,39 @@ function ensurePlanSkeleton(plans: CreativePlan[]): CreativePlan[] {
       result.splice(insertIdx, 0, { id: "cb-subheadline", title: sanitizeRiskyCopy(subtitle), role: "subheadline", priority: 2 });
     }
 
-    const existingText = new Set(result.map((b) => toUpperWords(b.title || "")));
-    const sourcePoints =
-      plan.sellingPoints && plan.sellingPoints.length > 0
-        ? plan.sellingPoints
-        : plan.productAnalysis?.visibleFeatures || [];
-    const featureTitles = sourcePoints
-      .map((point) => toUpperWords(sanitizeRiskyCopy(String(point))))
-      .filter((point) => point.length > 0 && !existingText.has(point))
-      .slice(0, 3);
+    const isBlank = plan.templateId === "tpl-blank-free";
+    if (!isBlank) {
+      const existingText = new Set(result.map((b) => toUpperWords(b.title || "")));
+      const sourcePoints =
+        plan.sellingPoints && plan.sellingPoints.length > 0
+          ? plan.sellingPoints
+          : plan.productAnalysis?.visibleFeatures || [];
+      const featureTitles = sourcePoints
+        .map((point) => toUpperWords(sanitizeRiskyCopy(String(point))))
+        .filter((point) => point.length > 0 && !existingText.has(point))
+        .slice(0, 3);
 
-    featureTitles.forEach((title, index) => {
-      result.push({
-        id: `cb-auto-feature-${index + 1}`,
-        title,
-        body: index === 0 ? "Clear visible advantage for ecommerce shoppers" : undefined,
-        role: "feature_point",
-        iconHint: index === 0 ? "target" : index === 1 ? "shield" : "spark",
-        priority: result.length + 1,
+      featureTitles.forEach((title, index) => {
+        result.push({
+          id: `cb-auto-feature-${index + 1}`,
+          title,
+          body: index === 0 ? "Clear visible advantage for ecommerce shoppers" : undefined,
+          role: "feature_point",
+          iconHint: index === 0 ? "target" : index === 1 ? "shield" : "spark",
+          priority: result.length + 1,
+        });
       });
-    });
 
-    if (result.filter((b) => b.role === "feature_point").length < 2 && headline) {
-      result.push({
-        id: "cb-auto-benefit",
-        title: "PRODUCT HIGHLIGHTS",
-        body: sanitizeRiskyCopy(subtitle || "Key details shown with clear commercial hierarchy"),
-        role: "feature_point",
-        iconHint: "spark",
-        priority: result.length + 1,
-      });
+      if (result.filter((b) => b.role === "feature_point").length < 2 && headline) {
+        result.push({
+          id: "cb-auto-benefit",
+          title: "PRODUCT HIGHLIGHTS",
+          body: sanitizeRiskyCopy(subtitle || "Key details shown with clear commercial hierarchy"),
+          role: "feature_point",
+          iconHint: "spark",
+          priority: result.length + 1,
+        });
+      }
     }
 
     refreshed.copyBlocks = result;

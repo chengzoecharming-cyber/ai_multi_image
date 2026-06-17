@@ -14,6 +14,7 @@ import {
   MapPin,
   RefreshCw,
   X,
+  Image as ImageIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ export interface ImagePreviewPanelProps {
   onSave: (plan: CreativePlan) => void;
   onOpenInfo: (plan: CreativePlan) => void;
   onOpenImageDetail: (data: ImageDetailData) => void;
+  onOpenAssetLibrary?: () => void;
 }
 
 /* ── Action group button ── */
@@ -81,6 +83,7 @@ export function ImagePreviewPanel({
   onSave,
   onOpenInfo,
   onOpenImageDetail,
+  onOpenAssetLibrary,
 }: ImagePreviewPanelProps) {
   const [showCn, setShowCn] = useState(false);
   const hasCn = !!(
@@ -238,6 +241,15 @@ export function ImagePreviewPanel({
           >
             <Info className="w-4 h-4" />
           </button>
+          {onOpenAssetLibrary && (
+            <button
+              onClick={onOpenAssetLibrary}
+              className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors"
+              title="资产库"
+            >
+              <ImageIcon className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 

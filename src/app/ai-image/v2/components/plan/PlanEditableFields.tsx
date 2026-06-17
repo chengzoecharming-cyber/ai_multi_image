@@ -38,6 +38,8 @@ export function PlanEditableFields({
     [plan, onUpdate]
   );
 
+  const isBlank = plan.templateId === "tpl-blank-free";
+
   const sellingPoints = plan.sellingPoints || [];
 
   const updateSellingPoint = (i: number, val: string) => {
@@ -124,38 +126,51 @@ export function PlanEditableFields({
         </div>
       )}
 
-      <div className="space-y-1">
-        <Label className="text-xs font-medium text-gray-500 flex items-center gap-1">
-          <Layout className="w-3 h-3" />版式方向
-        </Label>
-        {isEditing ? (
-          <Textarea value={plan.layoutDirection} onChange={(e) => updateField("layoutDirection", e.target.value)} className="text-sm min-h-[60px] resize-none" />
-        ) : (
-          <p className="text-sm text-gray-700 leading-relaxed">{plan.layoutDirection}</p>
-        )}
-      </div>
+      {!isBlank && (
+        <>
+          <div className="space-y-1">
+            <Label className="text-xs font-medium text-gray-500 flex items-center gap-1">
+              <Layout className="w-3 h-3" />版式方向
+            </Label>
+            {isEditing ? (
+              <Textarea value={plan.layoutDirection} onChange={(e) => updateField("layoutDirection", e.target.value)} className="text-sm min-h-[60px] resize-none" />
+            ) : (
+              <p className="text-sm text-gray-700 leading-relaxed">{plan.layoutDirection}</p>
+            )}
+          </div>
 
-      <div className="space-y-1">
-        <Label className="text-xs font-medium text-gray-500 flex items-center gap-1">
-          <Eye className="w-3 h-3" />视觉方向
-        </Label>
-        {isEditing ? (
-          <Textarea value={plan.visualDirection} onChange={(e) => updateField("visualDirection", e.target.value)} className="text-sm min-h-[60px] resize-none" />
-        ) : (
-          <p className="text-sm text-gray-700 leading-relaxed">{plan.visualDirection}</p>
-        )}
-      </div>
+          <div className="space-y-1">
+            <Label className="text-xs font-medium text-gray-500 flex items-center gap-1">
+              <Eye className="w-3 h-3" />视觉方向
+            </Label>
+            {isEditing ? (
+              <Textarea value={plan.visualDirection} onChange={(e) => updateField("visualDirection", e.target.value)} className="text-sm min-h-[60px] resize-none" />
+            ) : (
+              <p className="text-sm text-gray-700 leading-relaxed">{plan.visualDirection}</p>
+            )}
+          </div>
 
-      <div className="space-y-1">
-        <Label className="text-xs font-medium text-gray-500 flex items-center gap-1">
-          <Palette className="w-3 h-3" />色彩方向
-        </Label>
-        {isEditing ? (
-          <Textarea value={plan.colorDirection} onChange={(e) => updateField("colorDirection", e.target.value)} className="text-sm min-h-[60px] resize-none" />
-        ) : (
-          <p className="text-sm text-gray-700 leading-relaxed">{plan.colorDirection}</p>
-        )}
-      </div>
+          <div className="space-y-1">
+            <Label className="text-xs font-medium text-gray-500 flex items-center gap-1">
+              <Palette className="w-3 h-3" />色彩方向
+            </Label>
+            {isEditing ? (
+              <Textarea value={plan.colorDirection} onChange={(e) => updateField("colorDirection", e.target.value)} className="text-sm min-h-[60px] resize-none" />
+            ) : (
+              <p className="text-sm text-gray-700 leading-relaxed">{plan.colorDirection}</p>
+            )}
+          </div>
+        </>
+      )}
+
+      {isBlank && (
+        <div className="pt-2">
+          <div className="text-[11px] text-gray-400 mb-1">空白模板</div>
+          <p className="text-xs text-gray-500 leading-relaxed">
+            此方案使用空白模板，不注入任何系统方向。所有文案和视觉方向完全由用户配置决定。
+          </p>
+        </div>
+      )}
     </div>
   );
 }

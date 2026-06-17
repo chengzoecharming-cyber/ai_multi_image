@@ -58,7 +58,10 @@ export function PlanCard({
     badge: "标签",
   };
 
+  const isBlank = plan.templateId === "tpl-blank-free";
+
   const bgLabel = (() => {
+    if (isBlank) return null;
     const sid = plan.visualStyleId || "";
     const vp = plan.visualPresentation || "";
     if (sid.includes("clean_catalog") || sid.includes("light_") || sid.includes("empty_light_") || vp.includes("白") || vp.includes("浅")) return "白底";
@@ -68,11 +71,12 @@ export function PlanCard({
     return null;
   })();
 
-  const copyDensityLabel = plan.copyDensity
-    ? COPY_DENSITY_PROFILES[plan.copyDensity]?.label
-    : null;
+  const copyDensityLabel = isBlank
+    ? null
+    : (plan.copyDensity ? COPY_DENSITY_PROFILES[plan.copyDensity]?.label : null);
 
   const densityTag = (() => {
+    if (isBlank) return null;
     switch (plan.copyDensity) {
       case "headline_only":
       case "minimal": return "低";
@@ -83,6 +87,7 @@ export function PlanCard({
   })();
 
   const toneTag = (() => {
+    if (isBlank) return null;
     const sid = plan.visualStyleId || "";
     const vp = plan.visualPresentation || "";
     if (sid.includes("clean_catalog") || sid.includes("light_") || sid.includes("empty_light_") || vp.includes("白") || vp.includes("浅")) return "亮";
@@ -167,7 +172,7 @@ export function PlanCard({
 
       <div className="flex-1 px-6 py-1 overflow-y-auto min-h-0">
         <div className="space-y-4">
-          {(displayHeadline || displaySubtitle || displaySellingPoints.length > 0 || filteredCopyBlocks.length > 0) && (
+          {!isBlank && (displayHeadline || displaySubtitle || displaySellingPoints.length > 0 || filteredCopyBlocks.length > 0) && (
             <div>
               {displayHeadline && (
                 <div className="mb-3">
@@ -229,10 +234,19 @@ export function PlanCard({
             </div>
           )}
 
-          {plan.visualPresentation && (
+          {!isBlank && plan.visualPresentation && (
             <div className="pt-1">
               <div className="text-[14px] font-normal text-[#72808a] mb-2">风格</div>
               <p className="text-[14px] font-normal text-[#0f1419] leading-snug">{plan.visualPresentation}</p>
+            </div>
+          )}
+
+          {isBlank && (
+            <div className="pt-1">
+              <div className="text-[14px] font-normal text-[#72808a] mb-2">空白模板</div>
+              <p className="text-[14px] font-normal text-[#0f1419] leading-snug">
+                此方案使用空白模板，不注入任何系统方向。生成指令完全由用户配置决定。
+              </p>
             </div>
           )}
         </div>

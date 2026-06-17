@@ -66,9 +66,18 @@ export function normalizeCreativePlan(raw: unknown, fallbackAnalysis?: ProductAn
     });
   })();
 
-  const layoutDirection = String(p?.layoutDirection || "Centered product on clean background");
-  const visualDirection = String(p?.visualDirection || "Professional studio lighting");
-  const colorDirection = String(p?.colorDirection || "Neutral background");
+  const templateId = String(p?.templateId || "tpl-feature-explanation");
+  const isBlank = templateId === "tpl-blank-free";
+
+  const layoutDirection = String(
+    p?.layoutDirection || (isBlank ? "" : "Centered product on clean background")
+  );
+  const visualDirection = String(
+    p?.visualDirection || (isBlank ? "" : "Professional studio lighting")
+  );
+  const colorDirection = String(
+    p?.colorDirection || (isBlank ? "" : "Neutral background")
+  );
   const imageType = String(p?.imageType || "product_showcase");
 
   // Normalize copyBlocks
@@ -92,7 +101,14 @@ export function normalizeCreativePlan(raw: unknown, fallbackAnalysis?: ProductAn
 
   let layoutOverlay = p?.layoutOverlay as LayoutOverlay | undefined;
   if (!layoutOverlay) {
-    layoutOverlay = buildLayoutOverlay(headline, subtitle, sellingPoints, layoutDirection, imageType, copyBlocks);
+    layoutOverlay = buildLayoutOverlay(
+      headline,
+      subtitle,
+      sellingPoints,
+      layoutDirection,
+      imageType,
+      copyBlocks
+    );
   }
 
   const copySource = (p?.copySource as CopySource) || "ai_suggested";
@@ -104,7 +120,7 @@ export function normalizeCreativePlan(raw: unknown, fallbackAnalysis?: ProductAn
     id: String(p?.id || `plan-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`),
     planName: String(p?.planName || "方案"),
     planArchetype,
-    templateId: String(p?.templateId || "tpl-feature-explanation"),
+    templateId,
     imageType,
     productAnalysis: analysis,
     productName: String(p?.productName || analysis?.productName || "Product"),
@@ -143,6 +159,10 @@ export function normalizeCreativePlan(raw: unknown, fallbackAnalysis?: ProductAn
   if (llmImageGenPrompt && llmPlanSummary) {
     plan.imageGenerationPrompt = llmImageGenPrompt;
     plan.planSummaryPrompt = llmPlanSummary;
+  } else if (isBlank) {
+    // 空白模板：始终使用精简的 blank prompt 构建器
+    plan.imageGenerationPrompt = buildImageGenerationPrompt(plan);
+    plan.planSummaryPrompt = buildPlanSummaryPrompt(plan);
   } else {
     plan.planSummaryPrompt = buildPlanSummaryPrompt(plan);
     plan.imageGenerationPrompt = buildImageGenerationPrompt(plan);
