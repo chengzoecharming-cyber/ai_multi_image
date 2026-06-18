@@ -370,18 +370,16 @@ function V2WorkbenchPageInner() {
         )}
 
         {/* Right Panel */}
-        <div className="flex-1 flex flex-col overflow-hidden bg-[rgb(248,249,250)]">
+        <div className="relative flex-1 flex flex-col overflow-hidden bg-[rgb(248,249,250)]">
           {tab === "product" && (
-            <div className="flex items-center justify-end px-6 py-3 border-b border-gray-200/80 shrink-0 bg-white">
-              <div className="flex items-center bg-white rounded-lg px-3 py-1.5">
-                <button
-                  onClick={() => setAssetLibraryOpen((v) => !v)}
-                  className="flex items-center gap-1.5 px-1 text-[13px] font-semibold text-[#0f1419] hover:opacity-80 transition-opacity"
-                >
-                  <ImageIcon className="w-4 h-4" />
-                  资产库
-                </button>
-              </div>
+            <div className="flex items-center justify-end px-6 py-3 shrink-0 bg-transparent">
+              <button
+                onClick={() => setAssetLibraryOpen((v) => !v)}
+                className="flex items-center gap-1.5 px-1 text-[13px] font-semibold text-[#0f1419] hover:opacity-80 transition-opacity"
+              >
+                <ImageIcon className="w-4 h-4" />
+                资产库
+              </button>
             </div>
           )}
 
@@ -478,15 +476,15 @@ function V2WorkbenchPageInner() {
                 />
               )}
             </div>
-
-            {tab === "product" && (
-              <AssetLibrarySidebar
-                open={assetLibraryOpen}
-                onClose={() => setAssetLibraryOpen(false)}
-                onOpenImageDetail={openImageDetail}
-              />
-            )}
           </div>
+
+          {tab === "product" && (
+            <AssetLibrarySidebar
+              open={assetLibraryOpen}
+              onClose={() => setAssetLibraryOpen(false)}
+              onOpenImageDetail={openImageDetail}
+            />
+          )}
         </div>
       </main>
 

@@ -273,10 +273,10 @@ export default function AssetLibrarySidebar({
   if (!open) return null;
 
   return (
-    <div className="w-[380px] max-w-[90vw] bg-white shadow-[-16px_0_20px_-12px_rgba(0,0,0,0.14)] rounded-l-[12px] rounded-r-none flex flex-col shrink-0 animate-in slide-in-from-right duration-200">
-      {/* Header — aligned with message center */}
-      <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
-        <h2 className="text-[20px] font-medium text-[#0f1419]">资产库</h2>
+    <div className="absolute inset-0 z-20 bg-[rgb(248,249,250)] flex flex-col animate-in fade-in duration-200">
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200/80 shrink-0 bg-white">
+        <h2 className="text-base font-bold text-gray-900">资产库</h2>
         <div className="flex items-center gap-2">
           {/* Search */}
           <div className="flex items-center overflow-hidden">
@@ -298,7 +298,7 @@ export default function AssetLibrarySidebar({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-[#536471] transition-colors hover:text-[#0f1419] active:text-[#0f1419]"
+            className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>

@@ -145,12 +145,6 @@ export function RightPanel({
 
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="px-6 py-3 border-b border-gray-200/80 flex items-center justify-between shrink-0 bg-white">
-          <div className="flex items-center gap-3">
-            <h2 className="text-base font-bold text-gray-900">方案列表</h2>
-            <span className="text-xs text-gray-400">{singlePlans.length} 个方案</span>
-          </div>
-        </div>
         <div className="flex-1 overflow-hidden">
           <PlanCardStack
             plans={singlePlans}
