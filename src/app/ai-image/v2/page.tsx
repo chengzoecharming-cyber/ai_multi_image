@@ -372,14 +372,16 @@ function V2WorkbenchPageInner() {
         {/* Right Panel */}
         <div className="relative flex-1 flex flex-col overflow-hidden bg-[rgb(248,249,250)]">
           {tab === "product" && (
-            <div className="flex items-center justify-end px-6 py-3 shrink-0 bg-transparent">
-              <button
-                onClick={() => setAssetLibraryOpen((v) => !v)}
-                className="flex items-center gap-1.5 px-1 text-[13px] font-semibold text-[#0f1419] hover:opacity-80 transition-opacity"
-              >
-                <ImageIcon className="w-4 h-4" />
-                资产库
-              </button>
+            <div className="flex items-center justify-end px-6 py-3 shrink-0">
+              <div className="flex items-center bg-white rounded-lg px-3 py-1.5">
+                <button
+                  onClick={() => setAssetLibraryOpen((v) => !v)}
+                  className="flex items-center gap-1.5 px-1 text-[13px] font-semibold text-[#0f1419] hover:opacity-80 transition-opacity"
+                >
+                  <ImageIcon className="w-4 h-4" />
+                  资产库
+                </button>
+              </div>
             </div>
           )}
 
