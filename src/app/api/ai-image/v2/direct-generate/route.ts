@@ -274,7 +274,7 @@ export async function POST(request: NextRequest) {
       data: { status: "processing" },
     });
 
-    const GENERATE_TIMEOUT_MS = 90000;
+    const GENERATE_TIMEOUT_MS = 150000;
     const abortController = new AbortController();
     const timeoutId = setTimeout(() => abortController.abort(), GENERATE_TIMEOUT_MS);
 
@@ -299,9 +299,9 @@ export async function POST(request: NextRequest) {
       if (err instanceof Error && err.name === "AbortError") {
         await prisma.aiImageTask.update({
           where: { id: task.id },
-          data: { status: "failed", errorMessage: "生成超时（90秒），请重试" },
+          data: { status: "failed", errorMessage: `生成超时（${GENERATE_TIMEOUT_MS / 1000}秒），请重试` },
         });
-        return NextResponse.json({ error: "生成超时（90秒），请重试" }, { status: 504 });
+        return NextResponse.json({ error: `生成超时（${GENERATE_TIMEOUT_MS / 1000}秒），请重试` }, { status: 504 });
       }
       throw err;
     }

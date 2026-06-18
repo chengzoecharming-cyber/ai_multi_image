@@ -39,7 +39,7 @@ export function useImageGeneration(options: UseImageGenerationOptions): ImageGen
       updateActiveSession((s) => ({ ...s, generatingImage: true, generatingImagePlanId: plan.id, lastError: null }));
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 90000);
+      const timeoutId = setTimeout(() => controller.abort(), 150000);
 
       try {
         const isChatGPT2API = activeSession.provider === "chatgpt2api";

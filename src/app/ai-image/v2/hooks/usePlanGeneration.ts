@@ -65,7 +65,7 @@ export function usePlanGeneration(options: UsePlanGenerationOptions): PlanGenera
 
     const controller = new AbortController();
     generateControllerRef.current = controller;
-    const timeoutId = setTimeout(() => controller.abort(), 120000);
+    const timeoutId = setTimeout(() => controller.abort(), 150000);
     const clientRequestId = createPlanRequestId();
     setLastDebugPrompt({ requestId: clientRequestId });
 
@@ -116,7 +116,7 @@ export function usePlanGeneration(options: UsePlanGenerationOptions): PlanGenera
       }
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") {
-        toast.error("生成超时（约120秒），请重试");
+        toast.error("生成超时（约150秒），请重试");
       } else {
         toast.error("网络错误，请重试");
       }

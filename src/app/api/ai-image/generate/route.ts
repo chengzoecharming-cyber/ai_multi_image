@@ -266,8 +266,8 @@ const providerName = body.provider || process.env.IMAGE_PROVIDER || "chatgpt2api
       data: { status: "processing" },
     });
 
-    // 90s timeout for image generation (Seedream 1920x1920 needs ~50-70s)
-    const GENERATE_TIMEOUT_MS = 90000;
+    // 150s timeout for image generation (chatgpt2api polls OpenAI for 120s)
+    const GENERATE_TIMEOUT_MS = 150000;
     const abortController = new AbortController();
     const timeoutId = setTimeout(() => abortController.abort(), GENERATE_TIMEOUT_MS);
 
@@ -294,9 +294,9 @@ const providerName = body.provider || process.env.IMAGE_PROVIDER || "chatgpt2api
       if (err instanceof Error && err.name === "AbortError") {
         await prisma.aiImageTask.update({
           where: { id: task.id },
-          data: { status: "failed", errorMessage: "生成超时（60秒），请重试" },
+          data: { status: "failed", errorMessage: `生成超时（${GENERATE_TIMEOUT_MS / 1000}秒），请重试` },
         });
-        return NextResponse.json({ error: "生成超时（90秒），请重试" }, { status: 504 });
+        return NextResponse.json({ error: `生成超时（${GENERATE_TIMEOUT_MS / 1000}秒），请重试` }, { status: 504 });
       }
       throw err;
     }
