@@ -11,9 +11,14 @@ import { P0 } from "@/app/ai-image/v2/design-tokens";
 interface SignInDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  callbackUrl?: string;
 }
 
-export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
+export function SignInDialog({
+  open,
+  onOpenChange,
+  callbackUrl = "/ai-image/v2",
+}: SignInDialogProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -47,7 +52,6 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
       const result = await signIn.email({
         email: email.trim(),
         password,
-        callbackURL: "/ai-image/v2",
       });
       if (result.error) {
         toast.error(result.error.message || "登录失败");
@@ -70,8 +74,11 @@ export function SignInDialog({ open, onOpenChange }: SignInDialogProps) {
         }
         toast.success("登录成功");
         handleClose();
-        router.push("/ai-image/v2");
+        router.replace(callbackUrl);
         router.refresh();
+        window.setTimeout(() => {
+          window.location.replace(callbackUrl);
+        }, 300);
       }
     } catch (err) {
       toast.error("登录失败，请检查邮箱和密码");
