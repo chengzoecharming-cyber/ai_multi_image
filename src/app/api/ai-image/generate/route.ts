@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
     if (!scope) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
     }
+    const authScope = scope;
     const activeCode = requireActiveAuthorizationCode(scope);
     if (!activeCode.ok) {
       return NextResponse.json({ error: activeCode.error }, { status: activeCode.status });
@@ -265,6 +266,139 @@ const providerName = body.provider || process.env.IMAGE_PROVIDER || "chatgpt2api
       where: { id: task.id },
       data: { status: "processing" },
     });
+
+    async function runGenerationInBackground() {
+      // 180s timeout for async image generation (chatgpt2api polls OpenAI for 120s).
+      const GENERATE_TIMEOUT_MS = 180000;
+      const abortController = new AbortController();
+      const timeoutId = setTimeout(() => abortController.abort(), GENERATE_TIMEOUT_MS);
+
+      try {
+        const result = await provider.generate({
+          prompt: finalPrompt,
+          negativePrompt: finalNegativePrompt,
+          productImageUrl: resolvedProductImageUrl || null,
+          productImageUrls: resolvedProductImageUrls || [],
+          styleReferenceUrls: resolvedStyleReferenceUrls || [],
+          width,
+          height,
+          strictSize,
+          seed,
+          editStrength,
+          model: config?.model,
+          quality: config?.quality,
+          signal: abortController.signal,
+        });
+        clearTimeout(timeoutId);
+
+        if (!result.success || !result.imageUrl) {
+          await prisma.aiImageTask.update({
+            where: { id: task.id },
+            data: {
+              status: "failed",
+              errorMessage: result.error || "生成失败",
+            },
+          });
+          return;
+        }
+
+        let imageUrl = result.imageUrl;
+        if (providerName === "chatgpt2api" && imageUrl && imageUrl.includes("localhost:3000")) {
+          imageUrl = imageUrl.replace("localhost:3000", "47.237.113.100:3000");
+          console.log("[Generate] chatgpt2api imageUrl replaced:", imageUrl);
+        }
+
+        const persistResult = await persistImageWithThumb(task.id, imageUrl);
+        const effectiveImageUrl = persistResult?.localUrl ?? imageUrl;
+        const effectiveThumbUrl = persistResult?.thumbUrl ?? effectiveImageUrl;
+
+        let imageBase64 = "";
+        try {
+          const fetchUrlForBase64 = effectiveImageUrl.startsWith("/") ? `${origin}${effectiveImageUrl}` : effectiveImageUrl;
+          const imgRes = await fetch(fetchUrlForBase64, { signal: abortController.signal });
+          if (imgRes.ok) {
+            const buffer = Buffer.from(await imgRes.arrayBuffer());
+            if (buffer.length > 0) {
+              imageBase64 = `data:image/png;base64,${buffer.toString("base64")}`;
+            }
+          }
+        } catch (e) {
+          console.log("[Generate] failed to download image for base64:", e);
+        }
+
+        await deductQuotaForScope(authScope, 1);
+
+        await prisma.aiImageTask.update({
+          where: { id: task.id },
+          data: {
+            status: "completed",
+            resultImageUrl: JSON.stringify([effectiveImageUrl]),
+            thumbImageUrl: effectiveThumbUrl,
+          },
+        });
+
+        if (v2SessionId) {
+          const v2Session = await prisma.aiImageV2Session.findFirst({
+            where: { id: v2SessionId, ...scopedTenantUserWhere(authScope, tenantId) },
+            select: { id: true, userId: true },
+          });
+          if (v2Session) {
+            const existingImage = await prisma.aiImageV2GeneratedImage.findFirst({
+              where: { sessionId: v2SessionId, taskId: task.id },
+              select: { id: true },
+            });
+            if (!existingImage) {
+              await prisma.aiImageV2GeneratedImage.create({
+                data: {
+                  sessionId: v2SessionId,
+                  tenantId,
+                  userId: v2Session.userId,
+                  planId: v2PlanId,
+                  taskId: task.id,
+                  tab: "product",
+                  imageUrl: effectiveImageUrl,
+                  thumbImageUrl: effectiveThumbUrl,
+                  imageBase64: imageBase64 || null,
+                },
+              });
+              await prisma.aiImageV2Session.update({
+                where: { id: v2SessionId },
+                data: { updatedAt: new Date() },
+              });
+            }
+          }
+        }
+      } catch (err) {
+        clearTimeout(timeoutId);
+        const errorMessage =
+          err instanceof Error && err.name === "AbortError"
+            ? `生成超时（${GENERATE_TIMEOUT_MS / 1000}秒），请重试`
+            : err instanceof Error
+              ? err.message
+              : "生成图片失败";
+        console.error("[Generate] async generation failed:", err);
+        await prisma.aiImageTask.update({
+          where: { id: task.id },
+          data: { status: "failed", errorMessage },
+        }).catch((updateErr) => {
+          console.error("[Generate] failed to mark async task failed:", updateErr);
+        });
+      }
+    }
+
+    if (body.async === true) {
+      void runGenerationInBackground();
+      return NextResponse.json(
+        {
+          data: {
+            ...task,
+            status: "processing",
+          },
+          async: true,
+        },
+        { status: 202 }
+      );
+    }
 
     // 150s timeout for image generation (chatgpt2api polls OpenAI for 120s)
     const GENERATE_TIMEOUT_MS = 150000;

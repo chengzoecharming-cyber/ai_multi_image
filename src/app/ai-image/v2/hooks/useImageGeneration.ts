@@ -25,6 +25,46 @@ export interface ImageGenerationActions {
   handleGenerateImage: (plan: CreativePlan) => Promise<ImageGenerationResult>;
 }
 
+interface ImageTaskResponse {
+  id: string;
+  status: "pending" | "processing" | "completed" | "failed";
+  resultImageUrl?: string | null;
+  thumbImageUrl?: string | null;
+  errorMessage?: string | null;
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function pollImageTask(taskId: string): Promise<ImageTaskResponse> {
+  const startedAt = Date.now();
+  const maxWaitMs = 240000;
+  const intervalMs = 4000;
+
+  while (Date.now() - startedAt < maxWaitMs) {
+    const res = await fetch(`/api/ai-image/tasks/${taskId}`, { cache: "no-store" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data?.error || `查询生成任务失败: ${res.status}`);
+    }
+
+    const task = data?.data as ImageTaskResponse | undefined;
+    if (!task) {
+      throw new Error("查询生成任务失败：响应为空");
+    }
+
+    if (task.status === "completed") return task;
+    if (task.status === "failed") {
+      throw new Error(task.errorMessage || "生成失败");
+    }
+
+    await wait(intervalMs);
+  }
+
+  throw new Error("生成仍在处理中，请稍后刷新查看结果");
+}
+
 export function useImageGeneration(options: UseImageGenerationOptions): ImageGenerationActions {
   const { activeSession, updateActiveSession, onSessionPersist } = options;
 
@@ -71,6 +111,7 @@ export function useImageGeneration(options: UseImageGenerationOptions): ImageGen
             styleReferenceUrls: styleRefs,
             negativePrompt: negativePromptBase,
             provider: activeSession.provider,
+            async: true,
             config: {
               width: activeSession.outputWidth,
               height: activeSession.outputHeight,
@@ -83,10 +124,18 @@ export function useImageGeneration(options: UseImageGenerationOptions): ImageGen
           signal: controller.signal,
         });
         clearTimeout(timeoutId);
-        const data = await res.json();
+        let data = await res.json();
+        if (res.status === 202 && data?.async && data?.data?.id) {
+          const completedTask = await pollImageTask(data.data.id as string);
+          data = {
+            data: completedTask,
+            thumbUrl: completedTask.thumbImageUrl,
+          };
+        }
+
         const rawResultImageUrl = data?.data?.resultImageUrl ?? data?.data?.imageUrl ?? data?.imageUrl ?? null;
         const imageUrl = resolveImageUrl(rawResultImageUrl);
-        const thumbUrl = data?.thumbUrl as string | undefined;
+        const thumbUrl = (data?.thumbUrl ?? data?.data?.thumbImageUrl) as string | undefined;
 
         if (res.ok && imageUrl) {
           const rawBase64 = (data?.imageBase64 as string | undefined) || "";
@@ -169,7 +218,7 @@ export function useImageGeneration(options: UseImageGenerationOptions): ImageGen
       } catch (err: unknown) {
         clearTimeout(timeoutId);
         if (err instanceof Error && err.name === "AbortError") {
-          const errorMsg = "生成超时（90秒），请重试";
+          const errorMsg = "提交生成请求超时，请重试";
           toast.error(errorMsg);
           updateActiveSession((s) => ({
             ...s,
@@ -179,7 +228,7 @@ export function useImageGeneration(options: UseImageGenerationOptions): ImageGen
           }));
           return { success: false, error: errorMsg };
         } else {
-          const errorMsg = "网络错误，请重试";
+          const errorMsg = err instanceof Error ? err.message : "网络错误，请重试";
           toast.error(errorMsg);
           updateActiveSession((s) => ({
             ...s,
