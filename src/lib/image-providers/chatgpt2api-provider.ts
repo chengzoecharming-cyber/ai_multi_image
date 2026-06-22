@@ -100,25 +100,42 @@ export class ChatGPT2APIProvider implements ImageProvider {
           }
         }
 
+        const model = params.model && params.model !== "default" ? params.model : undefined;
         const result = await editImage({
           prompt: params.prompt,
           images: files,
-          model: params.model && params.model !== "default" ? params.model : undefined,
+          model,
           size,
         });
         const imageUrlResult = result.data?.[0]?.url;
+        if (!imageUrlResult) {
+          console.warn("[ChatGPT2API] edit returned no image url", {
+            model: model || process.env.CHATGPT2API_IMAGE_MODEL || process.env.IMAGE_MODEL || "gpt-image-1",
+            size,
+            imageCount: files.length,
+            dataLength: result.data?.length ?? 0,
+          });
+        }
         if (!imageUrlResult) return { success: false, error: "ChatGPT2API 未返回图片 URL" };
         return { success: true, imageUrl: imageUrlResult };
       }
 
+      const model = params.model && params.model !== "default" ? params.model : undefined;
       const result = await generateImage({
         prompt: params.prompt,
-        model: params.model && params.model !== "default" ? params.model : undefined,
+        model,
         n: 1,
         size,
         response_format: "url",
       });
       const imageUrlResult = result.data?.[0]?.url;
+      if (!imageUrlResult) {
+        console.warn("[ChatGPT2API] generation returned no image url", {
+          model: model || process.env.CHATGPT2API_IMAGE_MODEL || process.env.IMAGE_MODEL || "gpt-image-1",
+          size,
+          dataLength: result.data?.length ?? 0,
+        });
+      }
       if (!imageUrlResult) return { success: false, error: "ChatGPT2API 未返回图片 URL" };
       return { success: true, imageUrl: imageUrlResult };
     } catch (error) {
