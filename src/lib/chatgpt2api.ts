@@ -2,7 +2,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_CHATGPT2API_URL || "http://localhost:30
 const AUTH_KEY = process.env.NEXT_PUBLIC_CHATGPT2API_KEY || "chatgpt2api";
 const ADMIN_KEY = process.env.CHATGPT2API_ADMIN_KEY || AUTH_KEY;
 const MANAGEMENT_BASE = BASE_URL.replace(/\/v1$/, "");
-const DEFAULT_IMAGE_MODEL = process.env.CHATGPT2API_IMAGE_MODEL || process.env.IMAGE_MODEL || "gpt-image-1";
+const DEFAULT_IMAGE_MODEL = process.env.CHATGPT2API_IMAGE_MODEL || process.env.IMAGE_MODEL || "codex-gpt-image-2";
 
 function authHeaders() { return { "Content-Type": "application/json", Authorization: `Bearer ${AUTH_KEY}` }; }
 function adminHeaders() { return { "Content-Type": "application/json", Authorization: `Bearer ${ADMIN_KEY}` }; }

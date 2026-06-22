@@ -110,7 +110,7 @@ export class ChatGPT2APIProvider implements ImageProvider {
         const imageUrlResult = result.data?.[0]?.url;
         if (!imageUrlResult) {
           console.warn("[ChatGPT2API] edit returned no image url", {
-            model: model || process.env.CHATGPT2API_IMAGE_MODEL || process.env.IMAGE_MODEL || "gpt-image-1",
+            model: model || process.env.CHATGPT2API_IMAGE_MODEL || process.env.IMAGE_MODEL || "codex-gpt-image-2",
             size,
             imageCount: files.length,
             dataLength: result.data?.length ?? 0,
@@ -131,7 +131,7 @@ export class ChatGPT2APIProvider implements ImageProvider {
       const imageUrlResult = result.data?.[0]?.url;
       if (!imageUrlResult) {
         console.warn("[ChatGPT2API] generation returned no image url", {
-          model: model || process.env.CHATGPT2API_IMAGE_MODEL || process.env.IMAGE_MODEL || "gpt-image-1",
+          model: model || process.env.CHATGPT2API_IMAGE_MODEL || process.env.IMAGE_MODEL || "codex-gpt-image-2",
           size,
           dataLength: result.data?.length ?? 0,
         });
