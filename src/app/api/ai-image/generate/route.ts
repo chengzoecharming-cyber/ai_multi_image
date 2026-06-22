@@ -292,13 +292,25 @@ const providerName = body.provider || process.env.IMAGE_PROVIDER || "chatgpt2api
         clearTimeout(timeoutId);
 
         if (!result.success || !result.imageUrl) {
+          const errorMessage = result.error || "生成失败";
           await prisma.aiImageTask.update({
             where: { id: task.id },
             data: {
               status: "failed",
-              errorMessage: result.error || "生成失败",
+              errorMessage,
             },
           });
+          if (v2SessionId) {
+            await prisma.aiImageV2Session.updateMany({
+              where: { id: v2SessionId, ...scopedTenantUserWhere(authScope, tenantId) },
+              data: {
+                generatingImage: false,
+                generatingImagePlanId: null,
+                lastError: errorMessage,
+                updatedAt: new Date(),
+              },
+            });
+          }
           return;
         }
 
@@ -361,11 +373,16 @@ const providerName = body.provider || process.env.IMAGE_PROVIDER || "chatgpt2api
                   imageBase64: imageBase64 || null,
                 },
               });
-              await prisma.aiImageV2Session.update({
-                where: { id: v2SessionId },
-                data: { updatedAt: new Date() },
-              });
             }
+            await prisma.aiImageV2Session.updateMany({
+              where: { id: v2SessionId, ...scopedTenantUserWhere(authScope, tenantId) },
+              data: {
+                generatingImage: false,
+                generatingImagePlanId: null,
+                lastError: null,
+                updatedAt: new Date(),
+              },
+            });
           }
         }
       } catch (err) {
@@ -383,6 +400,19 @@ const providerName = body.provider || process.env.IMAGE_PROVIDER || "chatgpt2api
         }).catch((updateErr) => {
           console.error("[Generate] failed to mark async task failed:", updateErr);
         });
+        if (v2SessionId) {
+          await prisma.aiImageV2Session.updateMany({
+            where: { id: v2SessionId, ...scopedTenantUserWhere(authScope, tenantId) },
+            data: {
+              generatingImage: false,
+              generatingImagePlanId: null,
+              lastError: errorMessage,
+              updatedAt: new Date(),
+            },
+          }).catch((updateErr) => {
+            console.error("[Generate] failed to mark async session failed:", updateErr);
+          });
+        }
       }
     }
 
