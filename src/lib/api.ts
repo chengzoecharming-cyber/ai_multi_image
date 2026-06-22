@@ -1,4 +1,5 @@
 import { PromptGroup, ImageTask, GenerateRequest } from "./types";
+import { uploadImageFile } from "./image-upload";
 
 const API_BASE = "/api";
 
@@ -73,15 +74,5 @@ export async function deleteTask(id: string): Promise<void> {
 
 // ==================== 上传 API ====================
 export async function uploadFile(file: File): Promise<{ data: { url: string; name: string; size: number; type: string } }> {
-  const formData = new FormData();
-  formData.append("file", file);
-  const res = await fetch(`${API_BASE}/upload`, {
-    method: "POST",
-    body: formData,
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.error || "上传失败");
-  }
-  return data;
+  return uploadImageFile(file, { endpoint: `${API_BASE}/upload` });
 }

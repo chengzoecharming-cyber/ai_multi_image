@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import { Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { uploadImageFile } from "@/lib/image-upload";
 
 interface ReferenceUploaderProps {
   urls: string[];
@@ -35,16 +36,12 @@ export default function ReferenceUploader({
     const newUrls: string[] = [];
 
     for (const file of toUpload) {
-      const formData = new FormData();
-      formData.append("file", file);
       try {
-        const res = await fetch("/api/upload", { method: "POST", body: formData });
-        const data = await res.json();
-        if (res.ok && data.data?.url) {
-          newUrls.push(data.data.url);
-        }
+        const data = await uploadImageFile(file);
+        newUrls.push(data.data.url);
       } catch (err) {
         console.error("Upload failed:", err);
+        alert(err instanceof Error ? err.message : "上传失败");
       }
     }
 

@@ -2,6 +2,7 @@
 
 import { useCallback, useRef } from "react";
 import { toast } from "sonner";
+import { uploadImageFile } from "@/lib/image-upload";
 import type { V2Session } from "../types";
 
 export interface UseUploadHandlersOptions {
@@ -31,18 +32,12 @@ export function useUploadHandlers(options: UseUploadHandlersOptions): UploadHand
     async (files: File[]): Promise<string[]> => {
       const urls: string[] = [];
       for (const file of files) {
-        const formData = new FormData();
-        formData.append("file", file);
         try {
-          const res = await fetch("/api/upload", { method: "POST", body: formData });
-          const data = await res.json();
-          if (res.ok && data.data?.url) {
-            urls.push(data.data.url);
-          } else {
-            toast.error(data.error || `上传失败: ${file.name}`);
-          }
-        } catch {
-          toast.error(`上传失败: ${file.name}`);
+          const data = await uploadImageFile(file);
+          urls.push(data.data.url);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "上传失败";
+          toast.error(`${file.name}: ${message}`);
         }
       }
       return urls;
@@ -123,29 +118,23 @@ export function useUploadHandlers(options: UseUploadHandlersOptions): UploadHand
         if (referenceFileInputRef.current) referenceFileInputRef.current.value = "";
         return;
       }
-      const formData = new FormData();
-      formData.append("file", file);
       try {
-        const res = await fetch("/api/upload", { method: "POST", body: formData });
-        const data = await res.json();
-        if (res.ok && data.data?.url) {
-          let nextSession: V2Session | null = null;
-          updateActiveSession((s) => ({
-            ...(nextSession = {
-              ...s,
-              referenceImageUrls: [...(s.referenceImageUrls || []), data.data.url],
-              lastError: null,
-            }),
-          }));
-          if (nextSession) {
-            void onSessionPersist?.(nextSession);
-          }
-          toast.success("参考图上传成功");
-        } else {
-          toast.error(data.error || "上传失败");
+        const data = await uploadImageFile(file);
+        let nextSession: V2Session | null = null;
+        updateActiveSession((s) => ({
+          ...(nextSession = {
+            ...s,
+            referenceImageUrls: [...(s.referenceImageUrls || []), data.data.url],
+            lastError: null,
+          }),
+        }));
+        if (nextSession) {
+          void onSessionPersist?.(nextSession);
         }
-      } catch {
-        toast.error("上传失败，请重试");
+        toast.success("参考图上传成功");
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "上传失败，请重试";
+        toast.error(message);
       }
       if (referenceFileInputRef.current) referenceFileInputRef.current.value = "";
     },

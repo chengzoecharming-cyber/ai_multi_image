@@ -9,6 +9,7 @@ const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
 // POST /api/upload
 export async function POST(request: NextRequest) {
+  const startedAt = Date.now();
   try {
     await mkdir(UPLOAD_DIR, { recursive: true });
 
@@ -40,13 +41,26 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const ext = path.extname(file.name) || ".png";
+    const extByType: Record<string, string> = {
+      "image/jpeg": ".jpg",
+      "image/jpg": ".jpg",
+      "image/png": ".png",
+      "image/webp": ".webp",
+    };
+    const ext = extByType[file.type] || path.extname(file.name) || ".png";
     const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}${ext}`;
     const filePath = path.join(UPLOAD_DIR, uniqueName);
 
     await writeFile(filePath, buffer);
 
     const imageUrl = `/uploads/${uniqueName}`;
+    console.log("[Upload] completed", {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      url: imageUrl,
+      durationMs: Date.now() - startedAt,
+    });
 
     return NextResponse.json({
       data: {
@@ -57,7 +71,8 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Failed to upload file:", error);
-    return NextResponse.json({ error: "上传失败" }, { status: 500 });
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[Upload] failed:", { message, durationMs: Date.now() - startedAt });
+    return NextResponse.json({ error: "上传失败，请稍后重试" }, { status: 500 });
   }
 }
