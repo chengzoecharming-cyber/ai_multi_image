@@ -71,28 +71,10 @@ async function processReferenceImage(
   );
 }
 
-function buildImageToolPrompt(prompt: string, hasReferenceImage: boolean): string {
-  const modeInstruction = hasReferenceImage
-    ? "Use the attached image(s) as visual reference/source material for an image edit."
-    : "Create a new image from the prompt.";
-
-  return [
-    "You must invoke the image generation tool now. Do not answer with text only.",
-    "Return exactly one generated image. No explanation, no markdown, no analysis.",
-    modeInstruction,
-    "The final output must be an actual rendered image, not a description of an image.",
-    "",
-    "Image request:",
-    prompt,
-  ].join("\n");
-}
-
 export class ChatGPT2APIProvider implements ImageProvider {
   async generate(params: GenerateImageParams): Promise<GenerateImageResult> {
     try {
       const size = resolveSize(params.width, params.height);
-      const imagePrompt = buildImageToolPrompt(params.prompt, true);
-      const textToImagePrompt = buildImageToolPrompt(params.prompt, false);
 
       // Prefer explicit array of product images; fall back to the legacy single URL.
       const productImageUrls = Array.isArray(params.productImageUrls)
@@ -120,7 +102,7 @@ export class ChatGPT2APIProvider implements ImageProvider {
 
         const model = params.model && params.model !== "default" ? params.model : undefined;
         const result = await editImage({
-          prompt: imagePrompt,
+          prompt: params.prompt,
           images: files,
           model,
           size,
@@ -140,7 +122,7 @@ export class ChatGPT2APIProvider implements ImageProvider {
 
       const model = params.model && params.model !== "default" ? params.model : undefined;
       const result = await generateImage({
-        prompt: textToImagePrompt,
+        prompt: params.prompt,
         model,
         n: 1,
         size,
