@@ -259,10 +259,21 @@ export function mergeSessionsWithServerHistory(localSessions: V2Session[], serve
       existing.generatedImages || [],
       localSession.generatedImages || []
     );
+    // Cross-device merge: prefer the newer plan set by updatedAt, but only
+    // override server plans with local EMPTY plans if local is strictly newer.
+    // Without a "plansDeleted" flag we keep server plans when local is empty
+    // to avoid accidentally wiping plans created on another device.
+    const localPlans = localSession.singlePlans || [];
+    const serverPlans = existing.singlePlans || [];
+    const localHasPlans = localPlans.length > 0;
+    const serverHasPlans = serverPlans.length > 0;
+    const localIsNewer = (localSession.updatedAt || 0) > (existing.updatedAt || 0);
     const singlePlans =
-      (localSession.singlePlans?.length ?? 0) > 0
-        ? localSession.singlePlans
-        : existing.singlePlans || [];
+      localHasPlans && (localIsNewer || !serverHasPlans)
+        ? localPlans
+        : serverHasPlans
+          ? serverPlans
+          : localPlans;
     const detail = localSession.detail || existing.detail;
 
     const mergedSession = normalizeSessionForPersistence({

@@ -48,6 +48,10 @@ export function useSessionPersistence(options: UseSessionPersistenceOptions): Pe
   }, [sessions]);
 
   // ── Debounced sync to IndexedDB ──
+  // NOTE: do NOT pass `dirty=true` here. Preserve existing dirty flags so that
+  // already-clean sessions (synced to server) are not re-marked dirty by the
+  // background debounce.  `dexieSaveSessions` with `dirty=undefined` keeps the
+  // previous dirty value.
   useEffect(() => {
     if (!isHydrated) return;
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
@@ -55,7 +59,7 @@ export function useSessionPersistence(options: UseSessionPersistenceOptions): Pe
       const current = sessionsRef.current;
       if (current.length === 0) return;
       const stripped = current.map((s) => stripHeavySessionFields(s));
-      dexieSaveSessions(stripped, true, ownerKey).catch((e) =>
+      dexieSaveSessions(stripped, undefined, ownerKey).catch((e) =>
         console.error("[useSessionPersistence] Failed to save to IndexedDB:", e)
       );
     }, SYNC_DEBOUNCE_MS);

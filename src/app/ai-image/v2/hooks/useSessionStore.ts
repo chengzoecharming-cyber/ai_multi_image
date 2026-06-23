@@ -11,6 +11,7 @@ import {
 } from "./utils/session-utils";
 import {
   dexieGetAllSessions,
+  dexieSaveSession,
   dexieMigrateFromLocalStorage,
   dexieClearLegacyLocalStorage,
 } from "@/lib/v2-dexie";
@@ -102,12 +103,13 @@ export function useSessionStore(tenantId: string, userId: string, ownerKey: stri
         return;
       }
 
-      // 5. Seed a fresh session
+      // 5. Seed a fresh session and persist immediately so it survives reload
       const seeded = createEmptySession({
         productImageUrls: searchParams.get("productImageUrl") ? [searchParams.get("productImageUrl")!] : [],
         goal: searchParams.get("goal") || "",
         workspaceTab: "product",
       });
+      await dexieSaveSession(seeded, true, ownerKey);
       if (!cancelled) {
         setSessions([seeded]);
         setActiveSessionId(seeded.id);

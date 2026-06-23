@@ -10,6 +10,7 @@ export interface DexieSession {
   ownerKey: string;
   data: V2Session;
   syncedAt: number; // timestamp of last successful server sync
+  updatedAt: number; // timestamp of last local write
   dirty: boolean;   // true if local changes not yet synced
   deleted: boolean; // soft-delete flag
 }
@@ -20,7 +21,7 @@ export interface DexieMeta {
 }
 
 const DB_NAME = "ai_image_v2";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const DEFAULT_OWNER_KEY = "default::default";
 
 class V2Dexie extends Dexie {
@@ -29,9 +30,23 @@ class V2Dexie extends Dexie {
 
   constructor() {
     super(DB_NAME);
-    this.version(DB_VERSION).stores({
+    this.version(1).stores({
       sessions: "id, ownerKey, dirty, deleted, syncedAt",
       meta: "key",
+    });
+    this.version(2).stores({
+      sessions: "id, ownerKey, dirty, deleted, syncedAt",
+      meta: "key",
+    });
+    this.version(3).stores({
+      sessions: "id, ownerKey, dirty, deleted, syncedAt, updatedAt",
+      meta: "key",
+    }).upgrade(async (tx) => {
+      // Migrate v2 → v3: add updatedAt (default to syncedAt or 0)
+      const sessions = tx.table("sessions");
+      await sessions.toCollection().modify((row: DexieSession) => {
+        row.updatedAt = row.syncedAt || 0;
+      });
     });
   }
 }
@@ -42,31 +57,44 @@ export const v2db = new V2Dexie();
 // Session CRUD
 // ============================================================
 
-export async function dexieSaveSession(session: V2Session, dirty = true, ownerKey = DEFAULT_OWNER_KEY): Promise<void> {
+export async function dexieSaveSession(session: V2Session, dirty?: boolean, ownerKey = DEFAULT_OWNER_KEY): Promise<void> {
+  const existing = await v2db.sessions.get(session.id);
+  const nextDirty = dirty !== undefined ? dirty : (existing?.dirty ?? true);
+  const nextSyncedAt = dirty === false ? Date.now() : (existing?.syncedAt ?? 0);
   await v2db.sessions.put({
     id: session.id,
     ownerKey,
     data: session,
-    syncedAt: Date.now(),
-    dirty,
+    syncedAt: nextSyncedAt,
+    updatedAt: Date.now(),
+    dirty: nextDirty,
     deleted: false,
   });
 }
 
 export async function dexieSaveSessions(
   sessions: V2Session[],
-  dirty = false,
+  dirty?: boolean,
   ownerKey = DEFAULT_OWNER_KEY
 ): Promise<void> {
+  const existingRows = await v2db.sessions.where('id').anyOf(sessions.map(s => s.id)).toArray();
+  const existingMap = new Map(existingRows.map(r => [r.id, r]));
+
   await v2db.sessions.bulkPut(
-    sessions.map((s) => ({
-      id: s.id,
-      ownerKey,
-      data: s,
-      syncedAt: Date.now(),
-      dirty,
-      deleted: false,
-    }))
+    sessions.map((s) => {
+      const prev = existingMap.get(s.id);
+      const nextDirty = dirty !== undefined ? dirty : (prev?.dirty ?? true);
+      const nextSyncedAt = dirty === false ? Date.now() : (prev?.syncedAt ?? 0);
+      return {
+        id: s.id,
+        ownerKey,
+        data: s,
+        syncedAt: nextSyncedAt,
+        updatedAt: Date.now(),
+        dirty: nextDirty,
+        deleted: false,
+      };
+    })
   );
 }
 
@@ -97,7 +125,7 @@ export async function dexieSoftDeleteSession(id: string, ownerKey = DEFAULT_OWNE
 export async function dexieMarkClean(id: string, ownerKey = DEFAULT_OWNER_KEY): Promise<void> {
   const row = await v2db.sessions.get(id);
   if (!row || row.ownerKey !== ownerKey) return;
-  await v2db.sessions.update(id, { dirty: false, syncedAt: Date.now() });
+  await v2db.sessions.update(id, { dirty: false, syncedAt: Date.now(), updatedAt: Date.now() });
 }
 
 export async function dexieGetDirtySessions(ownerKey = DEFAULT_OWNER_KEY): Promise<V2Session[]> {
