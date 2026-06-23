@@ -159,6 +159,7 @@ export function deserializeSession(row: RawSession): V2Session {
 
   return {
     id: row.id,
+    userId: (row as any).userId ?? undefined,
     authorizationCodeId: row.authorizationCodeId ?? undefined,
     authorizationCode: row.authorizationCode
       ? {

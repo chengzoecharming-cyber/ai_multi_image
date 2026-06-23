@@ -3,6 +3,7 @@
 import { Suspense, useState, useCallback, useEffect } from "react";
 import { Wand2, Sparkles, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
+import { useSession } from "@/lib/auth-client";
 import { useV2Session } from "./hooks/useV2Session";
 import { SessionsSidebar } from "./SessionsSidebar";
 import { LeftPanel } from "./LeftPanel";
@@ -19,6 +20,9 @@ import type { ImageDetailData } from "./components/ImageDetailOverlay";
 import type { CreativePlan } from "./types";
 
 function V2WorkbenchPageInner() {
+  const { data: session } = useSession();
+  const currentUserId = session?.user?.id ?? "";
+  const isAdmin = (session?.user as { role?: string })?.role === "admin";
   const {
     filteredSessions,
     sessions,
@@ -333,6 +337,8 @@ function V2WorkbenchPageInner() {
           totalCount={sessions.length}
           activeSessionId={activeSessionId}
           workspaceTab={tab}
+          currentUserId={currentUserId}
+          isAdmin={isAdmin}
           onSelectSession={setActiveSessionId}
           onCreateSession={() => createNewSession({ workspaceTab: tab })}
           onDuplicateSession={duplicateSession}

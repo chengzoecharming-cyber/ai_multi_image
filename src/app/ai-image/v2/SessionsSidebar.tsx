@@ -80,6 +80,11 @@ function groupSessionsByTime(sessions: V2Session[]): [string, V2Session[]][] {
     }
   }
 
+  // Sort each group internally by updatedAt descending
+  for (const key of Object.keys(groups) as Array<keyof typeof groups>) {
+    groups[key].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  }
+
   const result: [string, V2Session[]][] = [
     ["今天", groups["今天"]],
     ["昨天", groups["昨天"]],
@@ -94,6 +99,8 @@ export function SessionsSidebar({
   totalCount,
   activeSessionId,
   workspaceTab,
+  currentUserId,
+  isAdmin,
   onSelectSession,
   onCreateSession,
   onDuplicateSession,
@@ -104,6 +111,8 @@ export function SessionsSidebar({
   totalCount: number;
   activeSessionId: string | null;
   workspaceTab: V2WorkspaceTab;
+  currentUserId?: string;
+  isAdmin?: boolean;
   onSelectSession: (sessionId: string) => void;
   onCreateSession: () => void;
   onDuplicateSession: (sessionId: string) => void;
@@ -117,6 +126,7 @@ export function SessionsSidebar({
   const draggingRef = useRef(false);
   const startXRef = useRef(0);
   const startWidthRef = useRef(DEFAULT_WIDTH);
+  const [showMineOnly, setShowMineOnly] = useState(false);
 
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
@@ -158,7 +168,11 @@ export function SessionsSidebar({
     document.body.style.userSelect = "none";
   };
 
-  const grouped = groupSessionsByTime(sessions);
+  const displayedSessions = isAdmin && showMineOnly && currentUserId
+    ? sessions.filter((s) => s.userId === currentUserId)
+    : sessions;
+
+  const grouped = groupSessionsByTime(displayedSessions);
 
   const tabItemBase =
     "flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-sm font-medium transition-colors";
@@ -198,6 +212,27 @@ export function SessionsSidebar({
               <LayersLucide className="w-4 h-4" />
               商详图
             </button>
+          </div>
+        )}
+
+        {/* Admin filter toggle */}
+        {isAdmin && !isCollapsed && (
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setShowMineOnly((v) => !v)}
+              className={cn(
+                "text-[10px] px-2 py-0.5 rounded border transition-colors",
+                showMineOnly
+                  ? "bg-gray-800 text-white border-gray-800"
+                  : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+              )}
+              title={showMineOnly ? "显示全部" : "仅显示我的"}
+            >
+              {showMineOnly ? "仅我的" : "全部"}
+            </button>
+            <span className="text-[10px] text-gray-400">
+              {displayedSessions.length}/{totalCount}
+            </span>
           </div>
         )}
 
