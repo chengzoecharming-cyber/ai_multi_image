@@ -74,7 +74,7 @@ export function usePlanGeneration(options: UsePlanGenerationOptions): PlanGenera
         rawProductImageUrl: activeProductImage,
         productReferenceImageUrl: activeSession.productImageUrls[0] || activeProductImage,
         productImageUrls: activeSession.productImageUrls || [],
-        styleReferenceUrls: (activeSession.productImageUrls || []).filter((u) => u !== activeProductImage),
+        styleReferenceUrls: activeSession.referenceImageUrls || [],
         userGoal: activeSession.goal.trim(),
         mode: "single",
         clientRequestId,
