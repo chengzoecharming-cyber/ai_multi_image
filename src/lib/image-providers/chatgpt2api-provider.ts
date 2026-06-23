@@ -119,6 +119,11 @@ export class ChatGPT2APIProvider implements ImageProvider {
         }
 
         const model = params.model && params.model !== "default" ? params.model : undefined;
+        console.log("[ChatGPT2API] edit request", {
+          model: model || process.env.CHATGPT2API_IMAGE_MODEL || process.env.IMAGE_MODEL || "gpt-image-2",
+          size,
+          imageCount: files.length,
+        });
         const result = await editImage({
           prompt: imagePrompt,
           images: files,
@@ -126,6 +131,13 @@ export class ChatGPT2APIProvider implements ImageProvider {
           size,
         });
         const imageUrlResult = result.data?.[0]?.url;
+        if (imageUrlResult) {
+          console.log("[ChatGPT2API] edit returned image url", {
+            model: model || process.env.CHATGPT2API_IMAGE_MODEL || process.env.IMAGE_MODEL || "gpt-image-2",
+            size,
+            imageCount: files.length,
+          });
+        }
         if (!imageUrlResult) {
           console.warn("[ChatGPT2API] edit returned no image url", {
             model: model || process.env.CHATGPT2API_IMAGE_MODEL || process.env.IMAGE_MODEL || "gpt-image-2",
@@ -139,6 +151,10 @@ export class ChatGPT2APIProvider implements ImageProvider {
       }
 
       const model = params.model && params.model !== "default" ? params.model : undefined;
+      console.log("[ChatGPT2API] generation request", {
+        model: model || process.env.CHATGPT2API_IMAGE_MODEL || process.env.IMAGE_MODEL || "gpt-image-2",
+        size,
+      });
       const result = await generateImage({
         prompt: textToImagePrompt,
         model,
@@ -147,6 +163,12 @@ export class ChatGPT2APIProvider implements ImageProvider {
         response_format: "url",
       });
       const imageUrlResult = result.data?.[0]?.url;
+      if (imageUrlResult) {
+        console.log("[ChatGPT2API] generation returned image url", {
+          model: model || process.env.CHATGPT2API_IMAGE_MODEL || process.env.IMAGE_MODEL || "gpt-image-2",
+          size,
+        });
+      }
       if (!imageUrlResult) {
         console.warn("[ChatGPT2API] generation returned no image url", {
           model: model || process.env.CHATGPT2API_IMAGE_MODEL || process.env.IMAGE_MODEL || "gpt-image-2",

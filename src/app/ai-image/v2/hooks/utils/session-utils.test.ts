@@ -134,6 +134,34 @@ test("refresh merge prefers IndexedDB config and merges generated history separa
   assert.equal(merged.updatedAt, 3_000);
 });
 
+test("refresh merge keeps unsynced local uploaded product images", () => {
+  const serverSession = makeSession({
+    updatedAt: 3_000,
+    productImageUrls: ["/uploads/source-1.png", "/uploads/source-2.png"],
+    activeProductImageIndex: 1,
+  });
+  const indexedDbSession = makeSession({
+    updatedAt: 3_500,
+    productImageUrls: [
+      "/uploads/source-1.png",
+      "/uploads/source-2.png",
+      "/uploads/source-3.png",
+      "/uploads/source-4.png",
+      "/uploads/source-5.png",
+      "/uploads/source-6.png",
+      "/uploads/source-7.png",
+      "/uploads/source-8.png",
+    ],
+    activeProductImageIndex: 7,
+  });
+
+  const [merged] = mergeSessionsWithServerHistory([indexedDbSession], [serverSession]);
+
+  assert.deepEqual(merged.productImageUrls, indexedDbSession.productImageUrls);
+  assert.equal(merged.activeProductImageIndex, 7);
+  assert.equal(merged.updatedAt, 3_500);
+});
+
 test("server generated images clear stale local failure state", () => {
   const serverOutput = generatedImage({
     id: "server-img",

@@ -14,7 +14,7 @@ import {
   dexieGetMeta,
   dexieSetMeta,
 } from "@/lib/v2-dexie";
-import { stripHeavySessionFields } from "./utils/session-utils";
+import { mergeSessionsWithServerHistory, stripHeavySessionFields } from "./utils/session-utils";
 import { getV2SessionsUrl } from "./sessionFetch";
 
 const SYNC_DEBOUNCE_MS = 2000;
@@ -163,16 +163,26 @@ export async function hydrateSessions(
     await dexieSetMeta("activeSessionId", migrated.activeSessionId, ownerKey);
   }
 
-  // 2. Try server first
+  const local = await dexieGetAllSessions(ownerKey);
+  const dirtyLocal = await dexieGetDirtySessions(ownerKey);
+
+  // 2. Merge server with IndexedDB. IndexedDB may contain fresh uploads that
+  // have not reached the 30s background sync yet; never let server hydration
+  // replace those with older snapshots.
   try {
     const res = await fetch(getV2SessionsUrl());
     if (res.ok) {
       const json = (await res.json()) as { data?: V2Session[] };
       const serverSessions = json.data || [];
       if (serverSessions.length > 0) {
-        await dexieSaveSessions(serverSessions, false, ownerKey);
-        const activeId = (await dexieGetMeta<string>("activeSessionId", undefined, ownerKey)) || serverSessions[0].id;
-        return { sessions: serverSessions, activeSessionId: activeId };
+        const mergedSessions = mergeSessionsWithServerHistory(local, serverSessions);
+        await dexieSaveSessions(mergedSessions, dirtyLocal.length > 0, ownerKey);
+        const previousActiveId = await dexieGetMeta<string>("activeSessionId", undefined, ownerKey);
+        const activeId =
+          previousActiveId && mergedSessions.some((session) => session.id === previousActiveId)
+            ? previousActiveId
+            : mergedSessions[0]?.id ?? null;
+        return { sessions: mergedSessions, activeSessionId: activeId };
       }
     }
   } catch (e) {
@@ -180,7 +190,6 @@ export async function hydrateSessions(
   }
 
   // 3. Fall back to IndexedDB
-  const local = await dexieGetAllSessions(ownerKey);
   if (local.length > 0) {
     const activeId = (await dexieGetMeta<string>("activeSessionId", undefined, ownerKey)) || local[0].id;
     return { sessions: local, activeSessionId: activeId };
