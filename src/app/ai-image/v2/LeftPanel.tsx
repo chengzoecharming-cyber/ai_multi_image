@@ -223,16 +223,12 @@ export function LeftPanel({
                           : ""
                       )}
                       onClick={() => onUpdateSession((s) => ({ ...s, activeProductImageIndex: idx }))}
-                      title="点击放大"
+                      title="点击选中"
                     >
                       <img
                         src={url}
                         alt={`商品图 ${idx + 1}`}
                         className="w-full h-full object-cover"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onOpenImageDetail?.({ imageUrl: url });
-                        }}
                       />
                       <button
                         onClick={(e) => {
