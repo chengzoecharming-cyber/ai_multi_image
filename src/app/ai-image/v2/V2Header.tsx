@@ -11,6 +11,7 @@ import {
   Settings,
   Menu,
   X,
+  Activity,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useSession, signOut } from "@/lib/auth-client";
@@ -282,12 +283,20 @@ export function V2Header() {
                       </Badge>
                     </div>
                     {isAdmin && (
-                      <V2DropdownMenuItem className="cursor-pointer">
-                        <Link href="/admin/users" className="flex w-full items-center gap-2">
-                          <Users className="h-4 w-4" />
-                          用户管理
-                        </Link>
-                      </V2DropdownMenuItem>
+                      <>
+                        <V2DropdownMenuItem className="cursor-pointer">
+                          <Link href="/admin/users" className="flex w-full items-center gap-2">
+                            <Users className="h-4 w-4" />
+                            用户管理
+                          </Link>
+                        </V2DropdownMenuItem>
+                        <V2DropdownMenuItem className="cursor-pointer">
+                          <Link href="/admin/diagnostics" className="flex w-full items-center gap-2">
+                            <Activity className="h-4 w-4" />
+                            日志记录
+                          </Link>
+                        </V2DropdownMenuItem>
+                      </>
                     )}
                     <V2DropdownMenuItem
                       onClick={() => setSettingsOpen(true)}

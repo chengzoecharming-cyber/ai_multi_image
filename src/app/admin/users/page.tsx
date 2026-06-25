@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { GBG, P0, P2 } from "@/app/ai-image/v2/design-tokens";
 
 interface BoundUser {
   id: string;
@@ -53,10 +54,10 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_CLASSES: Record<string, string> = {
-  normal: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  limited: "bg-amber-50 text-amber-700 border-amber-200",
-  error: "bg-red-50 text-red-700 border-red-200",
-  disabled: "bg-gray-100 text-gray-500 border-gray-200",
+  normal: "bg-[rgb(248,249,250)] text-[#0f1419] border-stone-200",
+  limited: "bg-[rgb(248,249,250)] text-[#72808a] border-stone-200",
+  error: "bg-[rgb(248,249,250)] text-[#0f1419] border-stone-200",
+  disabled: "bg-[rgb(248,249,250)] text-[#72808a] border-stone-200",
 };
 
 function formatResetAt(raw: string | null): { short: string; full: string } {
@@ -187,67 +188,67 @@ export default function AdminUsersPage() {
 
   if (isPending || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F6F8FC]">
-        <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: GBG }}>
+        <Loader2 className="w-6 h-6 text-[#72808a] animate-spin" />
       </div>
     );
   }
 
   if (!currentUser || currentUser.role !== "admin") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F6F8FC]">
-        <p className="text-gray-500">无权访问</p>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: GBG }}>
+        <p className="text-[#72808a]">无权访问</p>
       </div>
     );
   }
 
   const renderCodeTable = (rows: AuthorizationCodeRow[]) => (
-    <div className="overflow-x-auto border border-gray-200 rounded-lg">
+    <div className="overflow-x-auto border border-stone-200 rounded-lg">
       <table className="w-full min-w-[920px] text-sm">
         <thead>
-          <tr className="bg-gray-50 border-b border-gray-200">
-            <th className="px-4 py-3 text-left font-medium text-gray-600">授权码</th>
-            <th className="px-4 py-3 text-left font-medium text-gray-600">状态</th>
-            <th className="px-4 py-3 text-left font-medium text-gray-600">绑定用户</th>
-            <th className="px-4 py-3 text-left font-medium text-gray-600">额度</th>
-            <th className="px-4 py-3 text-left font-medium text-gray-600">恢复时间</th>
-            <th className="px-4 py-3 text-left font-medium text-gray-600">备注</th>
-            <th className="px-4 py-3 text-right font-medium text-gray-600">操作</th>
+          <tr className="border-b border-stone-200" style={{ backgroundColor: GBG }}>
+            <th className="px-4 py-3 text-left font-medium text-[#72808a]">授权码</th>
+            <th className="px-4 py-3 text-left font-medium text-[#72808a]">状态</th>
+            <th className="px-4 py-3 text-left font-medium text-[#72808a]">绑定用户</th>
+            <th className="px-4 py-3 text-left font-medium text-[#72808a]">额度</th>
+            <th className="px-4 py-3 text-left font-medium text-[#72808a]">恢复时间</th>
+            <th className="px-4 py-3 text-left font-medium text-[#72808a]">备注</th>
+            <th className="px-4 py-3 text-right font-medium text-[#72808a]">操作</th>
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={7} className="px-4 py-10 text-center text-gray-400">暂无授权码</td>
+              <td colSpan={7} className="px-4 py-10 text-center text-[#72808a]">暂无授权码</td>
             </tr>
           ) : (
             rows.map((row) => {
               const resetAt = formatResetAt(row.resetAt);
               const effectiveStatus = row.effectiveStatus || row.status;
               return (
-                <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/60">
-                  <td className="px-4 py-3 font-mono font-semibold text-gray-800">{row.code}</td>
+                <tr key={row.id} className="border-b border-stone-100 hover:bg-[rgb(248,249,250)]/60">
+                  <td className="px-4 py-3 font-mono font-semibold text-[#0f1419]">{row.code}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex px-2 py-0.5 rounded border text-xs font-medium ${STATUS_CLASSES[effectiveStatus] || STATUS_CLASSES.normal}`}>
                       {STATUS_LABELS[effectiveStatus] || effectiveStatus}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="px-4 py-3 text-[#72808a]">
                     {row.user ? (
                       <div>
-                        <div className="font-medium text-gray-800">{row.user.name || "未命名"}</div>
-                        <div className="text-xs text-gray-400">{row.user.email}</div>
+                        <div className="font-medium text-[#0f1419]">{row.user.name || "未命名"}</div>
+                        <div className="text-xs text-[#72808a]">{row.user.email}</div>
                       </div>
                     ) : (
-                      <span className="text-gray-400">未绑定</span>
+                      <span className="text-[#72808a]">未绑定</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{row.quota}/{row.quotaMax}</td>
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="px-4 py-3 text-[#72808a]">{row.quota}/{row.quotaMax}</td>
+                  <td className="px-4 py-3 text-[#72808a]">
                     <div>{resetAt.short}</div>
-                    {resetAt.full && <div className="text-xs text-gray-400">{resetAt.full}</div>}
+                    {resetAt.full && <div className="text-xs text-[#72808a]">{resetAt.full}</div>}
                   </td>
-                  <td className="px-4 py-3 text-gray-500 max-w-[220px] truncate">{row.note || "无"}</td>
+                  <td className="px-4 py-3 text-[#72808a] max-w-[220px] truncate">{row.note || "无"}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
                       <Button variant="ghost" size="sm" onClick={() => openEdit(row)}><Pencil className="w-3.5 h-3.5" /></Button>
@@ -267,21 +268,21 @@ export default function AdminUsersPage() {
   const renderAdminSection = (admin: AdminGroup, isCurrent = false) => {
     const isCollapsed = collapsed[admin.id] ?? !isCurrent;
     return (
-      <section key={admin.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <section key={admin.id} className="bg-white rounded-xl border border-stone-200 overflow-hidden">
         <button
           onClick={() => setCollapsed((prev) => ({ ...prev, [admin.id]: !isCollapsed }))}
-          className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50"
+          className="w-full px-5 py-4 flex items-center justify-between hover:bg-[rgb(248,249,250)]"
         >
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: GBG, color: P0 }}>
               {isCurrent ? <Shield className="w-4 h-4" /> : <User className="w-4 h-4" />}
             </div>
             <div className="text-left">
-              <div className="text-sm font-semibold text-gray-800">{isCurrent ? "本账号" : admin.name || "管理员"}</div>
-              <div className="text-xs text-gray-400">{admin.email} · {admin.authorizationCodes.length} 个授权码</div>
+              <div className="text-sm font-semibold text-[#0f1419]">{isCurrent ? "本账号" : admin.name || "管理员"}</div>
+              <div className="text-xs text-[#72808a]">{admin.email} · {admin.authorizationCodes.length} 个授权码</div>
             </div>
           </div>
-          {isCollapsed ? <ChevronRight className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+          {isCollapsed ? <ChevronRight className="w-4 h-4 text-[#72808a]" /> : <ChevronDown className="w-4 h-4 text-[#72808a]" />}
         </button>
         {!isCollapsed && <div className="p-5 pt-0">{renderCodeTable(admin.authorizationCodes)}</div>}
       </section>
@@ -289,15 +290,15 @@ export default function AdminUsersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F6F8FC]">
-      <header className="bg-white border-b border-gray-200">
+    <div className="min-h-screen" style={{ backgroundColor: GBG }}>
+      <header className="bg-white border-b border-stone-200">
         <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link href="/" className="text-gray-500 hover:text-gray-700">
+            <Link href="/" className="text-[#72808a] hover:text-[#0f1419]">
               <ArrowLeft className="w-4 h-4" />
             </Link>
-            <Shield className="w-5 h-5 text-indigo-500" />
-            <h1 className="text-base font-semibold text-gray-800">授权码管理</h1>
+            <Shield className="w-5 h-5 text-[#0f1419]" />
+            <h1 className="text-base font-semibold text-[#0f1419]">授权码管理</h1>
           </div>
           <Button size="sm" onClick={openCreate}>
             <Plus className="w-4 h-4 mr-1" />
@@ -314,13 +315,17 @@ export default function AdminUsersPage() {
       <Dialog open={codeModalOpen} onOpenChange={setCodeModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{editingCode ? `编辑授权码 ${editingCode.code}` : "生成授权码"}</DialogTitle>
+            <DialogTitle style={{ color: P0 }}>{editingCode ? `编辑授权码 ${editingCode.code}` : "生成授权码"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {editingCode && (
               <div className="space-y-1.5">
-                <Label>状态</Label>
-                <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full h-10 px-3 rounded-md border border-gray-200 bg-white text-sm">
+                <Label style={{ color: P0 }}>状态</Label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  className="w-full h-10 px-3 rounded-lg border border-stone-200 bg-white text-sm text-[#0f1419]"
+                >
                   <option value="normal">正常</option>
                   <option value="limited">限流</option>
                   <option value="error">异常</option>
@@ -329,29 +334,49 @@ export default function AdminUsersPage() {
               </div>
             )}
             <div className="space-y-1.5">
-              <Label>配额上限</Label>
-              <Input type="number" min={0} value={quotaMax} onChange={(e) => setQuotaMax(Math.max(0, Math.floor(Number(e.target.value) || 0)))} />
+              <Label style={{ color: P0 }}>配额上限</Label>
+              <Input
+                type="number"
+                min={0}
+                value={quotaMax}
+                onChange={(e) => setQuotaMax(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+              />
             </div>
             {!editingCode && (
               <div className="space-y-1.5">
-                <Label>生成数量</Label>
-                <Input type="number" min={1} max={100} value={batchCount} onChange={(e) => setBatchCount(Math.min(100, Math.max(1, Math.floor(Number(e.target.value) || 1))))} />
-                <p className="text-xs text-gray-400">最多一次生成 100 个授权码</p>
+                <Label style={{ color: P0 }}>生成数量</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={batchCount}
+                  onChange={(e) => setBatchCount(Math.min(100, Math.max(1, Math.floor(Number(e.target.value) || 1))))}
+                />
+                <p className="text-xs text-[#72808a]">最多一次生成 100 个授权码</p>
               </div>
             )}
             <div className="space-y-1.5">
-              <Label>重置时间（小时）</Label>
-              <Input type="number" min={1} value={resetHours} onChange={(e) => setResetHours(Math.max(1, Math.floor(Number(e.target.value) || 1)))} />
-              <p className="text-xs text-gray-400">当前：{formatHours(resetHours)}</p>
+              <Label style={{ color: P0 }}>重置时间（小时）</Label>
+              <Input
+                type="number"
+                min={1}
+                value={resetHours}
+                onChange={(e) => setResetHours(Math.max(1, Math.floor(Number(e.target.value) || 1)))}
+              />
+              <p className="text-xs text-[#72808a]">当前：{formatHours(resetHours)}</p>
             </div>
             {editingCode && (
               <div className="space-y-1.5">
-                <Label>换绑用户邮箱</Label>
-                <Input value={bindEmail} onChange={(e) => setBindEmail(e.target.value)} placeholder="留空为解绑" />
+                <Label style={{ color: P0 }}>换绑用户邮箱</Label>
+                <Input
+                  value={bindEmail}
+                  onChange={(e) => setBindEmail(e.target.value)}
+                  placeholder="留空为解绑"
+                />
               </div>
             )}
             <div className="space-y-1.5">
-              <Label>备注</Label>
+              <Label style={{ color: P0 }}>备注</Label>
               <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="用途、客户、项目等" />
             </div>
             <div className="flex justify-end gap-2 pt-2">

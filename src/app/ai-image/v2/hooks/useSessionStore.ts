@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import type { V2Session } from "../types";
 import {
@@ -16,6 +16,7 @@ import {
   dexieClearLegacyLocalStorage,
 } from "@/lib/v2-dexie";
 import { getV2SessionsUrl } from "./sessionFetch";
+import { syncSessionToUrl, getSessionIdFromUrl } from "./utils/url-sync";
 
 async function loadServerV2Sessions(_tenantId: string, _userId: string): Promise<V2Session[]> {
   try {
@@ -42,9 +43,15 @@ export interface SessionStoreState {
 export function useSessionStore(tenantId: string, userId: string, ownerKey: string, enabled = true): SessionStoreState {
   const searchParams = useSearchParams();
 
-  const [sessions, setSessions] = useState<V2Session[]>([]);
+  const [rawSessions, setSessions] = useState<V2Session[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
+  const isHydratingRef = useRef(false);
+
+  const sessions = useMemo(
+    () => [...rawSessions].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)),
+    [rawSessions]
+  );
 
   const activeSession = useMemo(() => {
     return sessions.find((s) => s.id === activeSessionId) || sessions[0] || null;
@@ -69,6 +76,7 @@ export function useSessionStore(tenantId: string, userId: string, ownerKey: stri
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
+    isHydratingRef.current = true;
 
     void (async () => {
       // 1. Migrate legacy localStorage on first load
@@ -94,12 +102,22 @@ export function useSessionStore(tenantId: string, userId: string, ownerKey: stri
 
       if (merged.length > 0 && !cancelled) {
         setSessions(merged);
-        const nextActiveId =
-          migrated?.activeSessionId && merged.some((s) => s.id === migrated.activeSessionId)
+
+        // Priority: URL param > migrated activeSessionId > first session
+        const urlSessionId = getSessionIdFromUrl();
+        const hasUrlSession = urlSessionId && merged.some((s) => s.id === urlSessionId);
+        const nextActiveId = hasUrlSession
+          ? urlSessionId!
+          : migrated?.activeSessionId && merged.some((s) => s.id === migrated.activeSessionId)
             ? migrated.activeSessionId
             : merged[0].id;
+
         setActiveSessionId(nextActiveId);
+        if (!hasUrlSession) {
+          syncSessionToUrl(nextActiveId);
+        }
         setIsHydrated(true);
+        isHydratingRef.current = false;
         return;
       }
 
@@ -113,14 +131,25 @@ export function useSessionStore(tenantId: string, userId: string, ownerKey: stri
       if (!cancelled) {
         setSessions([seeded]);
         setActiveSessionId(seeded.id);
+        syncSessionToUrl(seeded.id);
         setIsHydrated(true);
       }
+      isHydratingRef.current = false;
     })();
 
     return () => {
       cancelled = true;
+      isHydratingRef.current = false;
     };
   }, [enabled, ownerKey, searchParams, tenantId, userId]);
+
+  // ── Bidirectional sync: activeSessionId → URL ──
+  useEffect(() => {
+    if (!isHydrated || isHydratingRef.current) return;
+    if (activeSessionId) {
+      syncSessionToUrl(activeSessionId);
+    }
+  }, [activeSessionId, isHydrated]);
 
   return {
     sessions,

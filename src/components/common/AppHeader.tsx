@@ -11,6 +11,7 @@ import {
   LogOut,
   Users,
   User,
+  Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSession, signOut } from "@/lib/auth-client";
@@ -92,6 +93,12 @@ export default function AppHeader() {
                       <Link href="/admin/users" className="flex items-center gap-2 w-full">
                         <Users className="w-4 h-4" />
                         用户管理
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="cursor-pointer">
+                      <Link href="/admin/diagnostics" className="flex items-center gap-2 w-full">
+                        <Activity className="w-4 h-4" />
+                        诊断日志
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />

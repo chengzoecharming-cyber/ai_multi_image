@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import type { V2Session, V2WorkspaceTab } from "../types";
 import { createEmptySession, deriveSessionStatus } from "./utils/session-utils";
 import { safeJsonParse } from "./utils/storage-utils";
+import { syncSessionToUrl } from "./utils/url-sync";
 
 export interface UseSessionActionsOptions {
   sessions: V2Session[];
@@ -45,6 +46,7 @@ export function useSessionActions(options: UseSessionActionsOptions): SessionAct
       const sess = createEmptySession(seed);
       setSessions((prev) => [sess, ...prev]);
       setActiveSessionId(sess.id);
+      syncSessionToUrl(sess.id);
       void onSessionPersist?.(sess);
       toast.success("已新增记录");
     },
@@ -68,6 +70,7 @@ export function useSessionActions(options: UseSessionActionsOptions): SessionAct
       };
       setSessions((prev) => [next, ...prev]);
       setActiveSessionId(next.id);
+      syncSessionToUrl(next.id);
       void onSessionPersist?.(next);
       toast.success("已复制记录");
     },
@@ -79,7 +82,10 @@ export function useSessionActions(options: UseSessionActionsOptions): SessionAct
       setSessions((prev) => {
         const next = prev.filter((s) => s.id !== id);
         const fallback = next.length ? next : [createEmptySession({ workspaceTab: "product" })];
-        if (activeSessionId === id) setActiveSessionId(fallback[0].id);
+        if (activeSessionId === id) {
+          setActiveSessionId(fallback[0].id);
+          syncSessionToUrl(fallback[0].id);
+        }
         return fallback;
       });
       void onDeletePersistedSession?.(id);
@@ -95,7 +101,9 @@ export function useSessionActions(options: UseSessionActionsOptions): SessionAct
         const current = sessions.find((s) => s.id === prevId) || null;
         if (current && (current.workspaceTab || "product") === tab) return prevId;
         const candidate = sessions.find((s) => (s.workspaceTab || "product") === tab) || null;
-        return candidate?.id || prevId;
+        const nextId = candidate?.id || prevId;
+        if (nextId) syncSessionToUrl(nextId);
+        return nextId;
       });
     },
     [sessions, setActiveSessionId, setWorkspaceTabState]
