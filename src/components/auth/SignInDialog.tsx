@@ -8,6 +8,8 @@ import { signIn, signOut } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { P0 } from "@/app/ai-image/v2/design-tokens";
 
+type Mode = "signin" | "signup";
+
 interface SignInDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -20,13 +22,26 @@ export function SignInDialog({
   callbackUrl = "/ai-image/v2",
 }: SignInDialogProps) {
   const router = useRouter();
+  const [mode, setMode] = useState<Mode>("signin");
+
+  // Shared fields
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [authorizationCode, setAuthorizationCode] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const canSubmit =
+  // Sign-up only fields
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const canSubmitSignIn =
     email.trim().length > 0 && password.trim().length > 0 && !loading;
+
+  const canSubmitSignUp =
+    email.trim().length > 0 &&
+    password.trim().length > 0 &&
+    confirmPassword.trim().length > 0 &&
+    authorizationCode.trim().length > 0 &&
+    !loading;
 
   const handleClose = useCallback(() => {
     onOpenChange(false);
@@ -41,7 +56,20 @@ export function SignInDialog({
     [handleClose]
   );
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const resetFields = () => {
+    setEmail("");
+    setPassword("");
+    setAuthorizationCode("");
+    setConfirmPassword("");
+    setLoading(false);
+  };
+
+  const handleSwitchMode = (next: Mode) => {
+    setMode(next);
+    resetFields();
+  };
+
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password.trim()) {
       toast.error("请填写邮箱和密码");
@@ -87,7 +115,85 @@ export function SignInDialog({
     }
   };
 
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!authorizationCode.trim()) {
+      toast.error("请输入授权码");
+      return;
+    }
+    if (!email.trim() || !password.trim()) {
+      toast.error("请填写邮箱和密码");
+      return;
+    }
+    if (password !== confirmPassword) {
+      toast.error("两次输入的密码不一致");
+      return;
+    }
+    if (password.length < 6) {
+      toast.error("密码长度至少 6 位");
+      return;
+    }
+    setLoading(true);
+    try {
+      const signupRes = await fetch("/api/auth-code/sign-up", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          authorizationCode: authorizationCode.trim(),
+          email: email.trim(),
+          password,
+        }),
+      });
+      if (!signupRes.ok) {
+        const data = (await signupRes
+          .json()
+          .catch(() => ({}))) as { error?: string };
+        toast.error(data.error || "注册失败");
+        return;
+      }
+
+      const result = await signIn.email({
+        email: email.trim(),
+        password,
+        callbackURL: callbackUrl,
+      });
+      if (result.error) {
+        toast.error(result.error.message || "注册成功，请登录");
+        handleSwitchMode("signin");
+        return;
+      }
+
+      // Activate auth code after successful sign-in
+      await activateCode(authorizationCode.trim());
+      toast.success("注册成功，已自动登录");
+      handleClose();
+      router.replace(callbackUrl);
+      router.refresh();
+      window.setTimeout(() => {
+        window.location.replace(callbackUrl);
+      }, 300);
+    } catch (err) {
+      toast.error("注册失败");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  async function activateCode(code: string): Promise<void> {
+    const res = await fetch("/api/auth-code/activate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ authorizationCode: code }),
+    });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(data.error || "授权码激活失败");
+    }
+  }
+
   if (!open) return null;
+
+  const isSignIn = mode === "signin";
 
   return (
     <div
@@ -113,28 +219,65 @@ export function SignInDialog({
             className="text-[24px] font-medium leading-tight"
             style={{ color: P0 }}
           >
-            请登录
+            {isSignIn ? "请登录" : "注册账号"}
           </h2>
 
+          {/* Tabs */}
+          <div className="mt-6 flex border-b border-[#EBECED]">
+            <button
+              type="button"
+              onClick={() => handleSwitchMode("signin")}
+              className={cn(
+                "relative px-1 pb-2 text-[14px] font-medium transition-colors",
+                isSignIn ? "text-black" : "text-[#72808a] hover:text-black"
+              )}
+            >
+              登录
+              {isSignIn && (
+                <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-black" />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSwitchMode("signup")}
+              className={cn(
+                "relative ml-6 px-1 pb-2 text-[14px] font-medium transition-colors",
+                !isSignIn ? "text-black" : "text-[#72808a] hover:text-black"
+              )}
+            >
+              注册
+              {!isSignIn && (
+                <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-black" />
+              )}
+            </button>
+          </div>
+
           {/* Form */}
-          <form onSubmit={handleSubmit} className="mt-8 flex flex-col">
+          <form
+            onSubmit={isSignIn ? handleSignIn : handleSignUp}
+            className="mt-6 flex flex-col"
+          >
             {/* Authorization Code Field */}
             <div className="flex flex-col gap-1.5">
               <label
-                htmlFor="signin-auth-code"
+                htmlFor="auth-code"
                 className="text-[14px] font-medium leading-5"
                 style={{ color: P0 }}
               >
                 授权码
+                {!isSignIn && (
+                  <span className="ml-1 text-red-500">*</span>
+                )}
               </label>
               <input
-                id="signin-auth-code"
+                id="auth-code"
                 type="text"
-                placeholder="普通用户必填，管理员可留空"
+                placeholder={isSignIn ? "普通用户必填，管理员可留空" : "6位授权码"}
                 value={authorizationCode}
                 onChange={(e) =>
                   setAuthorizationCode(e.target.value.toUpperCase().slice(0, 6))
                 }
+                required={!isSignIn}
                 className="h-10 w-full rounded-[10px] border-0 px-3 text-[14px] font-medium outline-none ring-0 transition-colors placeholder:font-normal placeholder:text-[#72808a]"
                 style={{ backgroundColor: "rgb(248, 249, 250)", color: P0 }}
               />
@@ -143,14 +286,14 @@ export function SignInDialog({
             {/* Email Field */}
             <div className="mt-4 flex flex-col gap-1.5">
               <label
-                htmlFor="signin-email"
+                htmlFor="auth-email"
                 className="text-[14px] font-medium leading-5"
                 style={{ color: P0 }}
               >
                 邮箱
               </label>
               <input
-                id="signin-email"
+                id="auth-email"
                 type="email"
                 placeholder="your@email.com"
                 value={email}
@@ -164,16 +307,16 @@ export function SignInDialog({
             {/* Password Field */}
             <div className="mt-4 flex flex-col gap-1.5">
               <label
-                htmlFor="signin-password"
+                htmlFor="auth-password"
                 className="text-[14px] font-medium leading-5"
                 style={{ color: P0 }}
               >
                 密码
               </label>
               <input
-                id="signin-password"
+                id="auth-password"
                 type="password"
-                placeholder="输入密码"
+                placeholder={isSignIn ? "输入密码" : "至少 6 位"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -182,19 +325,46 @@ export function SignInDialog({
               />
             </div>
 
+            {/* Confirm Password (signup only) */}
+            {!isSignIn && (
+              <div className="mt-4 flex flex-col gap-1.5">
+                <label
+                  htmlFor="auth-confirm-password"
+                  className="text-[14px] font-medium leading-5"
+                  style={{ color: P0 }}
+                >
+                  确认密码
+                </label>
+                <input
+                  id="auth-confirm-password"
+                  type="password"
+                  placeholder="再次输入密码"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  className="h-10 w-full rounded-[10px] border-0 px-3 text-[14px] font-medium outline-none ring-0 transition-colors placeholder:font-normal placeholder:text-[#72808a]"
+                  style={{ backgroundColor: "rgb(248, 249, 250)", color: P0 }}
+                />
+              </div>
+            )}
+
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={!canSubmit}
+              disabled={isSignIn ? !canSubmitSignIn : !canSubmitSignUp}
               className={cn(
                 "mt-6 flex h-10 w-full items-center justify-center rounded-[10px] text-[14px] font-medium text-white transition-colors",
-                canSubmit ? "bg-black" : "bg-[#EBECED]"
+                (isSignIn ? canSubmitSignIn : canSubmitSignUp)
+                  ? "bg-black"
+                  : "bg-[#EBECED]"
               )}
             >
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
+              ) : isSignIn ? (
                 "登录"
+              ) : (
+                "注册"
               )}
             </button>
           </form>
