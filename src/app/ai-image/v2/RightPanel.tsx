@@ -65,7 +65,7 @@ export function RightPanel({
   const directGenerating = activeSession.directGenerating;
   const directGeneratedImage =
     !directGenerating && activeSession.generatedImages.length > 0
-      ? activeSession.generatedImages[activeSession.generatedImages.length - 1]
+      ? activeSession.generatedImages[0] // 直接生成结果在数组首位
       : null;
 
   if (directGenerating) {
@@ -94,7 +94,17 @@ export function RightPanel({
             <img
               src={directGeneratedImage.imageBase64 || directGeneratedImage.imageUrl}
               alt="直接生成结果"
-              className="max-w-full max-h-full object-contain rounded-xl shadow-lg"
+              className="max-w-full max-h-full object-contain rounded-xl shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+              onClick={() => onOpenImageDetail({
+                imageUrl: directGeneratedImage.imageBase64 || directGeneratedImage.imageUrl,
+                thumbImageUrl: directGeneratedImage.thumbUrl,
+                prompt: userGoal,
+                productImageUrls: activeSession.productImageUrls,
+                referenceImageUrls: activeSession.referenceImageUrls,
+                source: "product",
+                status: "success",
+                taskId: directGeneratedImage.taskId,
+              })}
             />
           </div>
         </div>
@@ -221,7 +231,17 @@ export function RightPanel({
             <img
               src={directGeneratedImage.imageBase64 || directGeneratedImage.imageUrl}
               alt="直接生成结果"
-              className="max-w-full max-h-full object-contain rounded-xl shadow-lg"
+              className="max-w-full max-h-full object-contain rounded-xl shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+              onClick={() => onOpenImageDetail({
+                imageUrl: directGeneratedImage.imageBase64 || directGeneratedImage.imageUrl,
+                thumbImageUrl: directGeneratedImage.thumbUrl,
+                prompt: userGoal,
+                productImageUrls: activeSession.productImageUrls,
+                referenceImageUrls: activeSession.referenceImageUrls,
+                source: "product",
+                status: "success",
+                taskId: directGeneratedImage.taskId,
+              })}
             />
           </div>
         </div>
