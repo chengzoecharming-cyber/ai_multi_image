@@ -23,23 +23,23 @@ function stringifyErrorPayload(payload: unknown): string {
   return JSON.stringify(record);
 }
 
-export interface GenerateImageParams { prompt: string; model?: string; n?: number; size?: string; response_format?: "b64_json" | "url"; }
+export interface GenerateImageParams { prompt: string; model?: string; n?: number; size?: string; response_format?: "b64_json" | "url"; signal?: AbortSignal; }
 export interface GenerateImageResponse { data: Array<{ url?: string; b64_json?: string }>; }
 export async function generateImage(params: GenerateImageParams): Promise<GenerateImageResponse> {
-  const res = await fetch(`${BASE_URL}/images/generations`, { method: "POST", headers: authHeaders(), body: JSON.stringify({ model: params.model || DEFAULT_IMAGE_MODEL, prompt: params.prompt, n: params.n || 1, size: params.size, response_format: params.response_format || "url" }) });
+  const res = await fetch(`${BASE_URL}/images/generations`, { method: "POST", headers: authHeaders(), body: JSON.stringify({ model: params.model || DEFAULT_IMAGE_MODEL, prompt: params.prompt, n: params.n || 1, size: params.size, response_format: params.response_format || "url" }), signal: params.signal });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(stringifyErrorPayload(err) || `生成失败: ${res.status}`);
   }
   return res.json();
 }
-export async function editImage(params: { prompt: string; images: File[]; model?: string; n?: number; size?: string }): Promise<GenerateImageResponse> {
+export async function editImage(params: { prompt: string; images: File[]; model?: string; n?: number; size?: string; signal?: AbortSignal }): Promise<GenerateImageResponse> {
   const fd = new FormData(); fd.append("model", params.model || DEFAULT_IMAGE_MODEL); fd.append("prompt", params.prompt); fd.append("n", String(params.n || 1));
   for (const image of params.images) {
     fd.append("image", image);
   }
   if (params.size) fd.append("size", params.size);
-  const res = await fetch(`${BASE_URL}/images/edits`, { method: "POST", headers: { Authorization: `Bearer ${AUTH_KEY}` }, body: fd });
+  const res = await fetch(`${BASE_URL}/images/edits`, { method: "POST", headers: { Authorization: `Bearer ${AUTH_KEY}` }, body: fd, signal: params.signal });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(stringifyErrorPayload(err) || `编辑失败: ${res.status}`);
@@ -50,7 +50,7 @@ export async function listModels(): Promise<{ data: Array<{ id: string }> }> { c
 export interface ChatMessage { role: string; content: string; }
 export interface ChatCompletionParams { model?: string; messages: ChatMessage[]; temperature?: number; max_tokens?: number; response_format?: { type: "json_object" }; }
 export interface ChatCompletionResponse { id: string; choices: Array<{ message: { role: string; content: string }; finish_reason: string }>; }
-export async function chatCompletion(params: ChatCompletionParams): Promise<ChatCompletionResponse> { const res = await fetch(`${BASE_URL}/chat/completions`, { method: "POST", headers: authHeaders(), body: JSON.stringify({ model: params.model || "auto", messages: params.messages, temperature: params.temperature ?? 0.7, max_tokens: params.max_tokens ?? 4096, response_format: params.response_format }) }); if (!res.ok) { const err = await res.json().catch(() => ({ error: res.statusText })); throw new Error(stringifyErrorPayload(err) || `Chat completion 失败: ${res.status}`); } return res.json(); }
+export async function chatCompletion(params: ChatCompletionParams & { signal?: AbortSignal }): Promise<ChatCompletionResponse> { const res = await fetch(`${BASE_URL}/chat/completions`, { method: "POST", headers: authHeaders(), body: JSON.stringify({ model: params.model || "auto", messages: params.messages, temperature: params.temperature ?? 0.7, max_tokens: params.max_tokens ?? 4096, response_format: params.response_format }), signal: params.signal }); if (!res.ok) { const err = await res.json().catch(() => ({ error: res.statusText })); throw new Error(stringifyErrorPayload(err) || `Chat completion 失败: ${res.status}`); } return res.json(); }
 export interface ImageTaskItem { id: string; status: string; mode: string; model: string; size: string; created_at: string; updated_at: string; data?: Array<{ url?: string }>; error?: string; }
 export async function submitGenerationTask(params: Record<string, unknown>): Promise<ImageTaskItem> { const res = await fetch(`${MANAGEMENT_BASE}/api/image-tasks/generations`, { method: "POST", headers: authHeaders(), body: JSON.stringify({ client_task_id: params.client_task_id, prompt: params.prompt, model: params.model || DEFAULT_IMAGE_MODEL, size: params.size }) }); if (!res.ok) { const err = await res.json().catch(() => ({ error: res.statusText })); throw new Error(stringifyErrorPayload(err) || `提交任务失败: ${res.status}`); } return res.json(); }
 export async function listImageTasks(taskIds?: string[]): Promise<unknown> { const qs = taskIds && taskIds.length > 0 ? `?ids=${taskIds.join(",")}` : ""; const res = await fetch(`${MANAGEMENT_BASE}/api/image-tasks${qs}`, { headers: authHeaders() }); if (!res.ok) throw new Error(`查询任务失败: ${res.status}`); return res.json(); }

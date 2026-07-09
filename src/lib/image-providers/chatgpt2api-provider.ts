@@ -129,6 +129,7 @@ export class ChatGPT2APIProvider implements ImageProvider {
           images: files,
           model,
           size,
+          signal: params.signal,
         });
         const imageUrlResult = result.data?.[0]?.url;
         if (imageUrlResult) {
@@ -161,6 +162,7 @@ export class ChatGPT2APIProvider implements ImageProvider {
         n: 1,
         size,
         response_format: "url",
+        signal: params.signal,
       });
       const imageUrlResult = result.data?.[0]?.url;
       if (imageUrlResult) {
